@@ -48,3 +48,36 @@ Each must show the food it gives: dispenser_buns (paper bag full of buns), dispe
 
 ## Scenery (static, for the sense of scale)
 salt_shaker (3 x 7 x 3, glass with steel cap), pepper_shaker (3 x 7 x 3, dark), ketchup_bottle (3.5 x 10 x 3.5, red with white cap), utensil_pot (6 x 14 x 6, ceramic pot with spoons and a spatula sticking out), sink_tap (6 x 12 x 8, chrome faucet arching over).
+
+## Appendix: overnight content (2026-09-30, from `docs/design/overnight-1.md` sections 1 and 2)
+Same conventions as above. Until a `.glb` exists the game draws a coloured primitive of the listed size and shape.
+
+### Ingredients
+| name | what | size (X x Y x Z) | shape |
+|---|---|---|---|
+| bacon_raw | raw bacon strip, long axis on X | 4.0 x 0.3 x 1.2 | capsule_x |
+| bacon_cooked | crispy bacon strip | 4.0 x 0.3 x 1.2 | capsule_x |
+| bacon_burnt | burnt bacon | 4.0 x 0.3 x 1.2 | capsule_x |
+| egg | whole egg (the griddle cracks it) | 1.8 x 2.2 x 1.8 | sphere |
+| fried_egg | fried egg, white with yolk | 3.0 x 0.4 x 3.0 | cyl |
+| egg_burnt | burnt egg | 3.0 x 0.4 x 3.0 | cyl |
+| onion | whole onion | 2.4 x 2.4 x 2.4 | sphere |
+| onion_slice | raw onion slice (rings visible) | 2.2 x 0.3 x 2.2 | cyl |
+| onion_rings | battered onion rings | 2.6 x 0.8 x 2.6 | cyl |
+| onion_rings_burnt | burnt rings | 2.6 x 0.8 x 2.6 | cyl |
+| pickle_slice | pickle slice | 1.6 x 0.25 x 1.6 | cyl |
+| potato | whole potato | 2.6 x 2.0 x 2.0 | sphere |
+| fries_raw | cut potato sticks | 2.8 x 1.2 x 2.8 | box |
+| fries | fries in a carton | 2.8 x 2.5 x 2.8 | box |
+| fries_burnt | burnt fries | 2.8 x 2.5 x 2.8 | box |
+| chicken_raw | raw chicken fillet | 3.0 x 0.7 x 3.0 | cyl |
+| chicken_cooked | crispy fried chicken fillet | 3.0 x 0.7 x 3.0 | cyl |
+| chicken_burnt | burnt chicken | 3.0 x 0.7 x 3.0 | cyl |
+| soda_cup | soda cup with lid and straw | 2.2 x 3.0 x 2.2 | cyl |
+
+### Stations and dispensers
+| name | what | size | notes |
+|---|---|---|---|
+| fryer | deep fryer, oil basin with basket | 7 x 0.5 x 6 | flat, sunk like the griddle (top at the counter surface); the game adds oil bubbles |
+| soda_fountain | soda fountain | 4 x 5 x 3 | solid; front faces +Z; nozzle over the cup spot at (0, 3.9, 2.85) local (1.35 m in front of the front face); the game draws the pour stream and the filling cup |
+| dispenser_bacon / _eggs / _onions / _pickles / _potatoes / _chicken | dispensers for bacon_raw, egg, onion, pickle_slice, potato, chicken_raw | 5 x 4 x 5 | as the other dispensers, front faces +Z (the diner turns the end ones with a station yaw) |

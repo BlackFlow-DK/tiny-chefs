@@ -1,10 +1,11 @@
 class_name Griddle
 extends Station
-## Food lying on it cooks: raw -> cooked after COOK_TIME, cooked -> burnt after BURN_TIME x the
-## ShiftDef's burn_scale (difficulty) more.
-## Keeps cooking (also while held above it) until dragged off. At most GRIDDLE_SLOTS at once.
+## Food lying on it cooks along its "cooks_to" chain: the cook stage (raw -> cooked after COOK_TIME, or
+## CRACK_TIME for items marked "crack", like the egg) then the burn stage (cooked -> burnt after BURN_TIME).
+## A stage is the cook stage when its result changes again. Keeps cooking (also while held above it) until
+## dragged off. At most _slots() at once. The Fryer subclass reuses all of this with "fries_to".
 
-var _ids: Array = []  # item ids on the griddle, in arrival order
+var _ids: Array = []  # item ids on the station, in arrival order
 
 
 func build() -> void:
@@ -25,10 +26,57 @@ func build() -> void:
 	add_label("Griddle", Vector3(0, 1.5, -half.y - 0.8))
 
 
+# ---------------------------------------------------------------- overridden by Fryer
+
+## ITEMS key this station follows.
+func key() -> String:
+	return "cooks_to"
+
+
+func _slots() -> int:
+	return Tuning.GRIDDLE_SLOTS
+
+
+## Seconds for the stage an item of this def is in.
+## Difficulty burn window (ShiftDef burn_scale); upgrades may scale it further.
+func _burn_scale() -> float:
+	return float(world.shift.def.get("burn_scale", 1.0)) if world != null and world.shift != null else 1.0
+
+
+func _stage_time(d: Dictionary, cook_stage: bool) -> float:
+	if not cook_stage:
+		return Tuning.BURN_TIME * _burn_scale()
+	return Tuning.CRACK_TIME if bool(d.get("crack", false)) else Tuning.COOK_TIME
+
+
+func _cook_bar() -> int:
+	return Item.Bar.COOK
+
+
+## Host: the stage finished; change the food through the owning system.
+func _transform(it: Item, k: String) -> void:
+	world.change_kind(it, k)
+
+
+## Host: a new item started cooking here (hook for sounds).
+func _started(_it: Item) -> void:
+	pass
+
+
+# ----------------------------------------------------------------
+
+## True when kind k's next change (along key()) is a cook stage, false for the burn stage.
+func is_cook_stage(k: String) -> bool:
+	var d: Dictionary = GameData.ITEMS[k]
+	var nxt := str(d.get(key(), ""))
+	return nxt != "" and GameData.ITEMS[nxt].has(key())
+
+
 func host_update(dt: float) -> void:
+	var k := key()
 	var on: Dictionary = {}
 	for it in world.items.values():
-		if it.removed or not it.def.has("cooks_to") and not str(it.kind).ends_with("_burnt"):
+		if it.removed or not it.def.has(k) and not str(it.kind).ends_with("_burnt"):
 			continue
 		if contains_xz(it.global_position) and it.global_position.y < 2.5:
 			on[it.item_id] = it
@@ -42,33 +90,34 @@ func host_update(dt: float) -> void:
 	for id in on.keys():
 		if not _ids.has(id):
 			_ids.append(id)
+			if on[id].def.has(k):
+				_started(on[id])
 	var slot := 0
-	var burn_time := Tuning.BURN_TIME * float(world.shift.def.get("burn_scale", 1.0))  # difficulty burn window
 	for id in _ids:
 		var it: Item = on[id]
-		if not it.def.has("cooks_to"):
+		if not it.def.has(k):
 			it.set_cooking(false)
 			it.bar_kind = Item.Bar.NONE
 			continue
-		if slot >= Tuning.GRIDDLE_SLOTS:
+		if slot >= _slots():
 			it.set_cooking(false)
 			continue
 		slot += 1
 		it.set_cooking(true)
 		it.cook_time += dt
-		var raw := str(it.kind).ends_with("_raw")
-		var limit := Tuning.COOK_TIME if raw else burn_time
+		var cook := is_cook_stage(it.kind)
+		var limit := _stage_time(it.def, cook)
 		if it.cook_time >= limit:
 			it.cook_time = 0.0
-			world.change_kind(it, str(it.def["cooks_to"]))
-			raw = str(it.kind).ends_with("_raw")
-			if not it.def.has("cooks_to"):
+			_transform(it, str(it.def[k]))
+			if not it.def.has(k):
 				it.set_cooking(false)
 				it.bar_kind = Item.Bar.NONE
 				continue
-			limit = Tuning.COOK_TIME if raw else burn_time
+			cook = is_cook_stage(it.kind)
+			limit = _stage_time(it.def, cook)
 		it.bar = it.cook_time / limit
-		it.bar_kind = Item.Bar.COOK if raw else Item.Bar.BURN
+		it.bar_kind = _cook_bar() if cook else Item.Bar.BURN
 
 
 func reset() -> void:

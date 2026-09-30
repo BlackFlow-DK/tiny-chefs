@@ -28,8 +28,13 @@ const MAX_LOOSE_ITEMS := 25
 const COOK_TIME := 8.0             # raw -> cooked
 const BURN_TIME := 10.0            # cooked -> burnt
 const GRIDDLE_SLOTS := 4
+const CRACK_TIME := 3.0            # egg -> fried egg on the griddle (items with "crack")
+const FRY_TIME := 7.0              # fryer: raw -> fried
+const FRY_BURN_TIME := 9.0         # fryer: fried -> burnt
+const FRYER_SLOTS := 3
+const SODA_HOLD := 2.0             # s of holding work at the soda fountain per cup
 const CHOP_TIME := 4.0             # s for one chef; each extra chef adds the same rate again
-const CHOP_SLICES := 3
+const CHOP_SLICES := 3             # default pieces per chop (ITEMS "chop_count" overrides)
 const PLATE_MAX_STACK := 10
 
 # Orders and coins

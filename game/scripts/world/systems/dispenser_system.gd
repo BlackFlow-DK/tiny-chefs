@@ -1,6 +1,7 @@
 class_name DispenserSystem
 extends RefCounted
-## Owns what happens when a dispenser finishes a hold: the loose-food cap and spawning its batch.
+## Owns what happens when a dispenser (or the soda fountain, a Dispenser subclass) finishes a hold: the
+## loose-food cap and spawning its batch.
 ## Host only. The hold timer itself lives in stations/dispenser.gd (Dispenser.host_update).
 ## Reads world.items, Dispenser.gives/output_spots(). Calls world.spawn_item, world.toast, Net.event.
 
@@ -19,4 +20,6 @@ func dispense(d: Dispenser) -> void:
 	for i in d.gives.size():
 		world.spawn_item(d.gives[i], spots[i])
 	Net.metrics["dispensed"] = int(Net.metrics.get("dispensed", 0)) + 1
-	Net.event("", "pop")
+	if d is SodaFountain:
+		print("content: soda fountain poured soda_cup at %s" % str(spots[0]))
+	Net.event("", "fizz" if d is SodaFountain else "pop")

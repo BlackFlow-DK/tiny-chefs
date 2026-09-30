@@ -19,6 +19,11 @@ func setup(d: Dictionary, w: Node) -> void:
 	world = w
 	name = str(d["model"]).to_pascal_case()
 	position = d["pos"]
+	# Optional "yaw" (degrees): visuals and collider turn with the node; the XZ footprint helpers stay
+	# axis-aligned, so only multiples of 90 are exact (a quarter turn swaps the footprint's X and Z).
+	rotation.y = deg_to_rad(float(d.get("yaw", 0.0)))
+	if absf(sin(rotation.y)) > 0.7:
+		half = Vector2(half.y, half.x)
 	build()
 
 

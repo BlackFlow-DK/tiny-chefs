@@ -137,7 +137,7 @@ func _update_items(delta: float) -> void:
 				_bars[id] = e
 			var tag: IndicatorParts.Tag = e["tag"]
 			var bar: IndicatorParts.WorldBar = e["bar"]
-			if e["kind"] == Item.Bar.COOK and it.bar_kind == Item.Bar.BURN:
+			if (e["kind"] == Item.Bar.COOK or e["kind"] == Item.Bar.FRY) and it.bar_kind == Item.Bar.BURN:
 				_pop("DONE!", UITheme.LETTUCE, true, anchor, id)
 			e["kind"] = it.bar_kind
 			e["pos"] = anchor
@@ -159,6 +159,8 @@ func _update_items(delta: float) -> void:
 					f = 1.0 - f
 				Item.Bar.CHOP:
 					col = UITheme.SKY
+				Item.Bar.FRY:
+					col = UITheme.MUSTARD.lerp(UITheme.TOMATO, 0.45)
 			bar.set_state(f, col, flash)
 			if sp != null:
 				tag.show_at((sp as Vector2) + Vector2(0, -8 - _used(id, 19.0)), 1.0, delta, 1.0, 10.0)
@@ -243,7 +245,7 @@ func _update_hold(me: Chef, delta: float) -> void:
 		_hold_target = tgt
 		_hold_t = 0.0
 	_hold_t += delta
-	var f := _hold_t / Tuning.DISPENSE_HOLD
+	var f := _hold_t / (tgt as Dispenser).hold_time()
 	var sp: Variant = _proj(_station_anchor(tgt))
 	if f >= 1.05 or sp == null:
 		_hold_tag.visible = false
@@ -268,6 +270,8 @@ func _update_chips(me: Chef, delta: float) -> void:
 				work_pair = ["RMB", "Serve"]
 			"dispenser":
 				work_pair = ["RMB", "Hold"]
+			"soda":
+				work_pair = ["RMB", "Pour"]
 	if g != null and not work_pair.is_empty() and w.contains_xz(g.global_position):
 		want[0] = {"pairs": [grab_pair, work_pair], "pos": _item_anchor(g), "key": g.item_id, "crew": g.weight()}
 	else:

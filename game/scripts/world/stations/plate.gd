@@ -29,6 +29,7 @@ func host_update(_dt: float) -> void:
 			continue
 		if bool(it.def["plate"]) and stack.size() < Tuning.PLATE_MAX_STACK:
 			stack.append(it.kind)
+			print("content: plate took %s (%d on the plate)" % [it.kind, stack.size()])
 			world.remove_item(it)
 			Net.event("", "plop")
 		else:
