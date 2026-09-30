@@ -47,10 +47,22 @@ const PUNCH_ITEM_UP := 6.0
 const PUNCH_PLAYER_SPEED := 15.0
 
 # Camera (fixed yaw, looks towards -Z)
-const CAMERA_PITCH_DEG := 50.0
-const CAMERA_DISTANCE := 19.0
-const CAMERA_FOV := 50.0
-const CAMERA_SMOOTH := 5.0
+const CAMERA_PITCH_DEG := 36.0          # pitch at the close zoom limit
+const CAMERA_PITCH_FAR_DEG := 52.0      # pitch at the overview limit (steeper = more counter)
+const CAMERA_DISTANCE := 17.5           # default distance from the focus point
+const CAMERA_DISTANCE_MIN := 9.0        # close zoom limit
+const CAMERA_DISTANCE_MAX := 27.0       # overview limit (~35 m of counter across at 16:9)
+const CAMERA_FOV := 38.0
+const CAMERA_SMOOTH := 5.0              # follow spring rate (1/s)
+const CAMERA_ZOOM_STEP := 0.9           # distance factor per wheel notch
+const CAMERA_ZOOM_PAD_RATE := 1.2       # pad shoulders: distance factor per second (exp)
+const CAMERA_ZOOM_SMOOTH := 10.0
+const CAMERA_LOOKAHEAD_SEC := 0.3       # focus leads the chef by velocity * this
+const CAMERA_LOOKAHEAD_MAX := 2.2       # m
+const CAMERA_CARRY_PULLBACK := 1.13     # distance factor while carrying
+const CAMERA_CARRY_SMOOTH := 3.0
+const CAMERA_FOCUS_Z := -1.5            # m: look this far behind the chef (towards -Z) so the chef sits low and scenery shows
+const CAMERA_EDGE_MARGIN := 4.0         # m: focus stays this far inside the counter's side edges
 
 # Network
 const PORT := 7777
