@@ -215,7 +215,9 @@ func _handle_actions(c: Chef, inp: PlayerInput) -> void:
 ## Host: the map id this session plays (--map=<id>, default diner). The one place the choice is read;
 ## replace the body with the lobby setting. Net.set_phase sends it to clients with every phase change.
 static func map_id_for_session() -> String:
-	return Net.arg_str("map", "diner")
+	if Net.has_arg("map"):
+		return Net.arg_str("map", "diner")
+	return ShiftPlan.map_for(Net.settings, 0)
 
 
 ## True when xz (world X, Z) is on any counter surface of the map.

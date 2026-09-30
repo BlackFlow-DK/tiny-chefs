@@ -1,6 +1,7 @@
 class_name Griddle
 extends Station
-## Food lying on it cooks: raw -> cooked after COOK_TIME, cooked -> burnt after BURN_TIME more.
+## Food lying on it cooks: raw -> cooked after COOK_TIME, cooked -> burnt after BURN_TIME x the
+## ShiftDef's burn_scale (difficulty) more.
 ## Keeps cooking (also while held above it) until dragged off. At most GRIDDLE_SLOTS at once.
 
 var _ids: Array = []  # item ids on the griddle, in arrival order
@@ -42,6 +43,7 @@ func host_update(dt: float) -> void:
 		if not _ids.has(id):
 			_ids.append(id)
 	var slot := 0
+	var burn_time := Tuning.BURN_TIME * float(world.shift.def.get("burn_scale", 1.0))  # difficulty burn window
 	for id in _ids:
 		var it: Item = on[id]
 		if not it.def.has("cooks_to"):
@@ -55,7 +57,7 @@ func host_update(dt: float) -> void:
 		it.set_cooking(true)
 		it.cook_time += dt
 		var raw := str(it.kind).ends_with("_raw")
-		var limit := Tuning.COOK_TIME if raw else Tuning.BURN_TIME
+		var limit := Tuning.COOK_TIME if raw else burn_time
 		if it.cook_time >= limit:
 			it.cook_time = 0.0
 			world.change_kind(it, str(it.def["cooks_to"]))
@@ -64,7 +66,7 @@ func host_update(dt: float) -> void:
 				it.set_cooking(false)
 				it.bar_kind = Item.Bar.NONE
 				continue
-			limit = Tuning.COOK_TIME if raw else Tuning.BURN_TIME
+			limit = Tuning.COOK_TIME if raw else burn_time
 		it.bar = it.cook_time / limit
 		it.bar_kind = Item.Bar.COOK if raw else Item.Bar.BURN
 

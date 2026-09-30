@@ -202,20 +202,13 @@ static func upgrade(id: String) -> Dictionary:
 	return {}
 
 
-## Shift definition for index i (0-based), scaled for the player count. Endless after the table.
-static func shift_def(i: int, players: int) -> Dictionary:
-	var d: Dictionary
-	if i < SHIFTS.size():
-		d = SHIFTS[i].duplicate(true)
-	else:
-		var k := i - SHIFTS.size() + 1
-		d = SHIFTS[SHIFTS.size() - 1].duplicate(true)
-		d["name"] = "Overtime %d" % k
-		d["interval"] = maxf(Tuning.MIN_ORDER_INTERVAL, float(d["interval"]) * pow(0.88, k))
-		d["patience"] = maxf(Tuning.MIN_PATIENCE, float(d["patience"]) * pow(0.94, k))
-		d["target"] = int(d["target"]) + 50 * k
-	var extra := maxi(0, players - 1)
-	d["interval"] = float(d["interval"]) / (1.0 + Tuning.SCALE_ORDER_RATE_PER_PLAYER * extra)
-	d["target"] = int(round(float(d["target"]) * (1.0 + Tuning.SCALE_TARGET_PER_PLAYER * extra)))
-	d["index"] = i
-	return d
+## ShiftDef for shift i (0-based) of the current run, scaled for the player count: ShiftPlan.build with
+## the session's settings (Net.settings). Kept for existing callers; new code calls ShiftPlan.build.
+## (The endless ramp over SHIFTS lives in ShiftPlan._endless_base.)
+static func shift_def(i: int, players: int, settings: GameSettings = null) -> Dictionary:
+	if settings == null:
+		# Looked up by path, not the Net identifier, so data scripts compile without the autoloads.
+		var net := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Net")
+		if net != null:
+			settings = net.get("settings")
+	return ShiftPlan.build(settings, i, players)

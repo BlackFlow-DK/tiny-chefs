@@ -14,11 +14,13 @@ var failed := 0
 var upgrades: Array = []  # upgrade ids owned
 
 
+## Host: start shift i. The ShiftDef comes from the session settings (ShiftPlan, see shift_plan.gd).
 func begin(i: int, players: int, duration_override: float) -> void:
 	index = i
-	def = GameData.shift_def(i, players)
+	def = ShiftPlan.build(Net.settings, i, players)
 	if duration_override > 0.0:
 		def["duration"] = duration_override
+	print("shift: host def %s" % ShiftPlan.describe(def))
 	time_left = float(def["duration"])
 	earned = 0
 	served = 0
@@ -47,9 +49,15 @@ func to_meta() -> Array:
 	return [index, shift_name(), time_left, coins, earned, target(), served, failed, upgrades, running, next_index]
 
 
+## Client. The full ShiftDef (map, modifiers, events, objectives...) is rebuilt locally from the replicated
+## Net.settings when a shift starts; name and target always follow the host.
 func from_meta(a: Array) -> void:
+	if not def.has("mode") or int(a[0]) != index or (bool(a[9]) and not running):
+		def = ShiftPlan.build(Net.settings, int(a[0]), maxi(1, Net.players.size()))
+		print("shift: client def %s" % ShiftPlan.describe(def))
 	index = a[0]
-	def = {"name": a[1], "target": a[5]}
+	def["name"] = a[1]
+	def["target"] = a[5]
 	time_left = a[2]
 	coins = a[3]
 	earned = a[4]
