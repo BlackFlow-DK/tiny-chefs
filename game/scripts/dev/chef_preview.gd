@@ -3,7 +3,13 @@ extends Node3D
 ## Env vars: CHEF_VIEW = front | back | side | three | top | game | glove (default three)
 ##           CHEF_TINTS = indices into the player colours, e.g. "0123" (default all four; close views use the first)
 ##           CHEF_GLOVE = 1 shows the boxing gloves on the hands
+##           CHEF_HAT = toque | beanie | paper | bandana (attached to a toque-less preview chef at HAT_ANCHOR); unset = chef.glb as is
+##           CHEF_ACC = glasses,moustache (comma list, attached at FACE_ANCHOR)
+##           CHEF_CLOSE = 1 frames the head (use with front / back / three / side)
 
+const HAT_ANCHOR := Vector3(0.0, 0.981, 0.0388)   ## chef-local; hat_*.glb origin goes here
+const FACE_ANCHOR := Vector3(0.0, 0.906, 0.2568)  ## chef-local; acc_*.glb origin goes here
+const HATS := {"toque": "hat_toque", "beanie": "hat_beanie", "paper": "hat_paper", "bandana": "hat_bandana"}
 const COLORS := [Color(0.24, 0.48, 1.0), Color(1.0, 0.29, 0.29), Color(0.24, 0.81, 0.35), Color(1.0, 0.82, 0.23)]
 
 
@@ -13,12 +19,23 @@ func _ready() -> void:
 	var gloves: bool = OS.get_environment("CHEF_GLOVE") == "1"
 	if view in ["three", "front", "back", "side"] and not OS.has_environment("CHEF_TINTS"):
 		tints = "0"
+	var hat: String = OS.get_environment("CHEF_HAT")
+	var accs: PackedStringArray = OS.get_environment("CHEF_ACC").split(",", false)
 	var n: int = tints.length()
 	var spacing: float = 1.5
 	for i in n:
-		var inst := (load("res://assets/models/chef.glb") as PackedScene).instantiate() as Node3D
+		var chef_path := "res://assets/dev/chef_bare.glb" if hat != "" else "res://assets/models/chef.glb"
+		var inst := (load(chef_path) as PackedScene).instantiate() as Node3D
 		add_child(inst)
 		inst.position = Vector3((i - (n - 1) / 2.0) * spacing, 0, 0)
+		if hat != "":
+			var hn := (load("res://assets/models/%s.glb" % HATS[hat]) as PackedScene).instantiate() as Node3D
+			inst.add_child(hn)
+			hn.position = HAT_ANCHOR
+		for a in accs:
+			var an := (load("res://assets/models/acc_%s.glb" % a) as PackedScene).instantiate() as Node3D
+			inst.add_child(an)
+			an.position = FACE_ANCHOR
 		_tint(inst, COLORS[tints[i].to_int()])
 		if view == "back":
 			inst.rotation.y = PI
@@ -54,7 +71,7 @@ func _tint(node: Node, color: Color) -> void:
 		if mi.mesh != null:
 			for i in mi.mesh.get_surface_count():
 				var m := mi.get_active_material(i)
-				if m != null and m.resource_name == "ChefBody" and m is BaseMaterial3D:
+				if m != null and (m.resource_name == "ChefBody" or m.resource_name == "HatTint") and m is BaseMaterial3D:
 					var d := m.duplicate() as BaseMaterial3D
 					d.albedo_color = color
 					mi.set_surface_override_material(i, d)
@@ -114,6 +131,11 @@ func _stage(view: String, n: int) -> void:
 			target = Vector3(0, 0.25, 0)
 			pos = Vector3(0.0, 1.1, 1.5)
 			fov = 30.0
+	if OS.get_environment("CHEF_CLOSE") == "1" and view in ["front", "back", "side", "three"]:
+		target = Vector3(0, 1.0, 0)
+		pos = Vector3(0, 1.12, 1.55)
+		fov = 30.0
+		n = 1
 	if view in ["front", "back", "side", "three"] and n > 1:
 		pos.z += 1.0 + n * 0.9
 		fov = 34.0
