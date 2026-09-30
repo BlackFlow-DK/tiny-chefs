@@ -17,13 +17,13 @@ Call as `powershell -NoProfile -ExecutionPolicy Bypass -File tools\<name>.ps1 ..
 - `export-windows.ps1 [-DebugBuild]` exports `build\windows\<repo-folder>.exe` (PCK embedded, single file, ~105 MB).
 - Single script check without the wrapper: `godot_console --headless --path game --check-only --script res://path.gd`.
 
-- `test-multiplayer.ps1 [-Solo] [-ShiftSeconds 100] [-Windowed] [-ShotDir build\screenshots -ShotAt 45] [-BotLog]` runs Tiny Chefs host + client bots on 127.0.0.1 (headless by default), one short shift, checks their JSON reports (connected, both chefs everywhere, order served, duo patty carry faster than solo, clean exits, no ERROR lines). Logs: `build\test-mp\`.
+- `test-multiplayer.ps1 [-Solo] [-ShiftSeconds 100] [-Windowed] [-ShotDir build\screenshots -ShotAt 45] [-BotLog] [-Port 7777]` runs Tiny Chefs host + client bots on 127.0.0.1 (headless by default), one short shift, checks their JSON reports (connected, both chefs everywhere, order served, duo patty carry faster than solo, clean exits, no ERROR lines). Logs: `build\test-mp\` (`build\test-mp-<port>\` if `-Port` differs; use distinct ports for parallel runs).
 
 ## Tiny Chefs (the game in game/)
 - Tunables: `game/scripts/data/tuning.gd` (speeds, timings, penalties, camera, net). Content: `game/scripts/data/game_data.gd` (item sizes/weights/colours from `docs/asset-contract.md`, station layout, recipes, shifts, upgrade prices).
 - Models: `Models.make()` loads `res://assets/models/<name>.glb` if present, else a coloured primitive. Colliders always come from the data sizes. New .glb: `godot-import`, nothing else.
 - Net: host-authoritative ENet (UDP 7777). ALL RPCs live in the `Net` autoload (`scripts/net/net.gd`) and forward to `World`; clients send `PlayerInput`, host sends 30 Hz snapshots. Never name an RPC after a Node virtual (`_input` clashed).
-- User args (after `--`): `--host --join=<ip> --name= --autostart --players=<n> --bot --bot-log --bind=<ip> --shift-seconds= --upgrades=gloves,knife,shoes --test-report=<json> --quit-after=<s> --quit-after-shift`. Agent helpers: `--shot=<s>@<png>` (non-quitting screenshot), `--key=<s>@<key>@<hold s>` (real key events via `tools/input_script.gd`).
+- User args (after `--`): `--host --join=<ip> --name= --autostart --players=<n> --bot --bot-log --bind=<ip> --port=<n> (default 7777) --shift-seconds= --upgrades=gloves,knife,shoes --test-report=<json> --quit-after=<s> --quit-after-shift`. Agent helpers: `--shot=<s>@<png>` (non-quitting screenshot), `--key=<s>@<key>@<hold s>` (real key events via `tools/input_script.gd`).
 - Relative `--test-report` paths resolve against `game/`; pass absolute paths.
 - New `class_name` scripts need `godot-import` before `godot-check` (global class cache).
 - Player guide: `docs/PLAYING.md`.

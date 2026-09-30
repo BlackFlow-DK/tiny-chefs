@@ -4,8 +4,8 @@
 # order was served (coins went up on host and client), a two-chef patty carry happened and was faster
 # than a solo patty carry, both processes exited 0 on their own, and no ERROR lines were printed.
 # -Solo: host only; passes if the bot serves a Cheeseburger alone.
-# Usage: tools/test-multiplayer.ps1 [-ShiftSeconds 100] [-TimeoutSec 220] [-Solo] [-Windowed] [-ShotDir build\screenshots] [-ShotAt 45] [-BotLog]
-# Logs (and bot decisions with -BotLog) land in build\test-mp\.
+# Usage: tools/test-multiplayer.ps1 [-ShiftSeconds 100] [-TimeoutSec 220] [-Solo] [-Windowed] [-ShotDir build\screenshots] [-ShotAt 45] [-BotLog] [-Port 7777]
+# Logs (and bot decisions with -BotLog) land in build\test-mp\ (build\test-mp-<port>\ when -Port is not 7777).
 param(
     [int]$ShiftSeconds = 100,
     [int]$TimeoutSec = 220,
@@ -13,12 +13,15 @@ param(
     [switch]$Windowed,
     [string]$ShotDir = '',
     [double]$ShotAt = 45,
-    [switch]$BotLog
+    [switch]$BotLog,
+    [int]$Port = 7777
 )
 . "$PSScriptRoot\_common.ps1"
 
 $godot = Get-GodotBin
-$work = Join-Path $RepoRoot 'build\test-mp'
+$workName = 'test-mp'
+if ($Port -ne 7777) { $workName = "test-mp-$Port" }
+$work = Join-Path $RepoRoot "build\$workName"
 New-Item -ItemType Directory -Force -Path $work | Out-Null
 Get-ChildItem -LiteralPath $work -File | Remove-Item -Force -ErrorAction SilentlyContinue
 if ($ShotDir -ne '' -and -not [System.IO.Path]::IsPathRooted($ShotDir)) { $ShotDir = Join-Path $RepoRoot $ShotDir }
@@ -50,13 +53,13 @@ $quitAfter = $ShiftSeconds + 90
 $players = 2
 if ($Solo) { $players = 1 }
 $hostArgs = @('--host', '--name=HostBot', '--bot', '--autostart', "--players=$players", "--shift-seconds=$ShiftSeconds",
-    '--bind=127.0.0.1', '--quit-after-shift', "--test-report=$(Join-Path $work 'host.json')", "--quit-after=$quitAfter")
+    '--bind=127.0.0.1', "--port=$Port", '--quit-after-shift', "--test-report=$(Join-Path $work 'host.json')", "--quit-after=$quitAfter")
 if ($ShotDir -ne '') { $hostArgs += "--shot=$ShotAt@$(Join-Path $ShotDir 'host-midshift.png')" }
 $procs = [ordered]@{}
 $procs['host'] = Start-Godot -Tag 'host' -UserArgs $hostArgs -Pos '0,0'
 if (-not $Solo) {
     Start-Sleep -Milliseconds 1500
-    $clientArgs = @('--join=127.0.0.1', '--name=ClientBot', '--bot', "--test-report=$(Join-Path $work 'client.json')", "--quit-after=$($quitAfter + 5)")
+    $clientArgs = @('--join=127.0.0.1', "--port=$Port", '--name=ClientBot', '--bot', "--test-report=$(Join-Path $work 'client.json')", "--quit-after=$($quitAfter + 5)")
     if ($ShotDir -ne '') { $clientArgs += "--shot=$($ShotAt + 0.5)@$(Join-Path $ShotDir 'client-midshift.png')" }
     $procs['client'] = Start-Godot -Tag 'client' -UserArgs $clientArgs -Pos '640,60'
 }

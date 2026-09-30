@@ -5,7 +5,7 @@ extends Node
 ## to the World when one exists, so a packet can never target a node that is not there yet.
 ##
 ## User args (after "--"): --host --join=<ip> --name=<x> --autostart --players=<n> --bot
-##   --bind=<ip> --shift-seconds=<s> --test-report=<json path> --quit-after=<s> --quit-after-shift
+##   --bind=<ip> --port=<n> --shift-seconds=<s> --test-report=<json path> --quit-after=<s> --quit-after-shift
 
 signal players_changed
 signal phase_changed(phase: int)
@@ -80,6 +80,11 @@ func arg_int(key: String, default: int) -> int:
 	return int(args[key]) if args.has(key) else default
 
 
+## UDP port: --port=<n> if given, else Tuning.PORT (7777).
+func port() -> int:
+	return arg_int("port", Tuning.PORT)
+
+
 # ---------------------------------------------------------------- session
 
 func host(pname: String) -> Error:
@@ -87,7 +92,7 @@ func host(pname: String) -> Error:
 	var peer := ENetMultiplayerPeer.new()
 	if has_arg("bind"):
 		peer.set_bind_ip(arg_str("bind", "*"))
-	var err := peer.create_server(Tuning.PORT, Tuning.MAX_PLAYERS - 1)
+	var err := peer.create_server(port(), Tuning.MAX_PLAYERS - 1)
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer
@@ -96,7 +101,7 @@ func host(pname: String) -> Error:
 	players = {1: {"name": local_name, "slot": 0}}
 	metrics["role"] = "host"
 	metrics["connected"] = true
-	print("net: hosting on UDP %d" % Tuning.PORT)
+	print("net: hosting on UDP %d" % port())
 	set_phase(Phase.LOBBY, {})
 	players_changed.emit()
 	return OK
@@ -105,7 +110,7 @@ func host(pname: String) -> Error:
 func join(ip: String, pname: String) -> Error:
 	leave(false)
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(ip, Tuning.PORT)
+	var err := peer.create_client(ip, port())
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer
@@ -113,7 +118,7 @@ func join(ip: String, pname: String) -> Error:
 	join_ip = ip
 	local_name = clean_name(pname)
 	metrics["role"] = "client"
-	print("net: connecting to %s:%d" % [ip, Tuning.PORT])
+	print("net: connecting to %s:%d" % [ip, port()])
 	return OK
 
 
@@ -204,7 +209,7 @@ func _on_connected_to_server() -> void:
 func _on_connection_failed() -> void:
 	leave(false)
 	_apply_phase(Phase.MENU, {})
-	session_ended.emit("Could not connect to %s (port %d UDP)." % [join_ip, Tuning.PORT])
+	session_ended.emit("Could not connect to %s (port %d UDP)." % [join_ip, port()])
 	if not _test_report.is_empty():
 		finish_test()
 
