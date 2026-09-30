@@ -25,11 +25,11 @@ plate cooldowns -> every `Station.host_update` -> bounds falls -> shift. Snapsho
 | Shift (`systems/shift_system.gd`) | shift start/end, clock, order expiry + "new order" events, shop buy, --upgrades, --quit-after-shift | `start_shift, tick, sync_order_count, try_buy, apply_test_upgrades, process_quit` | it, `game/shift_manager.gd`, `game/order_manager.gd` |
 | Roster (`systems/roster_system.gd`) | host adds/removes chefs + input slots on join/leave; client name refresh | `sync` | it |
 | Snapshot (`systems/snapshot_system.gd`) | replicated wire format: build (host), apply (client) | `build, apply` | it + matching `state()/apply_state()`; format change needs both peers |
-| Input (`systems/input_system.gd`) | local keyboard/pad or `--bot` into `world.local_input` | `collect` | it, `game/controls.gd` |
+| Input (`systems/input_system.gd`) | local keyboard/mouse/pad or `--bot` into `world.local_input`: move (polled), presses via `_unhandled_input` (GUI clicks never leak), aim = cursor ray on the counter plane (camera read from the viewport at call time) or right stick; active-device switch; `--input-log` | `collect` | it, `game/controls.gd` |
 | Camera (`systems/camera_system.gd`) | creates and follows `world.camera` | `update` | it |
 | Hint (`systems/hint_system.gd`) | grab/work rings, `hint_text`, `grab_target/work_target` | `update` | it |
 | Station base (`world/stations/station.gd`) | setup, footprint helpers, `workers()`, state hooks | `contains_xz, footprint_distance, centre_distance, workers, host_update, state, apply_state, work_hint` | shared: coordinate |
-| Chef (`world/chef.gd`) | chef body, walk, fall/respawn, puppet easing, animation | `setup, host_move, face, respawn, host_flags, set_target, set_gloves, set_player_name` | it |
+| Chef (`world/chef.gd`) | chef body, walk, fall/respawn, puppet easing, animation | `setup, host_move, face, aim_at, respawn, host_flags, set_target, set_gloves, set_player_name` (not carrying + `has_aim`: `host_move` turns to `aim_point` at 14 rad/s, else faces movement) | it |
 | Item (`world/item.gd`) | food body, kind, carry attach/detach, puppet easing, bars | `setup, set_kind, weight, attach, detach, carry_step, set_target, set_cooking` | it |
 | Kitchen / Models (`world/kitchen.gd`, `world/models.gd`) | static scenery; .glb-or-primitive factory | `Kitchen.build`; `Models.make, load_model, mesh_node, label` | them |
 
@@ -40,10 +40,10 @@ plate cooldowns -> every `Station.host_update` -> bounds falls -> shift. Snapsho
 | Net (`net/net.gd`, autoload) | ENet session, players, phases, args, ALL RPCs, metrics, test report | signals `players_changed, phase_changed, session_ended, event_received`; `host, join, leave, set_phase, event, send_snapshot, send_input, buy, arg_*, metric_max, finish_test` | it (RPC names are wire format) |
 | Main (`main.gd`) | root: UI screens, creates/frees World per phase, --autostart/--join | none | it |
 | Bot (`game/bot.gd`) | `--bot` player: reads world view, writes PlayerInput | `update` | it |
-| PlayerInput / Controls (`game/player_input.gd`, `game/controls.gd`) | input packet shape; input map | `copy_from, move3`; `Controls.setup` | them (packet shape = wire format) |
+| PlayerInput / Controls (`game/player_input.gd`, `game/controls.gd`) | input packet shape (move, work, grab/punch/work seqs, `aim_point: Vector2` world XZ + `has_aim: bool`); input map | `copy_from, move3, aim3`; `Controls.setup`. Host reads a player's aim as `world.input_of(peer_id).aim_point/has_aim` | them (packet shape = wire format: `Net._rpc_input` + `World.receive_input`) |
 | Shift/Order data (`game/shift_manager.gd`, `game/order_manager.gd`) | wallet, clock, upgrades; open orders (replicated as meta) | `begin, add_coins, has_upgrade, to_meta/from_meta`; `reset, update, match_plate` | Shift owner |
 | Data (`data/tuning.gd`, `data/game_data.gd`) | every tunable; items, stations, recipes, shifts, upgrades | constants; `GameData.item, kind_index, upgrade, shift_def` | balance owner |
 | Sfx (`audio/sfx.gd`, autoload) | synthesized sounds | `play` | it |
 | UI (`ui/*.gd`) | HUD, menu, lobby, end screens, pause, theme + kit widgets | `Hud.toggle_help, EndScreens.show_phase, PauseMenu.open/close, UITheme.build, UIKit.*` | `ui/**` (reads `world.shift/orders/items/camera/hint_text`, writes `world.input_blocked`) |
 | Dev galleries (`dev/*.gd`) | model + UI review scenes | none | them |
-| Agent tools (`game/tools/*.gd`) | `--shot`, `--key` autoloads, project check | none | tooling owner |
+| Agent tools (`game/tools/*.gd`) | `--shot`, `--key`, `--mouse`, `--click` autoloads, project check | none | tooling owner |

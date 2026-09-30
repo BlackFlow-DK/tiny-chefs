@@ -25,7 +25,7 @@ Solo is just hosting with nobody else. In the lobby the host presses **Start the
 ## Try it alone with two windows
 
 Start the exe twice. Window 1: Host. Window 2: keep IP `127.0.0.1` and Join. Only the focused window
-reads the keyboard (and the gamepad), so click a window to control that chef.
+reads the keyboard, mouse and gamepad, so click a window to control that chef.
 Shortcut from a terminal:
 
 ```
@@ -40,14 +40,17 @@ Add `--bot` to either one to have a bot play that chef.
 | action | keyboard / mouse | gamepad |
 |---|---|---|
 | move | WASD or arrows | left stick |
-| grab / let go (toggle) | E or Space | A |
-| work (hold): dispense, chop, ring the bell | F or left mouse | X |
-| punch (needs Boxing Gloves) | Q or right mouse | B |
+| look (aim) | mouse cursor | right stick |
+| grab / let go (toggle) | left click or E | A |
+| work (hold): dispense, chop, ring the bell | right click or F | X |
+| punch (needs Boxing Gloves) | Space, Q or middle click | B |
 | pause menu (Leave, Quit) | Esc | Start |
 | hide the controls help | H | Back |
 
+Your chef looks at the mouse cursor (or where the right stick points) while its hands are free, so
+punches go that way; without aim it faces where it walks. Clicks on menu buttons never reach the game.
 The yellow ring shows the food you would grab, the blue ring the station you would work, and the
-bottom line says what E / F will do.
+bottom line says what a click / E / F will do.
 
 ## How a shift works
 
@@ -85,4 +88,6 @@ User args after `--`: `--host`, `--join=<ip>`, `--name=<x>`, `--autostart` (host
 have joined, default 1, and auto-advances results/shop), `--bot`, `--bot-log`, `--bind=<ip>`,
 `--shift-seconds=<s>`, `--upgrades=gloves,knife,shoes`, `--test-report=<json>`, `--quit-after=<s>`,
 `--quit-after-shift`. Screenshots: `--shot=<seconds>@<png>`. Keys: `--key=<start>@<key>@<hold seconds>`.
+Mouse: `--mouse=<start>@<x>,<y>` (window pixels), `--click=<start>@<left|right|middle>@<hold seconds>`
+(at the last `--mouse` spot). `--input-log` prints counted presses and every chef's aim/facing (host).
 Test: `tools\test-multiplayer.ps1` (host + client bots) and `tools\test-multiplayer.ps1 -Solo`.

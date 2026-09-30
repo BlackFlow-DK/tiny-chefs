@@ -307,13 +307,13 @@ func _snapshot(d: Dictionary) -> void:
 
 func send_input(inp: PlayerInput) -> void:
 	if multiplayer.multiplayer_peer is ENetMultiplayerPeer and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-		_rpc_input.rpc_id(1, inp.move, inp.work, inp.grab_seq, inp.punch_seq, inp.work_seq)
+		_rpc_input.rpc_id(1, inp.move, inp.work, inp.grab_seq, inp.punch_seq, inp.work_seq, inp.aim_point, inp.has_aim)
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 2)
-func _rpc_input(move: Vector2, work: bool, grab_seq: int, punch_seq: int, work_seq: int) -> void:
+func _rpc_input(move: Vector2, work: bool, grab_seq: int, punch_seq: int, work_seq: int, aim_point: Vector2, has_aim: bool) -> void:
 	if is_host and world != null:
-		world.receive_input(multiplayer.get_remote_sender_id(), move, work, grab_seq, punch_seq, work_seq)
+		world.receive_input(multiplayer.get_remote_sender_id(), move, work, grab_seq, punch_seq, work_seq, aim_point, has_aim)
 
 
 ## Host: toast + sound for everyone (to_peer 0) or one player.

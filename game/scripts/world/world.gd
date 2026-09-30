@@ -124,7 +124,8 @@ func _on_phase_changed(ph: int) -> void:
 
 
 ## Host: a client's input packet.
-func receive_input(id: int, move: Vector2, work: bool, grab_seq: int, punch_seq: int, work_seq: int) -> void:
+func receive_input(id: int, move: Vector2, work: bool, grab_seq: int, punch_seq: int, work_seq: int,
+		aim_point := Vector2.ZERO, has_aim := false) -> void:
 	var inp: PlayerInput = inputs.get(id)
 	if inp == null:
 		return
@@ -133,6 +134,9 @@ func receive_input(id: int, move: Vector2, work: bool, grab_seq: int, punch_seq:
 	inp.grab_seq = grab_seq
 	inp.punch_seq = punch_seq
 	inp.work_seq = work_seq
+	inp.has_aim = has_aim and aim_point.is_finite()
+	if inp.has_aim:
+		inp.aim_point = aim_point
 
 
 ## Client: mirror the host's snapshot.

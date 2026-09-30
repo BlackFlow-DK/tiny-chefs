@@ -7,6 +7,8 @@ extends CharacterBody3D
 const FLAG_WORKING := 1
 const FLAG_PUNCHING := 2
 const FLAG_RESPAWNING := 4
+const AIM_TURN_RATE := 14.0   # rad/s, turning to face PlayerInput.aim_point
+const AIM_MIN_DIST := 0.4     # cursor on the chef itself: keep the current facing
 
 var peer_id := 0
 var slot := 0
@@ -209,7 +211,9 @@ func host_move(dt: float, inp: PlayerInput, speed_mult: float) -> bool:
 	velocity = walk_vel + knock + Vector3(0, vy, 0)
 	move_and_slide()
 	_push_items(dir)
-	if dir.length() > 0.1:
+	if inp.has_aim:
+		aim_at(inp.aim3(), dt)
+	elif dir.length() > 0.1:
 		face(dir, dt)
 	if global_position.y < Tuning.FALL_Y:
 		respawn_timer = Tuning.RESPAWN_DELAY
@@ -242,6 +246,17 @@ func face(dir: Vector3, dt: float) -> void:
 		return
 	facing = dir.normalized()
 	rotation.y = lerp_angle(rotation.y, atan2(facing.x, facing.z), minf(1.0, 14.0 * dt))
+
+
+## Not carrying + has_aim: turn towards a point on the counter at up to AIM_TURN_RATE rad/s.
+## facing (used by punch) points at the target at once; the body catches up.
+func aim_at(point: Vector3, dt: float) -> void:
+	var to := point - global_position
+	to.y = 0.0
+	if to.length() < AIM_MIN_DIST:
+		return
+	facing = to.normalized()
+	rotation.y = rotate_toward(rotation.y, atan2(facing.x, facing.z), AIM_TURN_RATE * dt)
 
 
 func respawn() -> void:
