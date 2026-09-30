@@ -153,8 +153,33 @@ const MAPS := {
 	},
 }
 
-## Player colours in join order: blue, red, green, yellow.
+## Player colours: blue, red, green, yellow. A player's default is its join slot; any can be picked
+## in the lobby (duplicates allowed). The chosen index lives in Net.players[id]["color"].
 const PLAYER_COLORS := [Color(0.24, 0.48, 1.0), Color(1.0, 0.29, 0.29), Color(0.24, 0.81, 0.35), Color(1.0, 0.82, 0.23)]
+const COLOR_NAMES := ["Blue", "Red", "Green", "Yellow"]
+
+## Chef looks (lobby customisation). Hat model: hat_<id>.glb at Chef.HAT_ANCHOR, except "toque", which is
+## the Toque mesh built into chef.glb. Accessory model: acc_<id>.glb at Chef.FACE_ANCHOR ("none" = nothing).
+## First entry = default.
+const HATS := [
+	{"id": "toque", "label": "Toque"},
+	{"id": "beanie", "label": "Beanie"},
+	{"id": "paper", "label": "Paper hat"},
+	{"id": "bandana", "label": "Bandana"},
+]
+const ACCESSORIES := [
+	{"id": "none", "label": "None"},
+	{"id": "glasses", "label": "Glasses"},
+	{"id": "moustache", "label": "Moustache"},
+]
+
+
+static func has_hat(id: String) -> bool:
+	return HATS.any(func(h: Dictionary) -> bool: return h["id"] == id)
+
+
+static func has_accessory(id: String) -> bool:
+	return ACCESSORIES.any(func(a: Dictionary) -> bool: return a["id"] == id)
 
 ## Recipes. Plate contents must match "items" exactly as a multiset (stacking order is free).
 ## price is paid on serve, plus up to "bonus" scaled by the patience left.

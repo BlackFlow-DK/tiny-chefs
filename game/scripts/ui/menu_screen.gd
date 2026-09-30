@@ -194,6 +194,7 @@ func _save_config() -> void:
 	if _skip_config():
 		return
 	var cf := ConfigFile.new()
+	cf.load(CFG_PATH)  # keep other sections (Net saves the chef look under [chef])
 	cf.set_value("menu", "name", name_edit.text.strip_edges())
 	cf.set_value("menu", "ip", ip_edit.text.strip_edges())
 	cf.save(CFG_PATH)

@@ -1,7 +1,7 @@
 class_name RosterSystem
 extends RefCounted
 ## Owns which chefs exist: host spawns/removes a Chef (and its PlayerInput slot) as players join/leave;
-## clients only refresh name labels (their chefs come from the snapshot).
+## clients only refresh name labels (their chefs come from the snapshot). Everyone re-applies chef looks.
 ## Reads Net.players / slot_of / name_of, world.shift upgrades. Writes world.chefs, world.inputs. Calls world.release.
 
 var world: World
@@ -23,6 +23,10 @@ func sync() -> void:
 	else:
 		for id in world.chefs.keys():
 			world.chefs[id].set_player_name(Net.name_of(id))
+	# Looks can change mid-game (Net.set_look); apply_look is a no-op when unchanged.
+	for id in world.chefs.keys():
+		var look := Net.look_of(id)
+		(world.chefs[id] as Chef).apply_look(int(look["color"]), str(look["hat"]), str(look["acc"]))
 
 
 func _add_chef(id: int) -> void:

@@ -17,7 +17,7 @@ var _time := 0.0
 var _stack: Dictionary = {}      # anchor key -> px already used above its point this frame
 
 var _markers: Dictionary = {}    # Station -> Tag
-var _badges: Dictionary = {}     # peer id -> {tag, name}
+var _badges: Dictionary = {}     # peer id -> {tag, name, color}
 var _bars: Dictionary = {}       # item id -> {tag, bar, kind, f, pos}
 var _pips: Dictionary = {}       # item id -> {tag, pips}
 var _pops: Array = []            # {tag, pos, t}
@@ -321,12 +321,12 @@ func _update_badges(me: Chef, delta: float) -> void:
 	for c: Chef in world.chefs.values():
 		if c == me or c.peer_id == world.my_id:
 			continue
-		var color: Color = GameData.PLAYER_COLORS[c.slot % GameData.PLAYER_COLORS.size()]
+		var color: Color = c.color
 		var e: Dictionary = _badges.get(c.peer_id, {})
-		if e.is_empty() or e["name"] != c.player_name:
+		if e.is_empty() or e["name"] != c.player_name or e["color"] != color:
 			if not e.is_empty():
 				(e["tag"] as Node).queue_free()
-			e = {"tag": _add(IndicatorParts.Tag.new(IndicatorParts.name_badge(c.player_name, color))), "name": c.player_name}
+			e = {"tag": _add(IndicatorParts.Tag.new(IndicatorParts.name_badge(c.player_name, color))), "name": c.player_name, "color": color}
 			_badges[c.peer_id] = e
 		var tag: IndicatorParts.Tag = e["tag"]
 		var foot: Variant = _proj(c.global_position)

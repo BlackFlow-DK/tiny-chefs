@@ -60,7 +60,7 @@ func update() -> void:
 	world.grab_target = grab_target
 	world.work_target = work_target
 	world.hint_text = "     ".join(parts)
-	var color: Color = GameData.PLAYER_COLORS[me.slot % GameData.PLAYER_COLORS.size()]
+	var color: Color = me.color
 	if grab_target != null:
 		var shape := str(grab_target.def["shape"])
 		var m := 0.3

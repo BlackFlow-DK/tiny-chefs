@@ -13,19 +13,28 @@ extends Node
 ## Change it with change_setting(key, value) or set_settings(s) (host or offline menu only, MENU/LOBBY
 ## phase only; clients are ignored). Every change goes to all clients via the _sync_settings RPC, late
 ## joiners get it on join, and settings_changed fires on every peer.
+##
+## Chef looks: every players entry also holds "color" (index into GameData.PLAYER_COLORS, default = slot),
+## "hat" (GameData.HATS id) and "acc" (GameData.ACCESSORIES id). Each player sets only its own look with
+## set_look({...}) (any phase): the host stores it and re-sends the roster via _sync_players; a client
+## sends it with _register on join and _request_look afterwards. Read with look_of(id) / color_of(id).
+## The local pick (local_look) is remembered in user://menu.cfg [chef]; args --color= --hat= --acc= override.
 
 signal players_changed
+signal looks_changed  ## some player's look may have changed (also fires with every roster sync)
 signal phase_changed(phase: int)
 signal session_ended(reason: String)
 signal event_received(text: String, sfx: String)
 signal settings_changed
 
 enum Phase { MENU, LOBBY, PLAYING, RESULTS, SHOP }
+const LOOK_CFG := "user://menu.cfg"
 
 var phase: int = Phase.MENU
 var phase_info: Dictionary = {}
-var players: Dictionary = {}  # peer id -> {"name": String, "slot": int}
+var players: Dictionary = {}  # peer id -> {"name": String, "slot": int, "color": int, "hat": String, "acc": String}
 var local_name := "Chef"
+var local_look := {"color": -1, "hat": "toque", "acc": "none"}  # my pick; color -1 = my slot's colour
 var is_host := false
 var join_ip := ""
 var args: Dictionary = {}
@@ -42,6 +51,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_parse_args()
 	settings = _settings_from_args()
+	_load_look()
 	Controls.setup()
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -123,6 +133,7 @@ func host(pname: String) -> Error:
 	is_host = true
 	local_name = clean_name(pname)
 	players = {1: {"name": local_name, "slot": 0}}
+	players[1].merge(resolve_look(local_look, 0), true)
 	metrics["role"] = "host"
 	metrics["connected"] = true
 	print("net: hosting on UDP %d" % port())
@@ -233,7 +244,7 @@ func _on_peer_disconnected(id: int) -> void:
 func _on_connected_to_server() -> void:
 	metrics["connected"] = true
 	print("net: connected to host, my id %d" % my_id())
-	_register.rpc_id(1, local_name)
+	_register.rpc_id(1, local_name, local_look)
 
 
 func _on_connection_failed() -> void:
@@ -255,7 +266,7 @@ func _on_server_disconnected() -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _register(pname: String) -> void:
+func _register(pname: String, look: Dictionary) -> void:
 	if not is_host:
 		return
 	var id := multiplayer.get_remote_sender_id()
@@ -265,7 +276,9 @@ func _register(pname: String) -> void:
 			if multiplayer.multiplayer_peer is ENetMultiplayerPeer:
 				multiplayer.multiplayer_peer.disconnect_peer(id))
 		return
-	players[id] = {"name": clean_name(pname), "slot": _free_slot()}
+	var slot := _free_slot()
+	players[id] = {"name": clean_name(pname), "slot": slot}
+	players[id].merge(resolve_look(look, slot), true)
 	print("net: %s joined as peer %d" % [players[id]["name"], id])
 	_sync_players.rpc(players)
 	_sync_settings.rpc_id(id, settings.to_dict())  # before the phase, so a World built on join sees them
@@ -283,6 +296,108 @@ func _rejected(msg: String) -> void:
 func _sync_players(p: Dictionary) -> void:
 	players = p
 	players_changed.emit()
+	looks_changed.emit()
+
+
+# ---------------------------------------------------------------- chef looks
+
+## A valid look for a player in slot: color 0..3 (out of range / -1 = the slot's colour), known hat and acc.
+func resolve_look(look: Dictionary, slot: int) -> Dictionary:
+	var n := GameData.PLAYER_COLORS.size()
+	var c := int(look.get("color", -1))
+	if c < 0 or c >= n:
+		c = posmod(slot, n)
+	var hat := str(look.get("hat", ""))
+	if not GameData.has_hat(hat):
+		hat = str(GameData.HATS[0]["id"])
+	var acc := str(look.get("acc", ""))
+	if not GameData.has_accessory(acc):
+		acc = str(GameData.ACCESSORIES[0]["id"])
+	return {"color": c, "hat": hat, "acc": acc}
+
+
+## {color: int, hat: String, acc: String} of a player. Offline (no roster) the local pick, as slot 0.
+func look_of(id: int) -> Dictionary:
+	if players.has(id):
+		return resolve_look(players[id], int(players[id]["slot"]))
+	return resolve_look(local_look, 0)
+
+
+func color_index_of(id: int) -> int:
+	return int(look_of(id)["color"])
+
+
+func color_of(id: int) -> Color:
+	return GameData.PLAYER_COLORS[color_index_of(id)]
+
+
+## My own look: merge a partial pick ({"color": 2} / {"hat": "beanie"} / {"acc": "glasses"}), remember
+## it in menu.cfg and share it (host: roster sync; client: _request_look). Works offline and in any phase.
+func set_look(pick: Dictionary) -> void:
+	for k in ["color", "hat", "acc"]:
+		if pick.has(k):
+			local_look[k] = pick[k]
+	_save_look()
+	if is_host:
+		_store_look(1, local_look)
+	elif multiplayer.multiplayer_peer is ENetMultiplayerPeer and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		_request_look.rpc_id(1, local_look)  # after _register on the same reliable channel
+		if players.has(my_id()):  # show it at once; the host's roster sync confirms
+			players[my_id()].merge(resolve_look(local_look, slot_of(my_id())), true)
+			looks_changed.emit()
+	else:
+		looks_changed.emit()
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _request_look(look: Dictionary) -> void:
+	if is_host:
+		_store_look(multiplayer.get_remote_sender_id(), look)
+
+
+## Host: validate and store a player's look, then re-send the roster.
+func _store_look(id: int, look: Dictionary) -> void:
+	if not players.has(id):
+		return
+	var r := resolve_look(look, int(players[id]["slot"]))
+	var cur: Dictionary = players[id]
+	if int(cur.get("color", -1)) == r["color"] and cur.get("hat") == r["hat"] and cur.get("acc") == r["acc"]:
+		return
+	cur.merge(r, true)
+	print("net: peer %d look %s" % [id, r])
+	_sync_players.rpc(players)
+	players_changed.emit()
+	looks_changed.emit()
+
+
+## menu.cfg is shared with the menu screen (section [menu]); ours is [chef]. Skipped for scripted runs
+## (--host / --join / --bot), like the menu's own keys. --color= --hat= --acc= override (not saved).
+func _look_cfg_enabled() -> bool:
+	return not (has_arg("host") or has_arg("join") or has_arg("bot"))
+
+
+func _load_look() -> void:
+	if _look_cfg_enabled():
+		var cf := ConfigFile.new()
+		if cf.load(LOOK_CFG) == OK:
+			for k in ["color", "hat", "acc"]:
+				local_look[k] = cf.get_value("chef", k, local_look[k])
+	if has_arg("color"):
+		local_look["color"] = arg_int("color", -1)
+	if has_arg("hat"):
+		local_look["hat"] = arg_str("hat", "toque")
+	if has_arg("acc"):
+		local_look["acc"] = arg_str("acc", "none")
+
+
+func _save_look() -> void:
+	if not _look_cfg_enabled():
+		return
+	var cf := ConfigFile.new()
+	cf.load(LOOK_CFG)  # keep the menu's keys
+	for k in ["color", "hat", "acc"]:
+		cf.set_value("chef", k, local_look[k])
+	cf.save(LOOK_CFG)
 
 
 # ---------------------------------------------------------------- phases

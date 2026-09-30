@@ -1,8 +1,10 @@
 """Character models: chef (player) and boxing_glove (upgrade). Run: tools/blender-run.ps1 art/scripts/characters.py
 
 Vinyl-toy style chef. Contract with the game code:
-- chef.glb: mesh `Chef` (jacket, head, hat, ...; material `ChefBody` = jacket, collar, sleeves, tinted per player),
-  separate `HandL` / `HandR` whose origin is the hand centre (HandL at +X). Faces Blender -Y (Godot +Z).
+- chef.glb: mesh `Chef` (jacket, head, ...; material `ChefBody` = jacket, collar, sleeves, tinted per player),
+  separate mesh `Toque` (the default hat, material `ChefWhite`, origin at the model origin; hidden when the
+  player picks another hat), separate `HandL` / `HandR` whose origin is the hand centre (HandL at +X).
+  Faces Blender -Y (Godot +Z).
 - boxing_glove.glb: about 0.5 m, cuff toward +Y, fist toward -Y.
 Geometry helpers live in chef_parts.py (smooth parametric surfaces).
 """
@@ -299,7 +301,10 @@ def finish_chef():
     for o in parts:
         c[o.name.split(".")[0]] += tri_count([o])
     print("BREAKDOWN", c.most_common(60))
-    artlib.join(parts, "Chef")
+    # The toque is its own object so the game can hide it when another hat is chosen.
+    toque = [o for o in parts if o.name.split(".")[0] == "Toque"]
+    artlib.join([o for o in parts if o not in toque], "Chef")
+    artlib.join(toque, "Toque")
     shapes.settle("chef", (0.8, 1.4, 0.8), keep=(hl, hr), limits=((0.72, 0.9), (1.3, 1.5), (0.45, 0.85)))
     # the hands' origin is their centre: bake rotation/scale only
     artlib.export_glb("chef")

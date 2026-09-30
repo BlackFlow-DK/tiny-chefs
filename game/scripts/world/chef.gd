@@ -10,10 +10,16 @@ const FLAG_RESPAWNING := 4
 const AIM_TURN_RATE := 14.0   # rad/s, turning to face PlayerInput.aim_point
 const AIM_MIN_DIST := 0.4     # cursor on the chef itself: keep the current facing
 const RADIUS := 0.4           # body capsule radius
+const HAT_ANCHOR := Vector3(0.0, 0.981, 0.0388)   # chef-local: hat_*.glb origin (centre of the toque base ring)
+const FACE_ANCHOR := Vector3(0.0, 0.906, 0.2568)  # chef-local: acc_*.glb origin
 
 var peer_id := 0
 var slot := 0
 var player_name := "Chef"
+var color_index := -1         # GameData.PLAYER_COLORS index picked by the player (Net.look_of)
+var color := Color.WHITE      # its colour; ground ring, name badge and hints read this
+var hat := ""
+var acc := ""
 var puppet := false
 var is_local := false
 var holding: Item = null      # host
@@ -41,6 +47,7 @@ var last_work_seq := 0
 
 var _anim_root: Node3D
 var _visual: Node3D
+var _ring: GroundRing
 var _hands: Array[Node3D] = []
 var _hand_rest: Array[Vector3] = []
 var _gloves: Array[Node3D] = []
@@ -75,16 +82,12 @@ func setup(id: int, player_slot: int, pname: String, is_puppet: bool, local: boo
 	add_child(cs)
 	_anim_root = Node3D.new()
 	add_child(_anim_root)
-	var color: Color = GameData.PLAYER_COLORS[slot % GameData.PLAYER_COLORS.size()]
 	# Thin player-colour ring on the counter with a facing chevron (own chef's ring is brighter).
-	var ring := GroundRing.new()
-	add_child(ring)
-	ring.setup(color, local)
+	_ring = GroundRing.new()
+	add_child(_ring)
 	_visual = Models.load_model("chef")
 	if _visual == null:
-		_visual = _primitive_chef(color)
-	else:
-		_tint(_visual, color)
+		_visual = _primitive_chef(Color.WHITE)
 	_anim_root.add_child(_visual)
 	for hn in ["HandL", "HandR"]:
 		var h := _visual.find_child(hn, true, false) as Node3D
@@ -108,6 +111,52 @@ func setup(id: int, player_slot: int, pname: String, is_puppet: bool, local: boo
 			g.visible = false
 			h.add_child(g)
 			_gloves.append(g)
+	var look := Net.look_of(id)
+	apply_look(int(look["color"]), str(look["hat"]), str(look["acc"]))
+
+
+## Player look (see Net.look_of): colour index into GameData.PLAYER_COLORS, hat id, accessory id.
+## Tints the body, recolours the ground ring, swaps hat/accessory models. No-op when unchanged.
+func apply_look(color_idx: int, hat_id: String, acc_id: String) -> void:
+	color_idx = posmod(color_idx, GameData.PLAYER_COLORS.size())
+	if color_idx == color_index and hat_id == hat and acc_id == acc:
+		return
+	color_index = color_idx
+	color = GameData.PLAYER_COLORS[color_idx]
+	hat = hat_id
+	acc = acc_id
+	_ring.setup(color, is_local)
+	dress(_visual, color, hat_id, acc_id)
+
+
+## Dress any chef.glb instance (game chef, lobby turntable, menu diorama): tint ChefBody + HatTint
+## surfaces, show the built-in Toque only for hat "toque", attach hat_<id>.glb at HAT_ANCHOR and
+## acc_<id>.glb at FACE_ANCHOR (replacing earlier ones). Missing models are skipped.
+static func dress(model: Node3D, tint_color: Color, hat_id: String, acc_id: String) -> void:
+	if model == null:
+		return
+	for n in ["LookHat", "LookAcc"]:
+		var old := model.get_node_or_null(n)
+		if old != null:
+			model.remove_child(old)
+			old.queue_free()
+	var toque := model.find_child("Toque", true, false) as Node3D
+	if toque != null:
+		toque.visible = hat_id == "toque"
+	if hat_id != "toque":
+		_attach(model, "hat_" + hat_id, "LookHat", HAT_ANCHOR)
+	if acc_id != "none":
+		_attach(model, "acc_" + acc_id, "LookAcc", FACE_ANCHOR)
+	tint(model, tint_color)
+
+
+static func _attach(model: Node3D, model_name: String, node_name: String, at: Vector3) -> void:
+	var m := Models.load_model(model_name)
+	if m == null:
+		return
+	m.name = node_name
+	m.position = at
+	model.add_child(m)
 
 
 ## The name tag is drawn by IndicatorLayer (reads player_name every frame).
@@ -120,13 +169,13 @@ func set_gloves(on: bool) -> void:
 		g.visible = on
 
 
-func _primitive_chef(color: Color) -> Node3D:
+func _primitive_chef(body_color: Color) -> Node3D:
 	var root := Node3D.new()
 	var body := CapsuleMesh.new()
 	body.radius = 0.4
 	body.height = 1.0
 	var bm := StandardMaterial3D.new()
-	bm.albedo_color = color
+	bm.albedo_color = body_color
 	bm.resource_name = "ChefBody"
 	var bmi := MeshInstance3D.new()
 	bmi.mesh = body
@@ -159,19 +208,22 @@ func _primitive_chef(color: Color) -> Node3D:
 	return root
 
 
-## Recolour every surface whose material is named ChefBody (contract rule for chef.glb).
-func _tint(n: Node, color: Color) -> void:
+## Recolour every surface whose material is named ChefBody or HatTint (contract rule for chef.glb and
+## the hats). Starts from the mesh's own material, so tinting again replaces the colour.
+static func tint(n: Node, tint_color: Color) -> void:
 	if n is MeshInstance3D:
 		var mi := n as MeshInstance3D
 		if mi.mesh != null:
 			for i in mi.mesh.get_surface_count():
-				var m := mi.get_active_material(i)
-				if m != null and m.resource_name == "ChefBody" and m is BaseMaterial3D:
+				var m := mi.mesh.surface_get_material(i)
+				if m == null:
+					m = mi.get_active_material(i)
+				if m != null and (m.resource_name == "ChefBody" or m.resource_name == "HatTint") and m is BaseMaterial3D:
 					var d := m.duplicate() as BaseMaterial3D
-					d.albedo_color = color
+					d.albedo_color = tint_color
 					mi.set_surface_override_material(i, d)
 	for c in n.get_children():
-		_tint(c, color)
+		tint(c, tint_color)
 
 
 # ---------------------------------------------------------------- host simulation

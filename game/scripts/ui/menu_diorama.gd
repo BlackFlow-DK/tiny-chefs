@@ -86,14 +86,16 @@ func _build_set(root: Node3D) -> void:
 		it.position = Vector3(12.5, y, 2.5)
 		root.add_child(it)
 		y += _height(it)
-	# Chefs in the four player colours, mid-shift.
+	# Chefs in the four player colours, mid-shift, each with a random hat and accessory.
 	var spots := [Vector3(2.6, 0, 5.0), Vector3(4.4, 0, 3.6), Vector3(6.2, 0, 5.2), Vector3(4.2, 0, 6.6)]
 	var yaws := [-0.5, 0.0, 0.45, -0.15]
 	for i in 4:
 		var c := Models.load_model("chef")
 		if c == null:
 			continue
-		LobbyChefView.tint(c, GameData.PLAYER_COLORS[i])
+		var hat: Dictionary = GameData.HATS.pick_random()
+		var acc: Dictionary = GameData.ACCESSORIES.pick_random()
+		Chef.dress(c, GameData.PLAYER_COLORS[i], str(hat["id"]), str(acc["id"]))
 		var holder := Node3D.new()
 		holder.position = spots[i]
 		holder.rotation.y = yaws[i]
