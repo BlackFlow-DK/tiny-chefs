@@ -31,15 +31,31 @@ def _srgb_to_linear(c):
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
 
-def material(name, hex_srgb, roughness=0.8, metallic=0.0):
-    """Principled BSDF material from an sRGB hex colour like '#6b4a2b'."""
+def _hex_linear(hex_srgb):
     h = hex_srgb.lstrip("#")
-    rgb = [_srgb_to_linear(int(h[i:i + 2], 16) / 255.0) for i in (0, 2, 4)]
+    return [_srgb_to_linear(int(h[i:i + 2], 16) / 255.0) for i in (0, 2, 4)]
+
+
+def material(name, hex_srgb, roughness=0.8, metallic=0.0, emission=None, emission_strength=3.0, alpha=1.0):
+    """Principled BSDF material from an sRGB hex colour like '#6b4a2b'.
+
+    Optional: `emission` (hex colour, glows) and `alpha` < 1 (blended transparency).
+    """
+    rgb = _hex_linear(hex_srgb)
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     bsdf = mat.node_tree.nodes.get("Principled BSDF")
     bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.inputs["Metallic"].default_value = metallic
+    if emission:
+        bsdf.inputs["Emission Color"].default_value = (*_hex_linear(emission), 1.0)
+        bsdf.inputs["Emission Strength"].default_value = emission_strength
+    if alpha < 1.0:
+        bsdf.inputs["Alpha"].default_value = alpha
+        try:
+            mat.surface_render_method = "BLENDED"
+        except Exception:  # noqa: BLE001
+            pass
     mat.diffuse_color = (*rgb, 1.0)  # viewport colour only
     return mat
 
