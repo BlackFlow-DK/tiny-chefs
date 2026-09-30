@@ -30,9 +30,11 @@ const ITEM_KINDS := [
 	"lettuce_leaf", "tomato", "tomato_slice", "sausage_raw", "sausage_cooked", "sausage_burnt", "hotdog_bun",
 ]
 
-## Counter top: X from -30 to 30, Z from -18 to 18, surface at y = 0. The camera looks towards -Z.
-const COUNTER_SIZE := Vector2(60.0, 36.0)
+## Counter tops are the map's "surfaces" (see MAPS), all at y = 0. The camera looks towards -Z.
 const COUNTER_HEIGHT := 29.0  # floor far below
+
+## The diner layout below (STATIONS, SCENERY, SPAWN_POINTS) is MAPS.diner's data. Read layouts only
+## through GameData.map(id) / World.map, never these constants directly.
 
 ## Stations. Flat ones (griddle, board, plate, trash) are sunk into the counter and have no collider,
 ## so chefs and food slide over them. Dispensers and the bell are solid.
@@ -74,9 +76,48 @@ const SCENERY := [
 	{"model": "spice_jar_a", "pos": Vector3(21.8, 0, -16.6), "size": Vector3(2, 3, 2), "shape": "cyl", "color": Color(0.78, 0.3, 0.16)},
 	{"model": "spice_jar_b", "pos": Vector3(23.9, 0, -16.9), "size": Vector3(2, 3, 2), "shape": "cyl", "color": Color(0.9, 0.7, 0.2)},
 	{"model": "spice_jar_c", "pos": Vector3(28.9, 0, -16.4), "size": Vector3(2, 3, 2), "shape": "cyl", "color": Color(0.4, 0.55, 0.28)},
+	{"model": "hob", "pos": Vector3(-25.2, 0, 0.5), "size": Vector3(9, 0.05, 7), "flat": true},
 ]
 
 const SPAWN_POINTS := [Vector3(-2, 0, 1), Vector3(2, 0, 1), Vector3(-2, 0, -3), Vector3(2, 0, -3)]
+
+## Maps: id -> MapDef. Kitchen, bounds, spawns, camera and bots read the chosen one through World.map.
+##   name, blurb: String (menu text). theme: String room/props look ("diner"; unknown -> diner).
+##   dev: bool (optional) hidden from players, only via --map=<id>.
+##   surfaces: Array of Rect2(x, z, w, h) counter tops at y = 0 (overlap them to join; a point is on
+##     the counter when it is inside any of them). Each gets a slab, trim, cabinets and a collider.
+##   stations: Array of station dicts (format of STATIONS). Exactly one griddle, board, plate, bell and
+##     trash per map (World keeps one of each), any number of dispensers.
+##   scenery: Array of prop dicts (format of SCENERY). "flat": true = decoration without collider
+##     ("hob" is built in code); "sink_basin" cuts a hole in the surface under it.
+##   spawn_points: Array of Vector3, one per player slot (wraps). hazards: Array of hazard ids.
+##   decor: Array (optional) theme dressing tied to this layout ("diner_clutter").
+##   camera_bounds: Rect2 (optional) camera focus clamp instead of the surfaces' bounds.
+const MAPS := {
+	"diner": {
+		"id": "diner", "name": "The Diner", "blurb": "The classic kitchen island: everything within a few steps.",
+		"theme": "diner", "surfaces": [Rect2(-30, -18, 60, 36)], "stations": STATIONS, "scenery": SCENERY,
+		"spawn_points": SPAWN_POINTS, "hazards": [], "decor": ["diner_clutter"],
+	},
+	"test_islands": {
+		"id": "test_islands", "name": "Test Islands", "blurb": "Dev map: two islands and a plank.", "dev": true,
+		"theme": "diner",
+		"surfaces": [Rect2(-23, -10, 20, 20), Rect2(3, -10, 20, 20), Rect2(-4, -2, 8, 4)],
+		"stations": [
+			{"type": "dispenser", "model": "dispenser_buns", "pos": Vector3(-19, 0, -6), "size": Vector3(5, 4, 5), "gives": ["bun_bottom", "bun_top"], "label": "Buns"},
+			{"type": "dispenser", "model": "dispenser_patties", "pos": Vector3(-13, 0, -6), "size": Vector3(5, 4, 5), "gives": ["patty_raw"], "label": "Patties"},
+			{"type": "dispenser", "model": "dispenser_cheese", "pos": Vector3(-7, 0, -6), "size": Vector3(5, 4, 5), "gives": ["cheese_slice"], "label": "Cheese"},
+			{"type": "trash", "model": "trash_drain", "pos": Vector3(-19, 0, 6), "size": Vector3(4, 0.2, 4), "label": "Trash"},
+			{"type": "griddle", "model": "griddle", "pos": Vector3(8, 0, -5), "size": Vector3(9, 0.5, 7), "label": "Griddle"},
+			{"type": "board", "model": "cutting_board", "pos": Vector3(18, 0, -5), "size": Vector3(9, 0.4, 6), "label": "Cutting board"},
+			{"type": "plate", "model": "plate", "pos": Vector3(8, 0, 5), "size": Vector3(7, 0.4, 7), "label": "Plate"},
+			{"type": "bell", "model": "service_bell", "pos": Vector3(14.5, 0, 5), "size": Vector3(2, 1.6, 2), "label": "Serve"},
+		],
+		"scenery": [],
+		"spawn_points": [Vector3(-9, 0, 2), Vector3(-15, 0, 2), Vector3(-8, 0, 0), Vector3(-15, 0, 6)],
+		"hazards": [],
+	},
+}
 
 ## Player colours in join order: blue, red, green, yellow.
 const PLAYER_COLORS := [Color(0.24, 0.48, 1.0), Color(1.0, 0.29, 0.29), Color(0.24, 0.81, 0.35), Color(1.0, 0.82, 0.23)]
@@ -104,6 +145,39 @@ const UPGRADES := [
 	{"id": "knife", "name": "Sharp Knife", "desc": "Chopping is twice as fast.", "price": 50},
 	{"id": "shoes", "name": "Running Shoes", "desc": "+20% move and carry speed.", "price": 80},
 ]
+
+
+## MapDef for id (unknown ids fall back to the diner).
+static func map(id: String) -> Dictionary:
+	if not MAPS.has(id):
+		push_warning("GameData.map: unknown map '%s', using diner" % id)
+		return MAPS["diner"]
+	return MAPS[id]
+
+
+## Map ids players may pick (dev maps only with include_dev).
+static func map_ids(include_dev := false) -> Array:
+	var out: Array = []
+	for id in MAPS:
+		if include_dev or not bool(MAPS[id].get("dev", false)):
+			out.append(id)
+	return out
+
+
+## Bounding rect (x, z) of a map's surfaces.
+static func surfaces_bounds(surfaces: Array) -> Rect2:
+	var b: Rect2 = surfaces[0]
+	for r in surfaces:
+		b = b.merge(r)
+	return b
+
+
+## True when xz lies on (or exactly at the edge of) any surface.
+static func surfaces_contain(surfaces: Array, xz: Vector2) -> bool:
+	for r: Rect2 in surfaces:
+		if xz.x >= r.position.x and xz.x <= r.end.x and xz.y >= r.position.y and xz.y <= r.end.y:
+			return true
+	return false
 
 
 static func item(kind: String) -> Dictionary:

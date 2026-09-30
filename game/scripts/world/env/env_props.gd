@@ -1,6 +1,6 @@
 class_name EnvProps
 extends RefCounted
-## Scenery visuals: primitive stand-ins for the GameData.SCENERY props whose .glb is not present
+## Scenery visuals: primitive stand-ins for the map's scenery props whose .glb is not present
 ## (roughly the contract shapes, at the data size), the built-in sink basin, the flat hob, and small
 ## non-colliding clutter (flour, rings, a puddle, crumbs, sesame seeds, a tea towel).
 ## Deterministic: fixed seeds only.
@@ -164,8 +164,9 @@ static func hob(root: Node3D, center: Vector3, size: Vector2) -> void:
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
-## Small non-colliding clutter. Positions avoid station footprints.
-static func clutter(root: Node3D) -> void:
+## Small non-colliding clutter for the diner layout (map decor "diner_clutter"). Positions avoid
+## station footprints. bounds: the map's surface bounds (the tea towel hangs over the front edge).
+static func clutter(root: Node3D, bounds: Rect2) -> void:
 	var n := EnvUtil.node(root, "Clutter")
 	_decal(n, 0, Vector3(16.6, 0, -3.4), Vector2(5.5, 4.2), Color(0.98, 0.97, 0.94), 0.45, 1.0, 0.4)
 	_decal(n, 0, Vector3(-3.2, 0, -6.2), Vector2(3.2, 2.6), Color(0.98, 0.97, 0.94), 0.45, 2.0, -0.3)
@@ -178,7 +179,7 @@ static func clutter(root: Node3D) -> void:
 	_scatter(n, Vector3(-4.0, 0, -6.4), 2.0, 18, 12, Color(0.78, 0.55, 0.28), Vector3(0.2, 0.09, 0.16), Vector3(0.08, 0.04, 0.07))
 	_scatter(n, Vector3(-7.0, 0, -6.8), 3.2, 40, 13, Color(0.96, 0.9, 0.72), Vector3(0.16, 0.06, 0.09), Vector3(0.1, 0.04, 0.06))
 	_scatter(n, Vector3(-4.6, 0, 11.6), 2.4, 14, 14, Color(0.96, 0.9, 0.72), Vector3(0.16, 0.06, 0.09), Vector3(0.1, 0.04, 0.06))
-	_towel(n, Vector3(-8.5, 0, GameData.COUNTER_SIZE.y * 0.5))
+	_towel(n, Vector3(-8.5, 0, bounds.end.y))
 
 
 static func _decal(n: Node3D, kind: int, at: Vector3, size: Vector2, tint: Color, opacity: float, seed: float, yaw: float) -> void:

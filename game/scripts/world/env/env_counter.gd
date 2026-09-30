@@ -17,23 +17,26 @@ const WALNUT := Color(0.34, 0.22, 0.14)
 const BRASS := Color(0.86, 0.66, 0.36)
 
 
-## hole: XZ Rect2 cut out of the slab (the sink basin), or an empty Rect2.
-static func build(root: Node3D, hole: Rect2) -> void:
-	var cw := GameData.COUNTER_SIZE.x
-	var cd := GameData.COUNTER_SIZE.y
+## One island for surface (x, z, w, h); holes: XZ Rect2s cut out of the slab (sink basins).
+## Built in local coordinates centred on the surface.
+static func build(root: Node3D, surface: Rect2, holes: Array) -> void:
+	var cw := surface.size.x
+	var cd := surface.size.y
 	var ch := GameData.COUNTER_HEIGHT
 	var hx := cw * 0.5
 	var hz := cd * 0.5
-	var n := EnvUtil.node(root, "CounterVisual")
+	var c := surface.get_center()
+	var n := EnvUtil.node(root, "CounterVisual", Vector3(c.x, 0, c.y))
 	var top := EnvUtil.shader_mat("counter_terrazzo")
 	var r := EDGE_R
 
-	# Slab: inset upper band (next to the rounded edge) + full lower band, both minus the hole.
+	# Slab: inset upper band (next to the rounded edge) + full lower band, both minus the holes.
 	var upper := [Rect2(-hx + r, -hz, cw - 2.0 * r, cd - r)]
 	var lower := [Rect2(-hx, -hz, cw, cd)]
-	if hole.size.x > 0.0:
-		upper = EnvUtil.rects_minus(upper, hole)
-		lower = EnvUtil.rects_minus(lower, hole)
+	for hole: Rect2 in holes:
+		var local := Rect2(hole.position - c, hole.size)
+		upper = EnvUtil.rects_minus(upper, local)
+		lower = EnvUtil.rects_minus(lower, local)
 	for rc in upper:
 		EnvUtil.box_mm(n, Vector3(rc.position.x, -r, rc.position.y), Vector3(rc.end.x, 0.0, rc.end.y), top)
 	for rc in lower:

@@ -24,7 +24,7 @@ func _ready() -> void:
 	add_child(_vp)
 	var root := Node3D.new()
 	_vp.add_child(root)
-	Kitchen.build(root)
+	Kitchen.build(root, GameData.map("diner"))
 	_build_set(root)
 	_cam = Camera3D.new()
 	_cam.fov = 42.0
@@ -65,7 +65,7 @@ func _on_vis() -> void:
 
 func _build_set(root: Node3D) -> void:
 	# Stations from the game data (visuals only, no colliders).
-	for s in GameData.STATIONS:
+	for s in GameData.map("diner")["stations"]:
 		if float(s["pos"].z) > 6.0:
 			continue  # would sit between the camera and the chefs
 		var n := Models.load_model(str(s["model"]))

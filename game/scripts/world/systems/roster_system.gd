@@ -29,7 +29,8 @@ func _add_chef(id: int) -> void:
 	var slot := Net.slot_of(id)
 	var c := Chef.new()
 	c.setup(id, slot, Net.name_of(id), false, id == world.my_id)
-	c.spawn_point = GameData.SPAWN_POINTS[slot % GameData.SPAWN_POINTS.size()]
+	var spawns: Array = world.map["spawn_points"]
+	c.spawn_point = spawns[slot % spawns.size()]
 	world.add_child(c)
 	c.global_position = c.spawn_point + Vector3(0, 0.5, 0)
 	c.set_gloves(world.shift.has_upgrade("gloves"))

@@ -5,6 +5,7 @@ extends Node3D
 ## It is the single target Net forwards to (receive_input, apply_snapshot, try_buy) and the world-level
 ## API stations, bots and systems call; systems never call each other directly. Map: docs/systems.md.
 
+var map: Dictionary = {}      # MapDef (GameData.MAPS entry) this World was built from
 var is_host := false
 var my_id := 1
 var items: Dictionary = {}   # item id -> Item
@@ -51,7 +52,11 @@ func _ready() -> void:
 	is_host = Net.is_host
 	my_id = Net.my_id()
 	Net.world = self
-	Kitchen.build(self)
+	# The host stamps the map id into every phase change (Net.set_phase), so clients build the same map.
+	map = GameData.map(str(Net.phase_info.get("map", map_id_for_session())))
+	if Net.has_arg("map-log"):
+		print("map: %s builds map '%s' (%d surfaces)" % ["host" if is_host else "client", map["id"], map["surfaces"].size()])
+	Kitchen.build(self, map)
 	_build_stations()
 	_roster_sys = RosterSystem.new(self)
 	_carry_sys = CarrySystem.new(self)
@@ -84,7 +89,7 @@ func _exit_tree() -> void:
 
 
 func _build_stations() -> void:
-	for d in GameData.STATIONS:
+	for d in map["stations"]:
 		var s: Station
 		match str(d["type"]):
 			"dispenser":
@@ -203,6 +208,24 @@ func _handle_actions(c: Chef, inp: PlayerInput) -> void:
 	if inp.work_seq != c.last_work_seq:
 		c.last_work_seq = inp.work_seq
 		_plate_sys.on_work_pressed(c)
+
+
+# ================================================================ map (every peer)
+
+## Host: the map id this session plays (--map=<id>, default diner). The one place the choice is read;
+## replace the body with the lobby setting. Net.set_phase sends it to clients with every phase change.
+static func map_id_for_session() -> String:
+	return Net.arg_str("map", "diner")
+
+
+## True when xz (world X, Z) is on any counter surface of the map.
+func on_counter(xz: Vector2) -> bool:
+	return GameData.surfaces_contain(map["surfaces"], xz)
+
+
+## Bounding rect (x, z, w, h) of all counter surfaces.
+func surface_bounds() -> Rect2:
+	return GameData.surfaces_bounds(map["surfaces"])
 
 
 # ================================================================ world-level API (host unless noted)

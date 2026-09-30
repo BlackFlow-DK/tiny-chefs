@@ -15,21 +15,29 @@ const PAINT := Color(0.95, 0.85, 0.67)
 const TRIM := Color(0.97, 0.95, 0.9)
 
 
-static func build(root: Node3D) -> void:
+## surfaces: the map's counter tops (Rect2 x, z, w, h). The room is laid out for the diner's
+## 60 x 36 island: the back wall sits just behind the back-most edge (the whole room shifts in Z),
+## the tiles and side furniture follow the widest X extent (assumes a layout centred on X = 0).
+static func build(root: Node3D, surfaces: Array) -> void:
 	var ch := GameData.COUNTER_HEIGHT
-	var hx := GameData.COUNTER_SIZE.x * 0.5
-	var n := EnvUtil.node(root, "Room")
+	var b := GameData.surfaces_bounds(surfaces)
+	var hx := maxf(-b.position.x, b.end.x)
+	var n := EnvUtil.node(root, "Room", Vector3(0, 0, b.position.y - (WALL_Z + 0.5)))
 	var floor_y := -ch
 
-	# Floor + rug + soft contact darkening along the counter base.
+	# Floor + rug + soft contact darkening along each counter base.
 	EnvUtil.plane(n, Vector2(ROOM_HX * 2.0, ROOM_FRONT - WALL_Z), Vector3(0, floor_y, (ROOM_FRONT + WALL_Z) * 0.5),
 		EnvUtil.shader_mat("wood_floor"))
 	EnvUtil.plane(n, Vector2(76, 22), Vector3(0, floor_y + 0.05, 34), EnvUtil.shader_mat("rug", {"size": Vector2(76, 22)}))
 	var ao := EnvUtil.shader_mat("counter_decal", {"kind": 4, "opacity": 0.55})
-	EnvUtil.plane(n, Vector2(hx * 2.0 + 4.0, 14.0), Vector3(0, floor_y + 0.08, GameData.COUNTER_SIZE.y * 0.5 - 2.6), ao)
-	for sx in [-1.0, 1.0]:
-		var side := EnvUtil.plane(n, Vector2(GameData.COUNTER_SIZE.y + 4.0, 14.0), Vector3(sx * (hx - 2.6), floor_y + 0.08, 0), ao)
-		side.rotation.y = PI * 0.5
+	var base := EnvUtil.node(root, "CounterShadow")
+	for r: Rect2 in surfaces:
+		var c := r.get_center()
+		var rx := r.size.x * 0.5
+		EnvUtil.plane(base, Vector2(r.size.x + 4.0, 14.0), Vector3(c.x, floor_y + 0.08, r.end.y - 2.6), ao)
+		for sx in [-1.0, 1.0]:
+			var side := EnvUtil.plane(base, Vector2(r.size.y + 4.0, 14.0), Vector3(c.x + sx * (rx - 2.6), floor_y + 0.08, c.y), ao)
+			side.rotation.y = PI * 0.5
 
 	# Back wall: tiles behind the counter, paint elsewhere, window hole through both.
 	var wall_rect := Rect2(-ROOM_HX, floor_y, ROOM_HX * 2.0, ROOM_TOP - floor_y)

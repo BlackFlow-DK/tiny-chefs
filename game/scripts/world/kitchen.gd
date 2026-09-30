@@ -1,31 +1,44 @@
 class_name Kitchen
 extends RefCounted
-## Static scenery: lighting/atmosphere, the giant counter island, the room around it, and the props
-## from GameData.SCENERY (solid obstacles). Identical on every peer (no unseeded randomness).
-## The visuals live in world/env/ (EnvLook, EnvCounter, EnvRoom, EnvProps); this file owns the
-## colliders, which are unchanged gameplay: counter box, back wall, one box per scenery prop.
+## Static scenery for one map (a GameData.MAPS entry): lighting/atmosphere, one counter slab per
+## surface, the room around them (by theme), and the map's scenery props (solid obstacles unless
+## "flat"). Identical on every peer (no unseeded randomness). The visuals live in world/env/
+## (EnvLook, EnvCounter, EnvRoom, EnvProps); this file owns the colliders: one box per surface,
+## the back wall, one box per solid scenery prop.
 
 const SINK_MODEL := "sink_basin"
-const HOB_CENTER := Vector3(-25.2, 0, 0.5)
-const HOB_SIZE := Vector2(9.0, 7.0)
+const HOB_MODEL := "hob"
+const THEMES := ["diner"]   # room looks EnvRoom can build; anything else falls back to the first
 
 
-static func build(root: Node3D) -> void:
-	var cw := GameData.COUNTER_SIZE.x
-	var cd := GameData.COUNTER_SIZE.y
+static func build(root: Node3D, map: Dictionary) -> void:
 	var ch := GameData.COUNTER_HEIGHT
+	var surfaces: Array = map["surfaces"]
+	var scenery: Array = map["scenery"]
+	var bounds := GameData.surfaces_bounds(surfaces)
+	var theme := str(map.get("theme", THEMES[0]))
+	if not THEMES.has(theme):
+		theme = THEMES[0]
 
 	EnvLook.build(root)
-	EnvCounter.build(root, _sink_hole())
-	EnvRoom.build(root)
-	EnvProps.hob(root, HOB_CENTER, HOB_SIZE)
-	EnvProps.clutter(root)
+	var holes := _sink_holes(scenery)
+	for r: Rect2 in surfaces:
+		EnvCounter.build(root, r, holes)
+	if theme == "diner":   # new themes: add their room builder here and the id to THEMES
+		EnvRoom.build(root, surfaces)
+	if (map.get("decor", []) as Array).has("diner_clutter"):
+		EnvProps.clutter(root, bounds)
 
-	# Colliders: the counter is one solid block, top at y = 0; the wall behind it.
-	_solid(root, Vector3(cw, ch, cd), Vector3(0, -ch, 0))
-	_solid(root, Vector3(260, 90, 1.0), Vector3(0, -ch, -cd * 0.5 - 1.0))
+	# Colliders: each surface is one solid block, top at y = 0; the wall behind the back-most edge.
+	for r: Rect2 in surfaces:
+		_solid(root, Vector3(r.size.x, ch, r.size.y), Vector3(r.get_center().x, -ch, r.get_center().y))
+	_solid(root, Vector3(260, 90, 1.0), Vector3(0, -ch, bounds.position.y - 1.0))
 
-	for s in GameData.SCENERY:
+	for s in scenery:
+		if str(s["model"]) == HOB_MODEL:
+			var hs: Vector3 = s["size"]
+			EnvProps.hob(root, s["pos"], Vector2(hs.x, hs.z))
+			continue
 		var n := Node3D.new()
 		n.name = str(s["model"]).to_pascal_case()
 		n.position = s["pos"]
@@ -33,8 +46,10 @@ static func build(root: Node3D) -> void:
 		root.add_child(n)
 		var v := Models.load_model(str(s["model"]))
 		if v == null:
-			v = EnvProps.fallback(str(s["model"]), s["size"], s["color"])
+			v = EnvProps.fallback(str(s["model"]), s["size"], s.get("color", Color.WHITE))
 		n.add_child(v)
+		if bool(s.get("flat", false)):
+			continue
 		var csz: Vector3 = s.get("collider", s["size"])
 		var coff: Vector3 = s.get("collider_offset", Vector3.ZERO)
 		_solid(n, csz, coff)
@@ -43,14 +58,15 @@ static func build(root: Node3D) -> void:
 		root.add_child(EnvDebug.new())
 
 
-## XZ rect of the sink basin footprint (the counter slab gets a hole there), or empty.
-static func _sink_hole() -> Rect2:
-	for s in GameData.SCENERY:
+## XZ rects of the sink basin footprints (the counter slabs get holes there).
+static func _sink_holes(scenery: Array) -> Array:
+	var out: Array = []
+	for s in scenery:
 		if str(s["model"]) == SINK_MODEL:
 			var p: Vector3 = s["pos"]
 			var sz: Vector3 = s["size"]
-			return Rect2(p.x - sz.x * 0.5, p.z - sz.z * 0.5, sz.x, sz.z)
-	return Rect2()
+			out.append(Rect2(p.x - sz.x * 0.5, p.z - sz.z * 0.5, sz.x, sz.z))
+	return out
 
 
 static func _solid(root: Node3D, sz: Vector3, base: Vector3) -> void:

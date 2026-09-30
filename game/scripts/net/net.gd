@@ -261,6 +261,8 @@ func _sync_players(p: Dictionary) -> void:
 func set_phase(ph: int, info: Dictionary) -> void:
 	if not is_host:
 		return
+	info = info.duplicate()
+	info["map"] = World.map_id_for_session()   # every peer builds its World from this map id
 	_apply_phase(ph, info)
 	_sync_phase.rpc(ph, info)
 

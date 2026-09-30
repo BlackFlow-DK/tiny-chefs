@@ -335,11 +335,9 @@ func _unit_rids(it: Item) -> Array[RID]:
 
 ## A carrier whose centre left the counter top lets go (Chef.host_move then drops it off).
 func _drop_off_edge(it: Item) -> void:
-	var hx := GameData.COUNTER_SIZE.x * 0.5
-	var hz := GameData.COUNTER_SIZE.y * 0.5
 	for c in it.carriers.duplicate():
 		var p: Vector3 = c.global_position
-		if absf(p.x) > hx or absf(p.z) > hz:
+		if not world.on_counter(Vector2(p.x, p.z)):
 			release(c)
 
 

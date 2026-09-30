@@ -207,6 +207,8 @@ func host_move(dt: float, inp: PlayerInput, speed_mult: float) -> bool:
 		face(dir, dt)
 	if global_position.y < Tuning.FALL_Y:
 		respawn_timer = Tuning.RESPAWN_DELAY
+		if Net.has_arg("map-log"):
+			print("map: chef %d fell at (%.1f, %.1f), respawns at %s" % [peer_id, global_position.x, global_position.z, spawn_point])
 		return true
 	return false
 
@@ -252,6 +254,8 @@ func aim_at(point: Vector3, dt: float) -> void:
 func respawn() -> void:
 	respawn_timer = -1.0
 	global_position = spawn_point + Vector3(0, 0.5, 0)
+	if Net.has_arg("map-log"):
+		print("map: chef %d respawned at %s" % [peer_id, spawn_point])
 	walk_vel = Vector3.ZERO
 	knock = Vector3.ZERO
 	vy = 0.0

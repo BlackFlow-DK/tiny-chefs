@@ -1,6 +1,6 @@
 class_name Station
 extends Node3D
-## Base for kitchen stations. Built identically on every peer from GameData.STATIONS.
+## Base for kitchen stations. Built identically on every peer from the map's stations (World.map).
 ## Host runs host_update(); clients receive state()/apply_state() through the snapshot.
 
 var def: Dictionary = {}

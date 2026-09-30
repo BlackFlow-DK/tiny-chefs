@@ -127,8 +127,10 @@ func step(delta: float) -> void:
 		lead = lead.normalized() * Tuning.CAMERA_LOOKAHEAD_MAX
 	var want_focus := target + lead + Vector3(0, 0, Tuning.CAMERA_FOCUS_Z)
 	# Keep the void beyond the side edges of the counter from filling half the screen.
-	var xlim := GameData.COUNTER_SIZE.x * 0.5 - Tuning.CAMERA_EDGE_MARGIN
-	want_focus.x = clampf(want_focus.x, -xlim, xlim)
+	var cb: Rect2 = world.map.get("camera_bounds", world.surface_bounds())
+	var xmin := cb.position.x + Tuning.CAMERA_EDGE_MARGIN
+	var xmax := maxf(xmin, cb.end.x - Tuning.CAMERA_EDGE_MARGIN)
+	want_focus.x = clampf(want_focus.x, xmin, xmax)
 	if _cam_ready:
 		if _focus.distance_to(want_focus) > 30.0:
 			_focus = want_focus

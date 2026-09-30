@@ -50,7 +50,10 @@ func update(dt: float, inp: PlayerInput) -> void:
 			jt = "item %s at %s carriers %d fd %.2f" % [ji.kind, ji.global_position.snapped(Vector3.ONE * 0.1), ji.carrier_count, ji.footprint_distance(me.global_position)]
 		print("bot %d:   at %s held %d job %s %s" % [me.peer_id, me.global_position.snapped(Vector3.ONE * 0.1), me.held_id, _describe(_job), jt])
 	if _job.is_empty():
-		_walk_to(me, Vector3(-2, 0, 3.5), inp, dt, null)
+		var idle := Vector3(-2, 0, 3.5)
+		if not world.on_counter(Vector2(idle.x, idle.z)):
+			idle = world.map["spawn_points"][0]
+		_walk_to(me, idle, inp, dt, null)
 		if world.shift.has_upgrade("gloves") and _press_wait <= 0.0:
 			inp.punch_seq += 1  # idle: show off the gloves
 			_press_wait = 1.5
@@ -234,6 +237,9 @@ func _do_fetch(me: Chef, inp: PlayerInput, dt: float) -> void:
 			_let_go(inp)
 			return
 		var dir := to.normalized() * clampf(to.length() / 2.0, 0.5, 1.0)
+		var via := _route(me.global_position, dest)
+		if via != dest:  # another surface: carry it over the joining surface first
+			dir = _flat(via - me.global_position).normalized() * 0.7
 		dir = _unstick(me, dir, dt)
 		inp.move = Vector2(dir.x, dir.z)
 		return
@@ -334,6 +340,7 @@ func _press_grab(inp: PlayerInput) -> void:
 # ---------------------------------------------------------------- movement
 
 func _walk_to(me: Chef, target: Vector3, inp: PlayerInput, dt: float, avoid_item: Item) -> void:
+	target = _route(me.global_position, target)
 	var to := _flat(target - me.global_position)
 	if to.length() < 0.12:
 		return
@@ -354,7 +361,9 @@ func _steer(from: Vector3, target: Vector3, avoid_item: Item) -> Vector3:
 	for d in world.dispensers:
 		obstacles.append([d.global_position, 3.0])
 	obstacles.append([world.bell.global_position, 1.1])
-	for s in GameData.SCENERY:
+	for s in world.map["scenery"]:
+		if bool(s.get("flat", false)):
+			continue
 		var sz: Vector3 = s.get("collider", s["size"])
 		var off: Vector3 = s.get("collider_offset", Vector3.ZERO)
 		obstacles.append([s["pos"] + off, maxf(sz.x, sz.z) * 0.6])
@@ -376,6 +385,63 @@ func _steer(from: Vector3, target: Vector3, avoid_item: Item) -> Vector3:
 			if nd.length() > 0.05:
 				best_t = t
 				out = nd.normalized()
+	return out
+
+
+## Multi-surface maps: where to head for on the way from -> target. The target itself when one
+## surface holds both (surfaces are rectangles, so the straight line stays on it) or either point is
+## off the counter; otherwise the next hop of a breadth-first search over overlapping surfaces: first
+## a lead-in point lined up with the overlap (so carried food does not swing over the edge), then the
+## middle of the overlap.
+func _route(from: Vector3, target: Vector3) -> Vector3:
+	var surfs: Array = world.map["surfaces"]
+	if surfs.size() < 2:
+		return target
+	var a := _surfaces_at(surfs, from)
+	var b := _surfaces_at(surfs, target)
+	if a.is_empty() or b.is_empty():
+		return target
+	for i in a:
+		if b.has(i):
+			return target
+	var prev := {}
+	var queue: Array = a.duplicate()
+	for i in a:
+		prev[i] = -1
+	var found := -1
+	while not queue.is_empty():
+		var i: int = queue.pop_front()
+		if b.has(i):
+			found = i
+			break
+		for j in surfs.size():
+			if not prev.has(j) and (surfs[i] as Rect2).intersects(surfs[j], true):
+				prev[j] = i
+				queue.append(j)
+	if found < 0:
+		return target
+	var hop := found
+	while not a.has(prev[hop]):
+		hop = prev[hop]
+	var here: Rect2 = surfs[prev[hop]]
+	var next: Rect2 = surfs[hop]
+	var gate := here.intersection(next)
+	var g := gate.get_center()
+	var d := next.get_center() - here.get_center()
+	var axis := Vector2(signf(d.x), 0) if absf(d.x) >= absf(d.y) else Vector2(0, signf(d.y))
+	var off := Vector2(from.x, from.z) - g
+	var lateral := absf(off.x * axis.y - off.y * axis.x)
+	var lead := g - axis * 3.0
+	if lateral > 0.4 and here.has_point(lead):
+		return Vector3(lead.x, 0, lead.y)
+	return Vector3(g.x, 0, g.y)
+
+
+func _surfaces_at(surfs: Array, p: Vector3) -> Array:
+	var out: Array = []
+	for i in surfs.size():
+		if GameData.surfaces_contain([surfs[i]], Vector2(p.x, p.z)):
+			out.append(i)
 	return out
 
 
