@@ -52,12 +52,28 @@ const STATIONS := [
 ]
 
 ## Big props for scale. Solid. "collider" overrides the box used for collision (sink tap arches over).
+## Optional "yaw" (degrees) turns the prop and its collider. Tall props sit at the back and ends so
+## they never hide stations from the camera; the front strip only gets low ones.
+## sink_basin is built in code (Kitchen cuts the counter there); its collider is the whole footprint.
 const SCENERY := [
 	{"model": "salt_shaker", "pos": Vector3(24, 0, 10), "size": Vector3(3, 7, 3), "shape": "cyl", "color": Color(0.9, 0.93, 0.95)},
 	{"model": "pepper_shaker", "pos": Vector3(27, 0, 14), "size": Vector3(3, 7, 3), "shape": "cyl", "color": Color(0.25, 0.25, 0.27)},
 	{"model": "ketchup_bottle", "pos": Vector3(-26, 0, 13), "size": Vector3(3.5, 10, 3.5), "shape": "cyl", "color": Color(0.84, 0.17, 0.12)},
 	{"model": "utensil_pot", "pos": Vector3(25, 0, -12), "size": Vector3(6, 14, 6), "shape": "cyl", "color": Color(0.44, 0.56, 0.69)},
 	{"model": "sink_tap", "pos": Vector3(-25, 0, -14), "size": Vector3(6, 12, 8), "shape": "box", "color": Color(0.75, 0.78, 0.8), "collider": Vector3(3, 12, 3), "collider_offset": Vector3(0, 0, -2.5)},
+	{"model": "sink_basin", "pos": Vector3(-25, 0, -10.5), "size": Vector3(6, 1.0, 6), "shape": "box", "color": Color(0.78, 0.8, 0.83)},
+	{"model": "oil_bottle", "pos": Vector3(-28.6, 0, -16.7), "size": Vector3(2.5, 9, 2.5), "shape": "cyl", "color": Color(0.86, 0.68, 0.2)},
+	{"model": "dish_sponge", "pos": Vector3(-24.8, 0, -5.5), "size": Vector3(5, 1.5, 3), "shape": "box", "color": Color(0.98, 0.84, 0.3), "yaw": 10.0},
+	{"model": "kettle", "pos": Vector3(-26.6, 0, -1.1), "size": Vector3(6, 6.5, 5), "shape": "cyl", "color": Color(0.55, 0.78, 0.74), "yaw": -20.0},
+	{"model": "paper_towel_roll", "pos": Vector3(28.0, 0, 9.3), "size": Vector3(4, 9, 4), "shape": "cyl", "color": Color(0.97, 0.97, 0.95)},
+	{"model": "cookbook_stack", "pos": Vector3(-19.5, 0, 14.6), "size": Vector3(8, 3.5, 6), "shape": "box", "color": Color(0.76, 0.28, 0.22), "yaw": 10.0},
+	{"model": "rolling_pin", "pos": Vector3(12, 0, 15.4), "size": Vector3(10, 1.4, 1.4), "shape": "capsule_x", "color": Color(0.85, 0.68, 0.46), "yaw": 18.0},
+	{"model": "coffee_mug", "pos": Vector3(18, 0, 13), "size": Vector3(4.5, 4.5, 4), "shape": "cyl", "color": Color(0.9, 0.42, 0.3), "yaw": -30.0},
+	{"model": "toaster", "pos": Vector3(26, 0, -4.6), "size": Vector3(8, 6, 5), "shape": "box", "color": Color(0.62, 0.82, 0.78), "yaw": -8.0},
+	{"model": "fruit_bowl", "pos": Vector3(24.6, 0, 3.0), "size": Vector3(9, 4.5, 9), "shape": "cyl", "color": Color(0.93, 0.9, 0.84)},
+	{"model": "spice_jar_a", "pos": Vector3(21.8, 0, -16.6), "size": Vector3(2, 3, 2), "shape": "cyl", "color": Color(0.78, 0.3, 0.16)},
+	{"model": "spice_jar_b", "pos": Vector3(23.9, 0, -16.9), "size": Vector3(2, 3, 2), "shape": "cyl", "color": Color(0.9, 0.7, 0.2)},
+	{"model": "spice_jar_c", "pos": Vector3(28.9, 0, -16.4), "size": Vector3(2, 3, 2), "shape": "cyl", "color": Color(0.4, 0.55, 0.28)},
 ]
 
 const SPAWN_POINTS := [Vector3(-2, 0, 1), Vector3(2, 0, 1), Vector3(-2, 0, -3), Vector3(2, 0, -3)]
