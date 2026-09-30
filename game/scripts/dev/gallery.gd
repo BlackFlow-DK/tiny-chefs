@@ -3,6 +3,7 @@ extends Node3D
 ## Env vars (the screenshot tool cannot pass extra args):
 ##   GALLERY_PAGE  1 ingredients, 2 stations, 3 dispensers, 4 scenery, 5 characters,
 ##                 6 scenery: appliances and books, 7 scenery: small items, 8 scale scene (default 1)
+##                 9 truck props, 10 truck menu board + string lights, 11 picnic props, 12/13 scale scenes with the chef (truck / picnic)
 ##   GALLERY_VIEW  "top" (steep, like the game camera), "angle" (default "top"),
 ##                 "close" (low, near, for detail review) or "game" (45 deg down, 25 m away)
 ##   GALLERY_MODELS comma separated model names: show just those in one row (detail review)
@@ -27,6 +28,16 @@ const PAGES: Dictionary = {
 		"coffee_mug", "oil_bottle", "dish_sponge", "spice_jar_a", "spice_jar_b", "spice_jar_c"]},
 	8: {"cols": 3, "names": [
 		"chef", "toaster", "coffee_mug", "spice_jar_a", "salt_shaker", "oil_bottle"]},
+	9: {"cols": 5, "names": [
+		"truck_napkin_dispenser", "truck_sauce_bottles", "truck_order_bell_sign", "truck_tip_jar", "truck_cash_register"]},
+	10: {"cols": 1, "names": ["truck_menu_board", "truck_string_lights"]},
+	11: {"cols": 4, "names": [
+		"picnic_basket", "lemonade_jug", "watermelon_slice", "daisy_flower",
+		"paper_plates_stack", "ant", "bee", "leaf"]},
+	12: {"cols": 4, "names": [
+		"chef", "truck_cash_register", "truck_napkin_dispenser", "truck_sauce_bottles", "truck_tip_jar", "truck_order_bell_sign"]},
+	13: {"cols": 4, "names": [
+		"chef", "picnic_basket", "lemonade_jug", "watermelon_slice", "daisy_flower", "paper_plates_stack", "ant", "bee"]},
 }
 
 var _page: int = 1
@@ -64,7 +75,7 @@ func _ready() -> void:
 				box.get_center().x, box.get_center().z])
 	cell *= 1.22
 	var cell_z: float = cell * (1.0 if _view == "top" else 1.45)
-	if _page == 8:
+	if _page == 8 or _page >= 12:
 		cell_z = cell * 1.1
 	var width: float = cell * cols
 	var depth: float = cell_z * rows
