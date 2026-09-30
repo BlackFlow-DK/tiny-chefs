@@ -115,19 +115,3 @@ static func collider(shape: String, size: Vector3) -> CollisionShape3D:
 	cs.position = Vector3(0, size.y * 0.5, 0)
 	return cs
 
-
-## Floating billboard label.
-static func label(text: String, height: float, color := Color.WHITE, font_size := 48) -> Label3D:
-	var l := Label3D.new()
-	l.text = text
-	l.position = Vector3(0, height, 0)
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.pixel_size = 0.018
-	l.font_size = font_size
-	l.outline_size = 14
-	l.modulate = color
-	l.outline_modulate = Color(0, 0, 0, 0.85)
-	l.no_depth_test = true
-	l.render_priority = 5
-	l.outline_render_priority = 4
-	return l

@@ -468,25 +468,6 @@ func _show_banner(s: ShiftManager) -> void:
 
 # ================================================================ world-space bars
 
+## Cook/chop bars now live in IndicatorLayer (world/indicators/), projected under the HUD.
 func _draw_overlay() -> void:
-	if world == null or not is_instance_valid(world) or world.camera == null:
-		return
-	var cam := world.camera
-	for it in world.items.values():
-		if it.bar_kind == Item.Bar.NONE or not is_instance_valid(it):
-			continue
-		var wp: Vector3 = it.global_position + Vector3(0, it.size.y + 1.2, 0)
-		if cam.is_position_behind(wp):
-			continue
-		var sp := cam.unproject_position(wp)
-		var w := 70.0
-		var rect := Rect2(sp - Vector2(w * 0.5, 7), Vector2(w, 14))
-		_overlay.draw_style_box(UITheme.box(UITheme.INK, UITheme.INK, 7, 0, 3), rect.grow(3))
-		var c := UITheme.LETTUCE
-		if it.bar_kind == Item.Bar.BURN:
-			c = UITheme.MUSTARD.lerp(UITheme.TOMATO, clampf(it.bar, 0.0, 1.0))
-		elif it.bar_kind == Item.Bar.CHOP:
-			c = UITheme.SKY
-		var fw := w * clampf(it.bar, 0.0, 1.0)
-		if fw > 1.0:
-			_overlay.draw_style_box(UITheme.box(c, c, 7, 0), Rect2(rect.position, Vector2(maxf(fw, 10.0), 14)))
+	pass

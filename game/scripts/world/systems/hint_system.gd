@@ -1,48 +1,37 @@
 class_name HintSystem
 extends RefCounted
-## Owns the local interaction feedback: grab/work target rings and world.hint_text (shown by the HUD);
-## writes world.grab_target / world.work_target. Every peer, from replicated state only.
+## Owns the local interaction feedback: the highlight outline on the grab/work target and world.hint_text
+## (shown by the HUD, now only for carrying states and punch: the target prompts are key chips floating
+## over the target, drawn by IndicatorLayer); writes world.grab_target / world.work_target.
+## Every peer, from replicated state only.
 ## Reads world.my_chef(), world.items, world.bell/dispensers/board, world.shift. Calls world.grab_candidate.
 
 var world: World
-var _grab_ring: MeshInstance3D
-var _work_ring: MeshInstance3D
+var _grab_ring: HighlightRing
+var _work_ring: HighlightRing
+var _layer: IndicatorLayer
+var _t := 0.0
 
 
 func _init(w: World) -> void:
 	world = w
-	_grab_ring = _make_ring(Color(1.0, 0.88, 0.2))
-	_work_ring = _make_ring(Color(0.3, 0.9, 1.0))
-
-
-func _make_ring(color: Color) -> MeshInstance3D:
-	var t := TorusMesh.new()
-	t.inner_radius = 0.9
-	t.outer_radius = 1.0
-	t.rings = 48
-	t.ring_segments = 6
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = color
-	m.no_depth_test = true
-	m.render_priority = 3
-	var mi := MeshInstance3D.new()
-	mi.mesh = t
-	mi.material_override = m
-	mi.visible = false
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	world.add_child(mi)
-	return mi
+	_grab_ring = HighlightRing.new()
+	_work_ring = HighlightRing.new()
+	world.add_child(_grab_ring)
+	world.add_child(_work_ring)
+	_layer = IndicatorLayer.new(w)
+	world.add_child(_layer)
 
 
 func update() -> void:
 	world.grab_target = null
 	world.work_target = null
 	world.hint_text = ""
+	_t += world.get_process_delta_time()
 	var me := world.my_chef()
 	if me == null or Net.phase != Net.Phase.PLAYING or (me.flags & Chef.FLAG_RESPAWNING) != 0:
-		_grab_ring.visible = false
-		_work_ring.visible = false
+		_grab_ring.hide_ring()
+		_work_ring.hide_ring()
 		return
 	var grab_target: Item = null
 	var work_target: Station = null
@@ -58,9 +47,6 @@ func update() -> void:
 		parts.append(t)
 	else:
 		grab_target = world.grab_candidate(me, world.local_input)  # the exact item a grab press takes
-		if grab_target != null:
-			var w := grab_target.weight()
-			parts.append("E: grab %s%s" % [grab_target.label_text(), (" (%d chefs for full speed)" % w) if w > 1 else ""])
 		if bell.footprint_distance(p) <= Tuning.REACH:
 			work_target = bell
 		else:
@@ -69,20 +55,30 @@ func update() -> void:
 					work_target = s
 			if work_target == null and board.has_tomato and board.footprint_distance(p) <= Tuning.REACH + 0.3:
 				work_target = board
-		if work_target != null:
-			parts.append(work_target.work_hint())
 	if world.shift.has_upgrade("gloves"):
 		parts.append("Q: punch")
 	world.grab_target = grab_target
 	world.work_target = work_target
 	world.hint_text = "     ".join(parts)
-	_grab_ring.visible = grab_target != null
+	var color: Color = GameData.PLAYER_COLORS[me.slot % GameData.PLAYER_COLORS.size()]
 	if grab_target != null:
-		var r := grab_target.radius() + 0.4
-		_grab_ring.global_position = grab_target.global_position + Vector3(0, 0.1, 0)
-		_grab_ring.scale = Vector3(r, 1, r)
-	_work_ring.visible = work_target != null
+		var shape := str(grab_target.def["shape"])
+		var m := 0.3
+		var yaw := grab_target.global_transform.basis.get_euler().y
+		if shape == "box" or shape == "capsule_x":
+			var hx := grab_target.size.x * 0.5 + m
+			var hz := grab_target.size.z * 0.5 + m
+			_grab_ring.show_at(grab_target.global_position, hx, hz, yaw, minf(0.7, minf(hx, hz)), color, _t)
+		else:
+			var r := grab_target.radius() + m
+			_grab_ring.show_at(grab_target.global_position, r, r, 0.0, r, color, _t)
+	else:
+		_grab_ring.hide_ring()
 	if work_target != null:
-		var r2 := maxf(work_target.half.x, work_target.half.y) + 0.5
-		_work_ring.global_position = work_target.global_position + Vector3(0, 0.12, 0)
-		_work_ring.scale = Vector3(r2, 1, r2)
+		var m2 := 0.35
+		var hx2 := work_target.half.x + m2
+		var hz2 := work_target.half.y + m2
+		var y := 0.05 if work_target.size.y < 1.0 else 0.0
+		_work_ring.show_at(work_target.global_position + Vector3(0, y, 0), hx2, hz2, 0.0, 0.8, color, _t)
+	else:
+		_work_ring.hide_ring()

@@ -8,7 +8,7 @@ var type := ""
 var size := Vector3.ONE
 var half := Vector2.ONE
 var world: Node = null
-var label: Label3D
+var marker_text := ""    # the floating name marker is drawn by IndicatorLayer from def["label"]
 
 
 func setup(d: Dictionary, w: Node) -> void:
@@ -46,10 +46,9 @@ func add_solid_collider(sz: Vector3) -> void:
 	add_child(sb)
 
 
-func add_label(text: String, pos: Vector3) -> void:
-	label = Models.label(text, 0.0, Color(1, 0.97, 0.85), 44)
-	label.position = pos
-	add_child(label)
+## Kept for the station subclasses; the old giant Label3D is gone (IndicatorLayer draws a small pill).
+func add_label(text: String, _pos: Vector3) -> void:
+	marker_text = text
 
 
 func contains_xz(p: Vector3, margin := 0.0) -> bool:

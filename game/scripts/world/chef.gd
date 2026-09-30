@@ -44,7 +44,6 @@ var _visual: Node3D
 var _hands: Array[Node3D] = []
 var _hand_rest: Array[Vector3] = []
 var _gloves: Array[Node3D] = []
-var _label: Label3D
 var _last_pos := Vector3.ZERO
 var _anim_t := 0.0
 var _speed01 := 0.0
@@ -77,21 +76,10 @@ func setup(id: int, player_slot: int, pname: String, is_puppet: bool, local: boo
 	_anim_root = Node3D.new()
 	add_child(_anim_root)
 	var color: Color = GameData.PLAYER_COLORS[slot % GameData.PLAYER_COLORS.size()]
-	# Player-colour disc on the counter so you can spot your chef in the chaos.
-	var disc := CylinderMesh.new()
-	disc.top_radius = 0.8
-	disc.bottom_radius = 0.8
-	disc.height = 0.02
-	var dm := StandardMaterial3D.new()
-	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	dm.albedo_color = Color(color, 0.55)
-	var dmi := MeshInstance3D.new()
-	dmi.mesh = disc
-	dmi.material_override = dm
-	dmi.position = Vector3(0, 0.05, 0)
-	dmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(dmi)
+	# Thin player-colour ring on the counter with a facing chevron (own chef's ring is brighter).
+	var ring := GroundRing.new()
+	add_child(ring)
+	ring.setup(color, local)
 	_visual = Models.load_model("chef")
 	if _visual == null:
 		_visual = _primitive_chef(color)
@@ -120,15 +108,11 @@ func setup(id: int, player_slot: int, pname: String, is_puppet: bool, local: boo
 			g.visible = false
 			h.add_child(g)
 			_gloves.append(g)
-	if not local:
-		_label = Models.label(pname, 2.3, color.lightened(0.35), 40)
-		add_child(_label)
 
 
+## The name tag is drawn by IndicatorLayer (reads player_name every frame).
 func set_player_name(pname: String) -> void:
 	player_name = pname
-	if _label != null:
-		_label.text = pname
 
 
 func set_gloves(on: bool) -> void:
