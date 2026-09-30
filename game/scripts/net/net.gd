@@ -6,11 +6,19 @@ extends Node
 ##
 ## User args (after "--"): --host --join=<ip> --name=<x> --autostart --players=<n> --bot
 ##   --bind=<ip> --port=<n> --shift-seconds=<s> --test-report=<json path> --quit-after=<s> --quit-after-shift
+##   Game settings (host): --mode=campaign|endless|custom --map=<id> --difficulty=easy|normal|hard|chaos
+##   --modifiers=a,b --mission=<n>
+##
+## Game settings: `settings` (GameSettings) is owned by the host and mirrored read-only on clients.
+## Change it with change_setting(key, value) or set_settings(s) (host or offline menu only, MENU/LOBBY
+## phase only; clients are ignored). Every change goes to all clients via the _sync_settings RPC, late
+## joiners get it on join, and settings_changed fires on every peer.
 
 signal players_changed
 signal phase_changed(phase: int)
 signal session_ended(reason: String)
 signal event_received(text: String, sfx: String)
+signal settings_changed
 
 enum Phase { MENU, LOBBY, PLAYING, RESULTS, SHOP }
 
@@ -23,6 +31,7 @@ var join_ip := ""
 var args: Dictionary = {}
 var metrics: Dictionary = {}
 var world: Node = null  # the World sets itself here while it exists
+var settings := GameSettings.new()  # host-owned game settings; a read-only copy on clients
 
 var _ready_peers: Dictionary = {}
 var _test_report := ""
@@ -32,6 +41,7 @@ var _finished := false
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_parse_args()
+	settings = _settings_from_args()
 	Controls.setup()
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -85,6 +95,20 @@ func port() -> int:
 	return arg_int("port", Tuning.PORT)
 
 
+## Defaults overridden by --mode= --map= --difficulty= --modifiers=a,b --mission=<n>, validated.
+func _settings_from_args() -> GameSettings:
+	var s := GameSettings.new()
+	s.mode = arg_str("mode", s.mode)
+	s.map = arg_str("map", s.map)
+	s.difficulty = arg_str("difficulty", s.difficulty)
+	if has_arg("modifiers"):
+		s.modifiers.assign(Array(arg_str("modifiers", "").split(",", false)))
+	s.mission = arg_int("mission", s.mission)
+	for f in s.validate():
+		print("net: settings arg fixed: %s" % f)
+	return s
+
+
 # ---------------------------------------------------------------- session
 
 func host(pname: String) -> Error:
@@ -102,6 +126,7 @@ func host(pname: String) -> Error:
 	metrics["role"] = "host"
 	metrics["connected"] = true
 	print("net: hosting on UDP %d" % port())
+	print("net: settings %s" % settings.describe())
 	set_phase(Phase.LOBBY, {})
 	players_changed.emit()
 	return OK
@@ -124,12 +149,17 @@ func join(ip: String, pname: String) -> Error:
 
 ## Close the session and go back to the menu.
 func leave(emit := true) -> void:
+	var was_client := not is_host and multiplayer.multiplayer_peer is ENetMultiplayerPeer
 	if multiplayer.multiplayer_peer != null and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	players.clear()
 	_ready_peers.clear()
 	is_host = false
+	if was_client:
+		# Drop the last host's settings; our own (args/defaults) apply if we host next.
+		settings = _settings_from_args()
+		settings_changed.emit()
 	if emit:
 		_apply_phase(Phase.MENU, {})
 		players_changed.emit()
@@ -238,9 +268,9 @@ func _register(pname: String) -> void:
 	players[id] = {"name": clean_name(pname), "slot": _free_slot()}
 	print("net: %s joined as peer %d" % [players[id]["name"], id])
 	_sync_players.rpc(players)
+	_sync_settings.rpc_id(id, settings.to_dict())  # before the phase, so a World built on join sees them
 	_sync_phase.rpc_id(id, phase, phase_info)
 	players_changed.emit()
-
 
 @rpc("authority", "call_remote", "reliable")
 func _rejected(msg: String) -> void:
@@ -276,6 +306,55 @@ func _apply_phase(ph: int, info: Dictionary) -> void:
 	if ph <= Phase.LOBBY:
 		_ready_peers.clear()
 	phase_changed.emit(ph)
+
+
+# ---------------------------------------------------------------- game settings
+
+## True on the host, and offline in the menu (before hosting). False on a client.
+func can_edit_settings() -> bool:
+	return is_host or not (multiplayer.multiplayer_peer is ENetMultiplayerPeer)
+
+
+## Host: replace the settings (a validated copy of s) and send them to every client.
+## Ignored on clients and once a run has started (phase past LOBBY).
+func set_settings(s: GameSettings) -> void:
+	if not can_edit_settings() or s == null:
+		return
+	if phase > Phase.LOBBY:
+		print("net: settings change ignored during a run")
+		return
+	var n := s.copy()
+	for f in n.validate():
+		print("net: settings fixed: %s" % f)
+	if n.equals(settings):
+		return
+	settings = n
+	print("net: settings %s" % settings.describe())
+	if is_host:
+		_sync_settings.rpc(settings.to_dict())
+	settings_changed.emit()
+
+
+## Host: change one field, e.g. change_setting("difficulty", "hard"), change_setting("modifiers", ["slippery"]).
+## key is a GameSettings.to_dict() key; unknown keys are ignored.
+func change_setting(key: String, value: Variant) -> void:
+	var d := settings.to_dict()
+	if not d.has(key):
+		print("net: unknown setting %s" % key)
+		return
+	d[key] = value
+	set_settings(GameSettings.from_dict(d))
+
+
+@rpc("authority", "call_remote", "reliable")
+func _sync_settings(d: Dictionary) -> void:
+	if is_host:
+		return
+	var s := GameSettings.from_dict(d)
+	s.validate()
+	settings = s
+	print("net: settings from host %s" % settings.describe())
+	settings_changed.emit()
 
 
 ## Client: my World exists, start sending me snapshots.

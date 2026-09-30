@@ -5,6 +5,7 @@
 # than a solo patty carry, both processes exited 0 on their own, and no ERROR lines were printed.
 # -Solo: host only; passes if the bot serves a Cheeseburger alone.
 # Usage: tools/test-multiplayer.ps1 [-ShiftSeconds 100] [-TimeoutSec 220] [-Solo] [-Windowed] [-ShotDir build\screenshots] [-ShotAt 45] [-BotLog] [-Port 7777]
+#   [-HostExtra "--difficulty=hard --modifiers=heavy_hands"] [-ClientExtra "..."]  (extra user args, space-separated)
 # Logs (and bot decisions with -BotLog) land in build\test-mp\ (build\test-mp-<port>\ when -Port is not 7777).
 param(
     [int]$ShiftSeconds = 100,
@@ -14,7 +15,9 @@ param(
     [string]$ShotDir = '',
     [double]$ShotAt = 45,
     [switch]$BotLog,
-    [int]$Port = 7777
+    [int]$Port = 7777,
+    [string]$HostExtra = '',
+    [string]$ClientExtra = ''
 )
 . "$PSScriptRoot\_common.ps1"
 
@@ -55,12 +58,14 @@ if ($Solo) { $players = 1 }
 $hostArgs = @('--host', '--name=HostBot', '--bot', '--autostart', "--players=$players", "--shift-seconds=$ShiftSeconds",
     '--bind=127.0.0.1', "--port=$Port", '--quit-after-shift', "--test-report=$(Join-Path $work 'host.json')", "--quit-after=$quitAfter")
 if ($ShotDir -ne '') { $hostArgs += "--shot=$ShotAt@$(Join-Path $ShotDir 'host-midshift.png')" }
+$hostArgs += @($HostExtra -split '\s+' | Where-Object { $_ -ne '' })
 $procs = [ordered]@{}
 $procs['host'] = Start-Godot -Tag 'host' -UserArgs $hostArgs -Pos '0,0'
 if (-not $Solo) {
     Start-Sleep -Milliseconds 1500
     $clientArgs = @('--join=127.0.0.1', "--port=$Port", '--name=ClientBot', '--bot', "--test-report=$(Join-Path $work 'client.json')", "--quit-after=$($quitAfter + 5)")
     if ($ShotDir -ne '') { $clientArgs += "--shot=$($ShotAt + 0.5)@$(Join-Path $ShotDir 'client-midshift.png')" }
+    $clientArgs += @($ClientExtra -split '\s+' | Where-Object { $_ -ne '' })
     $procs['client'] = Start-Godot -Tag 'client' -UserArgs $clientArgs -Pos '640,60'
 }
 

@@ -51,6 +51,7 @@ func _ready() -> void:
 	is_host = Net.is_host
 	my_id = Net.my_id()
 	Net.world = self
+	# TODO(settings): map_id_for_session() should return ShiftPlan.map_for(Net.settings, shift.next_index).
 	Kitchen.build(self)
 	_build_stations()
 	_roster_sys = RosterSystem.new(self)
