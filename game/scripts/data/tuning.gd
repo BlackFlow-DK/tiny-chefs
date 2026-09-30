@@ -15,6 +15,12 @@ const KNOCK_DECAY := 18.0          # m/s^2 a punch shove decays at
 const CARRY_MIN_FACTOR := 0.25
 const CARRY_LIFT := 0.35           # carried food floats this far off the counter
 const PUSH_SPEED := 2.4            # m/s a weight-1 loose item is shoved at by walking into it (divided by weight)
+const CARRY_TURN_RATE := 9.0       # rad/s a lone carrier swings the held item round, divided by its weight
+const CARRY_FACE_RATE := 18.0      # rad/s the chef's body turns to the held item (grab, group carry)
+const CARRY_HOLD_GAP := 0.15       # m between the chef's body and the edge of the item held in front
+const CARRY_HOLD_EASE := 10.0      # 1/s the item eases into the held spot after a grab
+const GRAB_AIM_RADIUS := 1.5       # m: an item in reach this close to the cursor is the one grabbed
+const GRAB_FRONT_BIAS := 0.8       # m: an item right behind the chef must be this much nearer to win
 
 # Stations
 const DISPENSE_HOLD := 0.5         # s of holding work at a dispenser per item

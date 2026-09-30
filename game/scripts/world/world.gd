@@ -220,9 +220,9 @@ func note_orders_changed() -> void:
 	_shift_sys.sync_order_count()
 
 
-## Every peer: the food a chef at p would grab.
-func grab_candidate(p: Vector3) -> Item:
-	return _carry_sys.grab_candidate(p)
+## Every peer: the food chef c would grab with input inp (aim first; see CarrySystem.grab_candidate).
+func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
+	return _carry_sys.grab_candidate(c, inp)
 
 
 func release(c: Chef, sound := false) -> void:

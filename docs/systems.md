@@ -14,7 +14,7 @@ plate cooldowns -> every `Station.host_update` -> bounds falls -> shift. Snapsho
 | System | Owns | Public API | May edit |
 |---|---|---|---|
 | World (`world/world.gd`) | shared state (chefs, items, inputs, stations, shift, orders, camera, hint_text), system creation, tick order, item spawn/remove, toast cooldown | Net targets above; `start_shift, input_of, grab_candidate, release, detach_all, spawn_item, remove_item, dispense, change_kind, chop, refuse_from_plate, toast, note_orders_changed, my_chef` | tick order / new world-level forwarders only (coordinate) |
-| Carry (`systems/carry_system.gd`) | grab/release, carrier offsets, averaged-input carry movement, speed by weight, patty speed metrics | `grab_candidate, on_grab_pressed, release, detach_all, forget_item, move_carried` | it, `world/item.gd` carry section |
+| Carry (`systems/carry_system.gd`) | grab/release and which item a grab takes (cursor first, then nearest in front), solo carry (item held in front, swings with the chef at `CARRY_TURN_RATE`/weight), group carry (averaged inputs, carriers face the item), item + carriers swept as one unit against scenery/chefs, carrier off the edge lets go, speed by weight, patty speed metrics; `--carry-log`, `--carry-spawn` | `grab_candidate(chef, input), on_grab_pressed, release, detach_all, forget_item, move_carried` | it, `world/item.gd` carry section, `world/chef.gd` hold_* vars + carry visuals |
 | Punch (`systems/punch_system.gd`) | gloves gate, cooldown, target pick, launch food / shove chef | `on_punch_pressed` | it |
 | Bounds (`systems/bounds_system.gd`) | carried food over the counter edge is let go; fallen food removed | `drop_over_edge, remove_fallen` | it (chef fall/respawn: `world/chef.gd host_move/respawn`) |
 | Dispenser (`systems/dispenser_system.gd` + `world/stations/dispenser.gd`) | hold timer (station), loose-food cap and batch spawn (system) | `dispense`; `Dispenser.output_spots, stand_spot` | both |
@@ -29,8 +29,8 @@ plate cooldowns -> every `Station.host_update` -> bounds falls -> shift. Snapsho
 | Camera (`systems/camera_system.gd`) | creates and follows `world.camera` | `update` | it |
 | Hint (`systems/hint_system.gd`) | grab/work rings, `hint_text`, `grab_target/work_target` | `update` | it |
 | Station base (`world/stations/station.gd`) | setup, footprint helpers, `workers()`, state hooks | `contains_xz, footprint_distance, centre_distance, workers, host_update, state, apply_state, work_hint` | shared: coordinate |
-| Chef (`world/chef.gd`) | chef body, walk, fall/respawn, puppet easing, animation | `setup, host_move, face, aim_at, respawn, host_flags, set_target, set_gloves, set_player_name` (not carrying + `has_aim`: `host_move` turns to `aim_point` at 14 rad/s, else faces movement) | it |
-| Item (`world/item.gd`) | food body, kind, carry attach/detach, puppet easing, bars | `setup, set_kind, weight, attach, detach, carry_step, set_target, set_cooking` | it |
+| Chef (`world/chef.gd`) | chef body, walk, fall/respawn, puppet easing, animation | `setup, host_move, face, aim_at, respawn, host_flags, set_target, set_gloves, set_player_name` (not carrying + `has_aim`: `host_move` turns to `aim_point` at 14 rad/s, else faces movement; while carrying CarrySystem turns it) | it |
+| Item (`world/item.gd`) | food body, kind, carry attach/detach, puppet easing, bars | `setup, set_kind, weight, attach, detach, set_target, set_cooking` | it |
 | Kitchen / Models (`world/kitchen.gd`, `world/models.gd`) | static scenery; .glb-or-primitive factory | `Kitchen.build`; `Models.make, load_model, mesh_node, label` | them |
 
 ## Everything else

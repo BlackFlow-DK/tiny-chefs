@@ -135,7 +135,8 @@ func attach(c: Node) -> void:
 	if carriers.is_empty():
 		freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 		freeze = true
-		collision_mask = Tuning.LAYER_WORLD
+		# Swept against scenery and other chefs by CarrySystem (its carriers are excluded there).
+		collision_mask = Tuning.LAYER_WORLD | Tuning.LAYER_PLAYERS
 		var yaw := global_transform.basis.get_euler().y
 		var p := global_position
 		p.y = Tuning.CARRY_LIFT
@@ -157,19 +158,6 @@ func _unfreeze() -> void:
 	collision_mask = Tuning.LAYER_WORLD | Tuning.LAYER_ITEMS | Tuning.LAYER_PLAYERS
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
-
-
-## Kinematic move while carried; slides along scenery.
-func carry_step(motion: Vector3) -> void:
-	if motion.length_squared() > 0.0:
-		var col := move_and_collide(motion)
-		if col != null:
-			var rem := col.get_remainder().slide(col.get_normal())
-			rem.y = 0.0
-			move_and_collide(rem)
-	var p := global_position
-	p.y = Tuning.CARRY_LIFT
-	global_position = p
 
 
 # ---------------------------------------------------------------- client puppet

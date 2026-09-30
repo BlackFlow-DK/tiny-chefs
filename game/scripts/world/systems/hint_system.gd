@@ -57,7 +57,7 @@ func update() -> void:
 			t += "   (heavy: %d/%d chefs for full speed)" % [held.carrier_count, held.weight()]
 		parts.append(t)
 	else:
-		grab_target = world.grab_candidate(p)
+		grab_target = world.grab_candidate(me, world.local_input)  # the exact item a grab press takes
 		if grab_target != null:
 			var w := grab_target.weight()
 			parts.append("E: grab %s%s" % [grab_target.label_text(), (" (%d chefs for full speed)" % w) if w > 1 else ""])

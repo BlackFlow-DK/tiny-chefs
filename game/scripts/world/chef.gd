@@ -9,6 +9,7 @@ const FLAG_PUNCHING := 2
 const FLAG_RESPAWNING := 4
 const AIM_TURN_RATE := 14.0   # rad/s, turning to face PlayerInput.aim_point
 const AIM_MIN_DIST := 0.4     # cursor on the chef itself: keep the current facing
+const RADIUS := 0.4           # body capsule radius
 
 var peer_id := 0
 var slot := 0
@@ -17,7 +18,12 @@ var puppet := false
 var is_local := false
 var holding: Item = null      # host
 var held_id := -1             # host + replicated
-var hold_offset := Vector3.ZERO
+# Solo carry (host, CarrySystem): the item is held out along hold_yaw, hold_dist from the chef's centre
+# (easing to hold_goal after a grab), turned hold_rel_yaw relative to that direction.
+var hold_yaw := 0.0
+var hold_dist := 0.0
+var hold_goal := 0.0
+var hold_rel_yaw := 0.0
 var facing := Vector3(0, 0, 1)
 var walk_vel := Vector3.ZERO
 var knock := Vector3.ZERO
@@ -63,7 +69,7 @@ func setup(id: int, player_slot: int, pname: String, is_puppet: bool, local: boo
 	floor_snap_length = 0.3
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
-	cap.radius = 0.4
+	cap.radius = RADIUS
 	cap.height = 1.4
 	cs.shape = cap
 	cs.position = Vector3(0, 0.7, 0)
@@ -308,19 +314,44 @@ func _animate(delta: float) -> void:
 	_last_pos = p
 	var spd := hv.length() / maxf(delta, 0.0001)
 	_speed01 = lerpf(_speed01, clampf(spd / Tuning.PLAYER_SPEED, 0.0, 1.0), 1.0 - exp(-10.0 * delta))
-	_anim_t += delta * (5.0 + 11.0 * _speed01)
-	_anim_root.position.y = absf(sin(_anim_t)) * 0.16 * _speed01
-	_anim_root.rotation.x = 0.22 * _speed01
-	_anim_root.rotation.z = sin(_anim_t) * 0.07 * _speed01
+	var held := _held_item()
+	# Carrying: heavier food = slower, smaller bob; short-handed on heavy food = lean back and pull.
+	var heavy := 1.0
+	var lean := 0.22 * _speed01
+	if held != null:
+		heavy = 1.0 + 0.35 * float(held.weight() - 1)
+		var short := clampf(float(held.weight() - held.carrier_count) / 2.0, 0.0, 1.0)
+		lean = -(0.05 + 0.13 * short) * (0.5 + 0.5 * _speed01) if held.weight() > 1 else 0.05 * _speed01
+	_anim_t += delta * (5.0 + 11.0 * _speed01) / heavy
+	_anim_root.position.y = absf(sin(_anim_t)) * 0.16 * _speed01 / heavy
+	_anim_root.rotation.x = lerpf(_anim_root.rotation.x, lean, 1.0 - exp(-8.0 * delta))
+	_anim_root.rotation.z = sin(_anim_t) * 0.07 * _speed01 / heavy
+	var carry_off := Vector3(0, 0.3, 0.3)
+	if held != null:
+		# Hands reach forward to the near edge of the held food, at its middle height.
+		var reach := clampf(held.footprint_distance(global_position) - 0.1, 0.2, 0.7)
+		var up := clampf(held.global_position.y + held.size.y * 0.5 - global_position.y - 0.45, 0.0, 0.5)
+		carry_off = Vector3(0, up, reach)
 	var carrying := held_id >= 0
 	var working := (flags & FLAG_WORKING) != 0
 	var punching := (flags & FLAG_PUNCHING) != 0
 	for i in _hands.size():
 		var off := Vector3.ZERO
 		if carrying:
-			off = Vector3(0, 0.3, 0.3)
+			off = carry_off
 		elif working:
 			off = Vector3(0, 0.15 + sin(Time.get_ticks_msec() * 0.03 + i * PI) * 0.18, 0.3)
 		if punching and i == 1:
 			off = Vector3(0.2, 0.25, 0.75)
 		_hands[i].position = _hands[i].position.lerp(_hand_rest[i] + off, minf(1.0, 20.0 * delta))
+
+
+## The food this chef holds, on any peer (held_id is replicated; items live in the World).
+func _held_item() -> Item:
+	if held_id < 0:
+		return null
+	var w := get_parent() as World
+	if w == null:
+		return null
+	var it: Item = w.items.get(held_id)
+	return it if it != null and is_instance_valid(it) and not it.removed else null

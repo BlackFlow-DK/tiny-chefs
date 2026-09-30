@@ -258,7 +258,7 @@ func _do_fetch(me: Chef, inp: PlayerInput, dt: float) -> void:
 		_job = {}
 		return
 	if it.footprint_distance(me.global_position) <= Tuning.REACH - 0.2:
-		if world.grab_candidate(me.global_position) == it:
+		if world.grab_candidate(me, inp) == it:
 			_press_grab(inp)
 			return
 		# Something else is nearer: squeeze in towards our food.
