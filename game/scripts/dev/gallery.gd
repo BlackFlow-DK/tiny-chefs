@@ -1,8 +1,11 @@
 extends Node3D
 ## Dev gallery: lays out every generated model in a labelled grid for visual review.
 ## Env vars (the screenshot tool cannot pass extra args):
-##   GALLERY_PAGE  1 ingredients, 2 stations, 3 dispensers, 4 scenery, 5 characters (default 1)
-##   GALLERY_VIEW  "top" (steep, like the game camera) or "angle" (default "top")
+##   GALLERY_PAGE  1 ingredients, 2 stations, 3 dispensers, 4 scenery, 5 characters,
+##                 6 scenery: appliances and books, 7 scenery: small items, 8 scale scene (default 1)
+##   GALLERY_VIEW  "top" (steep, like the game camera), "angle" (default "top"),
+##                 "close" (low, near, for detail review) or "game" (45 deg down, 25 m away)
+##   GALLERY_MODELS comma separated model names: show just those in one row (detail review)
 ##   GALLERY_PRINT 1 = print every model's AABB size and lowest y (use with --headless --quit-after)
 
 const PAGES: Dictionary = {
@@ -18,6 +21,12 @@ const PAGES: Dictionary = {
 	4: {"cols": 5, "names": [
 		"salt_shaker", "pepper_shaker", "ketchup_bottle", "utensil_pot", "sink_tap"]},
 	5: {"cols": 2, "names": ["chef", "boxing_glove"]},
+	6: {"cols": 3, "names": [
+		"toaster", "kettle", "fruit_bowl", "cookbook_stack", "paper_towel_roll", "rolling_pin"]},
+	7: {"cols": 4, "names": [
+		"coffee_mug", "oil_bottle", "dish_sponge", "spice_jar_a", "spice_jar_b", "spice_jar_c"]},
+	8: {"cols": 3, "names": [
+		"chef", "toaster", "coffee_mug", "spice_jar_a", "salt_shaker", "oil_bottle"]},
 }
 
 var _page: int = 1
@@ -31,6 +40,9 @@ func _ready() -> void:
 	var print_mode: bool = OS.get_environment("GALLERY_PRINT") == "1"
 	var names: Array = PAGES[_page]["names"]
 	var cols: int = PAGES[_page]["cols"]
+	if OS.get_environment("GALLERY_MODELS") != "":
+		names = Array(OS.get_environment("GALLERY_MODELS").split(","))
+		cols = names.size()
 	var rows: int = ceili(float(names.size()) / cols)
 
 	var nodes: Array[Node3D] = []
@@ -52,6 +64,8 @@ func _ready() -> void:
 				box.get_center().x, box.get_center().z])
 	cell *= 1.22
 	var cell_z: float = cell * (1.0 if _view == "top" else 1.45)
+	if _page == 8:
+		cell_z = cell * 1.1
 	var width: float = cell * cols
 	var depth: float = cell_z * rows
 
@@ -124,12 +138,21 @@ func _build_stage(width: float, depth: float, hmax: float) -> void:
 
 	var elev: float = deg_to_rad(66.0 if _view == "top" else 30.0)
 	var vfov: float = 40.0
+	if _view == "close":
+		elev = deg_to_rad(22.0)
+	elif _view == "game":
+		elev = deg_to_rad(45.0)
+		vfov = 50.0
 	var aspect: float = 16.0 / 9.0
 	var hfov: float = 2.0 * atan(tan(deg_to_rad(vfov) / 2.0) * aspect)
 	var need_h: float = (width * 0.5) / tan(hfov / 2.0)
 	var need_v: float = ((depth * sin(elev) + hmax * cos(elev)) * 0.5) / tan(deg_to_rad(vfov) / 2.0)
 	var dist: float = maxf(need_h * 1.2, need_v) * 1.0 + hmax * 0.4
-	var target := Vector3(0, hmax * 0.25, depth * 0.06)
+	if _view == "game":
+		dist = 25.0
+	elif _view == "close":
+		dist *= 0.95
+	var target := Vector3(0, hmax * (0.4 if _view == "close" else 0.25), depth * 0.06)
 	var cam := Camera3D.new()
 	cam.fov = vfov
 	cam.far = 2000.0
