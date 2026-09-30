@@ -3,11 +3,13 @@ extends Control
 ## One order ticket hanging from the HUD rail: pin, number tag, dish name, ingredient chips (with
 ## doubles badges and plate ticks), patience bar. Tilts 1-2 degrees, shakes under 25% patience.
 ## Positioned by HudOrderRail. Local to the HUD (the design system's UIOrderTicket has no chip state).
+## VIP (shift event): gold paper, thick gold frame, "VIP: <dish>", a gold star badge on the top-right corner.
 
 const W := 184.0
 const PIN := Vector2(W * 0.5, 2.0)
 
 var recipe := 0
+var vip := false
 var left := 0.0
 var patience := 1.0
 var tilt := 0.0        # resting rotation (radians)
@@ -21,10 +23,12 @@ var _flash: Panel
 var _flash_sb: StyleBoxFlat
 var _urgent: Tween
 var _urgent_state := false
+var _border := UITheme.INK
 
 
-func setup(recipe_idx: int, number_text: String, tilt_deg: float) -> void:
+func setup(recipe_idx: int, number_text: String, tilt_deg: float, is_vip := false) -> void:
 	recipe = recipe_idx
+	vip = is_vip
 	tilt = deg_to_rad(tilt_deg)
 	rotation = tilt
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -33,7 +37,8 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float) -> void:
 	_card = PanelContainer.new()
 	_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_card.custom_minimum_size = Vector2(W, 0)
-	_sb = UITheme.box(UITheme.CREAM, UITheme.INK, 12, 4, 5)
+	_border = UITheme.MUSTARD_DARK if vip else UITheme.INK
+	_sb = UITheme.box(Color("#FFE8A3") if vip else UITheme.CREAM, _border, 12, 6 if vip else 4, 5)
 	_sb.content_margin_left = 12
 	_sb.content_margin_right = 12
 	_sb.content_margin_top = 18
@@ -58,7 +63,7 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float) -> void:
 	tl.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
 	tag.add_child(tl)
 	head.add_child(tag)
-	var name_l := UIKit.heading(rec["name"])
+	var name_l := UIKit.heading(("VIP: %s" % rec["name"]) if vip else rec["name"])
 	name_l.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -101,11 +106,27 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float) -> void:
 		pin.draw_circle(PIN + Vector2(0, 3), 10.0, UITheme.INK)
 		pin.draw_circle(PIN, 9.0, UITheme.INK)
 		pin.draw_circle(PIN, 6.5, UITheme.TOMATO)
-		pin.draw_circle(PIN + Vector2(-2, -2), 2.2, UITheme.CREAM))
+		pin.draw_circle(PIN + Vector2(-2, -2), 2.2, UITheme.CREAM)
+		if vip:
+			_draw_star(pin, Vector2(W - 10, 6), 17.0))
 	add_child(pin)
 
 	_card.resized.connect(_on_card_resized)
 	_on_card_resized.call_deferred()
+
+
+## Gold VIP star with an ink outline and a highlight, centred on c.
+static func _draw_star(ci: CanvasItem, c: Vector2, r: float) -> void:
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	for i in 10:
+		var a := -PI * 0.5 + PI * i / 5.0
+		var rr := r if i % 2 == 0 else r * 0.46
+		outer.append(c + Vector2(cos(a), sin(a)) * (rr + 3.5))
+		inner.append(c + Vector2(cos(a), sin(a)) * rr)
+	ci.draw_colored_polygon(outer, UITheme.INK)
+	ci.draw_colored_polygon(inner, UITheme.MUSTARD)
+	ci.draw_circle(c + Vector2(-r * 0.2, -r * 0.25), r * 0.14, UITheme.CREAM)
 
 
 func _on_card_resized() -> void:
@@ -162,6 +183,6 @@ func _set_urgent(on: bool) -> void:
 		_urgent.parallel().tween_property(self, "rotation", tilt, 0.25)
 		_urgent.tween_interval(0.35)
 	else:
-		_sb.border_color = UITheme.INK
+		_sb.border_color = _border
 		scale = Vector2.ONE
 		rotation = tilt

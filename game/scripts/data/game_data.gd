@@ -131,7 +131,7 @@ const MAPS := {
 	"diner": {
 		"id": "diner", "name": "The Diner", "blurb": "The classic kitchen island: everything within a few steps.",
 		"theme": "diner", "surfaces": [Rect2(-30, -18, 60, 36)], "stations": STATIONS, "scenery": SCENERY,
-		"spawn_points": SPAWN_POINTS, "hazards": [], "decor": ["diner_clutter"],
+		"spawn_points": SPAWN_POINTS, "hazards": ["cat_paw"], "decor": ["diner_clutter"],
 	},
 	"test_islands": {
 		"id": "test_islands", "name": "Test Islands", "blurb": "Dev map: two islands and a plank.", "dev": true,

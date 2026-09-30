@@ -28,6 +28,14 @@ func _ready() -> void:
 	_make("crack", [[1400.0, 700.0, 0.03], [260.0, 140.0, 0.07]], "noise", 0.45)
 	_make("fry", [[2400.0, 1600.0, 0.55]], "noise", 0.16)
 	_make("fizz", [[3200.0, 2600.0, 0.12], [2600.0, 3400.0, 0.45]], "noise", 0.14)
+	# Shift events (EventSystem): "ev_*" arrive as Net.event sfx, the paw ones play locally.
+	_make("ev_vip", [[523.0, 523.0, 0.1], [659.0, 659.0, 0.1], [784.0, 784.0, 0.1], [1046.0, 1046.0, 0.3]], "sine", 0.35)
+	_make("ev_vip_paid", [[784.0, 784.0, 0.08], [988.0, 988.0, 0.08], [1175.0, 1175.0, 0.08], [1568.0, 1568.0, 0.45]], "sine", 0.4)
+	_make("ev_inspector", [[1800.0, 2400.0, 0.14], [2400.0, 1800.0, 0.14], [1800.0, 2500.0, 0.22]], "sine", 0.22)
+	_make("ev_inspected", [[220.0, 60.0, 0.2]], "noise", 0.6)
+	_make("ev_paw", [[380.0, 700.0, 0.12], [700.0, 820.0, 0.12], [820.0, 430.0, 0.4]], "square", 0.13)
+	_make("paw_whoosh", [[300.0, 900.0, 0.35]], "noise", 0.3)
+	_make("paw_swoosh", [[1100.0, 250.0, 0.6]], "noise", 0.4)
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		add_child(p)

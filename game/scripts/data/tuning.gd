@@ -48,6 +48,34 @@ const MIN_PATIENCE := 55.0
 const SCALE_ORDER_RATE_PER_PLAYER := 0.35  # each extra player: orders this much more often
 const SCALE_TARGET_PER_PLAYER := 0.5       # each extra player: target this much higher
 
+# Shift events (world/systems/event_system.gd, world/events/*.gd)
+const EVENT_QUIET_START := 30.0    # s: no event telegraph before this much of the shift has passed
+const EVENT_QUIET_END := 20.0      # s: every event's effect is over this long before the shift ends
+const EVENT_GAP := 15.0            # s: between one event's effect ending and the next telegraph
+const EVENT_FAST_START := 6.0      # s: --event-fast replaces EVENT_QUIET_START (testing)
+const VIP_PERIOD := 70.0           # s between VIPs (each event: its own cadence, +-15% jitter)
+const VIP_LEAD := 4.0              # s of telegraph before the gold ticket appears
+const VIP_PAY_MULT := 3.0          # price and bonus
+const VIP_PATIENCE_MULT := 0.6
+const VIP_EXPIRE_MULT := 2         # expiry penalty multiplier
+const INSPECTOR_PERIOD := 95.0
+const INSPECTOR_LEAD := 15.0       # s countdown banner
+const INSPECTOR_FINE := 25         # coins per burnt item on the counter
+const INSPECTOR_BONUS := 15        # coins for a clean kitchen
+const PAW_PERIOD := 55.0
+const PAW_LEAD := 4.0              # s shadow + meow before the paw lands
+const PAW_DESCEND := 0.7           # s
+const PAW_SWEEP := 2.0             # s across the counter
+const PAW_SWEEP_LEN := 28.0        # m it sweeps, centred on a chef (clamped to the counter)
+const PAW_LIFT := 0.9              # s
+const PAW_LANE_WIDTH := 8.0        # m strip the paw sweeps
+const PAW_REACH := 5.5             # m half-length of the paw along the sweep (hit zone)
+const PAW_HEIGHT := 28.0           # m above the counter it descends from / lifts to
+const PAW_ITEM_SPEED := 15.0       # m/s along the sweep for weight 1, divided by sqrt(weight)
+const PAW_ITEM_UP := 11.0
+const PAW_SHOVE_EXTRA := 1.5       # m past the lane edge a chef is shoved to
+const PAW_EDGE_MARGIN := 1.0       # m a shoved chef always stays inside the counter edge
+
 # Upgrades
 const SHOES_MULT := 1.2
 const KNIFE_MULT := 2.0

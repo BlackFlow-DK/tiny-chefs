@@ -48,7 +48,8 @@ func build() -> Dictionary:
 
 
 func _meta() -> Dictionary:
-	return {"s": world.shift.to_meta(), "o": world.orders.to_meta(), "p": world.plate.state(), "b": world.board.state()}
+	return {"s": world.shift.to_meta(), "o": world.orders.to_meta(), "p": world.plate.state(), "b": world.board.state(),
+		"e": world.events.state()}
 
 
 ## Client: mirror the host's snapshot.
@@ -106,6 +107,8 @@ func apply(d: Dictionary) -> void:
 	world.orders.from_meta(m["o"])
 	world.plate.apply_state(m["p"])
 	world.board.apply_state(m["b"])
+	if m.has("e"):
+		world.events.apply_state(m["e"])
 	var gloves := shift.has_upgrade("gloves")
 	for c in chefs.values():
 		c.set_gloves(gloves)

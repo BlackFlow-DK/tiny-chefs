@@ -1,6 +1,7 @@
 class_name OrderManager
 extends RefCounted
-## Open orders (host-authoritative, replicated as meta). Each: {"r": recipe index, "left": s, "patience": s}.
+## Open orders (host-authoritative, replicated as meta). Each: {"r": recipe index, "left": s, "patience": s},
+## plus "vip": true on a VIP order (EventSystem's vip event; pays Tuning.VIP_PAY_MULT, gold ticket).
 
 var orders: Array = []
 var _timer := 0.0
@@ -42,6 +43,30 @@ func _spawn(sdef: Dictionary) -> void:
 	orders.append({"r": GameData.recipe_index(id), "left": p, "patience": p})
 
 
+## Host: a VIP order for a random allowed recipe with VIP_PATIENCE_MULT of the shift's patience.
+## May exceed MAX_ORDERS by one (regular orders wait until there is room again).
+func add_vip(sdef: Dictionary) -> Dictionary:
+	var allowed: Array = sdef["recipes"]
+	var id: String = allowed[_rng.randi_range(0, allowed.size() - 1)]
+	var p := float(sdef["patience"]) * Tuning.VIP_PATIENCE_MULT
+	var o := {"r": GameData.recipe_index(id), "left": p, "patience": p, "vip": true}
+	orders.append(o)
+	return o
+
+
+## Coins for serving order o now: price + bonus scaled by patience left, x VIP_PAY_MULT for a VIP.
+static func pay_for(o: Dictionary) -> int:
+	var r: Dictionary = GameData.RECIPES[int(o["r"])]
+	var frac := clampf(float(o["left"]) / float(o["patience"]), 0.0, 1.0)
+	var mult := Tuning.VIP_PAY_MULT if bool(o.get("vip", false)) else 1.0
+	return int(round((float(r["price"]) + round(float(r["bonus"]) * frac)) * mult))
+
+
+## Coins lost when order o expires (VIPs cost VIP_EXPIRE_MULT times as much).
+static func expire_penalty(o: Dictionary) -> int:
+	return Tuning.EXPIRE_PENALTY * (Tuning.VIP_EXPIRE_MULT if bool(o.get("vip", false)) else 1)
+
+
 ## Index of the open order whose recipe equals the plate contents (as a multiset), or -1.
 ## Prefers the order closest to expiring.
 func match_plate(stack: Array) -> int:
@@ -59,11 +84,14 @@ func match_plate(stack: Array) -> int:
 func to_meta() -> Array:
 	var a: Array = []
 	for o in orders:
-		a.append([int(o["r"]), float(o["left"]), float(o["patience"])])
+		a.append([int(o["r"]), float(o["left"]), float(o["patience"]), 1 if bool(o.get("vip", false)) else 0])
 	return a
 
 
 func from_meta(a: Array) -> void:
 	orders.clear()
 	for o in a:
-		orders.append({"r": int(o[0]), "left": float(o[1]), "patience": float(o[2])})
+		var d := {"r": int(o[0]), "left": float(o[1]), "patience": float(o[2])}
+		if o.size() > 3 and int(o[3]) != 0:
+			d["vip"] = true
+		orders.append(d)

@@ -35,7 +35,7 @@ static func build(settings: GameSettings, shift_index: int, players: int) -> Dic
 		d["mission_id"] = -1
 		d["map"] = settings.map
 		d["modifiers"] = settings.modifiers.duplicate()
-		d["events"] = []
+		d["events"] = _events_for(settings, shift_index)
 		d["objectives"] = []
 		d["blurb"] = ""
 	d["mode"] = settings.mode if GameSettings.MODES.has(settings.mode) else "endless"
@@ -79,6 +79,14 @@ static func _endless_base(i: int) -> Dictionary:
 		d["patience"] = maxf(Tuning.MIN_PATIENCE, float(d["patience"]) * pow(0.94, k))
 		d["target"] = int(d["target"]) + 50 * k
 	return d
+
+
+## Shift events outside campaign: custom uses settings.events; endless turns all of them on from shift 2.
+## (The host's --events=a,b arg overrides both; EventSystem applies it and the map's hazards.)
+static func _events_for(settings: GameSettings, shift_index: int) -> Array:
+	if settings.mode == "custom":
+		return _strings(settings.events)
+	return _strings(GameSettings.EVENT_IDS) if shift_index >= 1 else []
 
 
 ## Drops recipe ids that are not in GameData.RECIPES (content may land later); never empty.

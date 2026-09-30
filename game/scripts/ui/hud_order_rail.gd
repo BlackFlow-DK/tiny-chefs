@@ -37,7 +37,7 @@ func sync_orders(orders: Array, plate: Array, served_delta: int, pay: int, insta
 	var same_shape := orders.size() == _tickets.size()
 	if same_shape:
 		for i in orders.size():
-			if int(orders[i]["r"]) != _tickets[i].recipe:
+			if int(orders[i]["r"]) != _tickets[i].recipe or bool(orders[i].get("vip", false)) != _tickets[i].vip:
 				same_shape = false
 				break
 	if not same_shape:
@@ -45,7 +45,8 @@ func sync_orders(orders: Array, plate: Array, served_delta: int, pay: int, insta
 		var gone: Array[HudTicket] = []
 		var keep: Array[HudTicket] = []
 		for t in _tickets:
-			if idx < orders.size() and int(orders[idx]["r"]) == t.recipe and absf(float(orders[idx]["left"]) - t.left) < 2.5:
+			if idx < orders.size() and int(orders[idx]["r"]) == t.recipe and bool(orders[idx].get("vip", false)) == t.vip \
+					and absf(float(orders[idx]["left"]) - t.left) < 2.5:
 				keep.append(t)
 				idx += 1
 			else:
@@ -58,18 +59,18 @@ func sync_orders(orders: Array, plate: Array, served_delta: int, pay: int, insta
 				n_served -= 1
 			_leave(t, was_served, pay if was_served else 0)
 		while idx < orders.size():
-			_add(int(orders[idx]["r"]))
+			_add(int(orders[idx]["r"]), bool(orders[idx].get("vip", false)))
 			idx += 1
 	for i in mini(orders.size(), _tickets.size()):
 		_tickets[i].set_progress(float(orders[i]["left"]), float(orders[i]["patience"]))
 		_tickets[i].set_plate(plate)
 
 
-func _add(recipe: int) -> void:
+func _add(recipe: int, vip := false) -> void:
 	_spawned += 1
 	var t := HudTicket.new()
 	var sgn := 1.0 if _spawned % 2 == 0 else -1.0
-	t.setup(recipe, "#%d" % _spawned, 1.6 * sgn)
+	t.setup(recipe, "#%d" % _spawned, 1.6 * sgn, vip)
 	add_child(t)
 	_tickets.append(t)
 	t.base_x = _target_x(_tickets.size() - 1)

@@ -22,6 +22,7 @@ var bell: Bell
 var trash: Trash
 var shift := ShiftManager.new()
 var orders := OrderManager.new()
+var events: EventSystem      # shift events (vip, inspector, cat_paw): host schedules, every peer shows
 var camera: Camera3D          # created by CameraSystem
 var local_input := PlayerInput.new()
 var input_blocked := false   # pause menu open
@@ -71,6 +72,7 @@ func _ready() -> void:
 	_board_sys = CuttingBoardSystem.new(self)
 	_plate_sys = PlateSystem.new(self)
 	_shift_sys = ShiftSystem.new(self)
+	events = EventSystem.new(self)
 	_snapshot_sys = SnapshotSystem.new(self)
 	_camera_sys = CameraSystem.new(self)   # adds the camera, then the hint rings, as before
 	_hint_sys = HintSystem.new(self)
@@ -203,6 +205,7 @@ func _simulate(dt: float) -> void:
 	_plate_sys.tick(dt)
 	for s in stations:
 		s.host_update(dt)
+	events.tick(dt, playing)
 	_bounds_sys.remove_fallen()
 	_toast_cooldown -= dt
 	_shift_sys.tick(dt, playing)
@@ -250,10 +253,20 @@ func input_of(id: int) -> PlayerInput:
 
 func start_shift() -> void:
 	_shift_sys.start_shift()
+	events.start_shift()
 
 
 func note_orders_changed() -> void:
 	_shift_sys.sync_order_count()
+
+
+## An order was served for pay coins (PlateSystem) / expired (ShiftSystem): event hooks (VIP).
+func order_served(o: Dictionary, pay: int) -> void:
+	events.on_order_served(o, pay)
+
+
+func order_expired(o: Dictionary) -> void:
+	events.on_order_expired(o)
 
 
 ## Every peer: the food chef c would grab with input inp (aim first; see CarrySystem.grab_candidate).
@@ -323,6 +336,7 @@ func toast(msg: String, sfx: String) -> void:
 func _process(delta: float) -> void:
 	_camera_sys.update(delta)
 	_hint_sys.update()
+	events.process(delta)
 	_shift_sys.process_quit(delta)
 
 

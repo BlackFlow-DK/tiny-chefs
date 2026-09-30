@@ -53,8 +53,7 @@ func _serve(c: Chef) -> void:
 	if idx >= 0:
 		var o: Dictionary = orders.orders[idx]
 		var r: Dictionary = GameData.RECIPES[int(o["r"])]
-		var frac := clampf(float(o["left"]) / float(o["patience"]), 0.0, 1.0)
-		var pay := int(r["price"]) + int(round(float(r["bonus"]) * frac))
+		var pay := OrderManager.pay_for(o)   # x VIP_PAY_MULT for a VIP order
 		shift.add_coins(pay)
 		shift.served += 1
 		orders.orders.remove_at(idx)
@@ -64,6 +63,7 @@ func _serve(c: Chef) -> void:
 		(Net.metrics["served_recipes"] as Array).append(r["name"])
 		print("content: served %s %s +%d" % [r["id"], str(plate.stack), pay])
 		Net.event("%s served! +%d" % [r["name"], pay], "serve")
+		world.order_served(o, pay)
 	else:
 		shift.add_coins(-Tuning.WRONG_SERVE_PENALTY)
 		Net.event("That matches no order! -%d" % Tuning.WRONG_SERVE_PENALTY, "buzz")

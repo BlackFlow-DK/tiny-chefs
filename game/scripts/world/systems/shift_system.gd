@@ -57,9 +57,11 @@ func tick(dt: float, playing: bool) -> void:
 	if playing and shift.running:
 		shift.time_left -= dt
 		for o in orders.update(dt, shift.def):
-			shift.add_coins(-Tuning.EXPIRE_PENALTY)
+			var pen := OrderManager.expire_penalty(o)   # VIPs cost double
+			shift.add_coins(-pen)
 			shift.failed += 1
-			Net.event("%s order expired! -%d" % [GameData.RECIPES[int(o["r"])]["name"], Tuning.EXPIRE_PENALTY], "fail")
+			Net.event("%s%s order expired! -%d" % ["VIP " if o.get("vip", false) else "", GameData.RECIPES[int(o["r"])]["name"], pen], "fail")
+			world.order_expired(o)
 		if orders.orders.size() > _last_order_count:
 			var newest: Dictionary = orders.orders[orders.orders.size() - 1]
 			Net.event("New order: %s" % GameData.RECIPES[int(newest["r"])]["name"], "order")

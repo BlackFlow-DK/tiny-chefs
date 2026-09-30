@@ -9,8 +9,13 @@ extends RefCounted
 ##   modifiers, recipes; this object's map/difficulty/modifiers are ignored).
 ## "endless": today's shift ramp on `map` with `difficulty` and `modifiers`.
 ## "custom": every shift uses duration/recipes/target/interval/patience below, plus map/difficulty/modifiers.
+## events (custom only): shift event ids (EVENT_IDS) enabled every shift; default all. Endless turns all of
+##   them on from shift 2; campaign missions name their own. cat_paw only fires on maps with that hazard.
+##   Lobby UI: toggle ids in a copy and Net.change_setting("events", [...]).
 
 const MODES := ["campaign", "endless", "custom"]
+## Shift events (world/events/*.gd), in UI order.
+const EVENT_IDS := ["vip", "inspector", "cat_paw"]
 ## Map ids until GameData.MAPS exists; map_ids() prefers GameData.MAPS once it lands.
 const FALLBACK_MAP_IDS := ["diner", "food_truck", "picnic", "twin_islands"]
 
@@ -30,12 +35,13 @@ var recipes: Array[String] = ["cheeseburger", "salad"]  # custom: recipe ids off
 var target := 80                                     # custom: coins for one player
 var interval := 40.0                                 # custom: seconds between orders (one player)
 var patience := 110.0                                # custom: seconds an order waits
+var events: Array[String] = ["vip", "inspector", "cat_paw"]  # custom: shift events enabled (EVENT_IDS)
 
 
 func to_dict() -> Dictionary:
 	return {"mode": mode, "map": map, "difficulty": difficulty, "modifiers": modifiers.duplicate(),
 		"mission": mission, "duration": duration, "recipes": recipes.duplicate(), "target": target,
-		"interval": interval, "patience": patience}
+		"interval": interval, "patience": patience, "events": events.duplicate()}
 
 
 ## Missing keys keep their defaults. Does not validate; call validate() on untrusted input.
@@ -51,6 +57,7 @@ static func from_dict(d: Dictionary) -> GameSettings:
 	s.target = int(d.get("target", s.target))
 	s.interval = float(d.get("interval", s.interval))
 	s.patience = float(d.get("patience", s.patience))
+	s.events.assign(_strings(d.get("events", s.events)))
 	return s
 
 
@@ -104,6 +111,13 @@ func validate() -> Array[String]:
 	target = ta
 	interval = iv
 	patience = pa
+	var evs: Array[String] = []
+	for e in EVENT_IDS:
+		if events.has(e):
+			evs.append(e)
+	if evs != events:
+		fixed.append("events %s -> %s" % [events, evs])
+		events = evs
 	return fixed
 
 
@@ -113,7 +127,7 @@ func describe() -> String:
 	if mode == "campaign":
 		s += " mission=%d" % mission
 	elif mode == "custom":
-		s += " duration=%s recipes=%s target=%d interval=%s patience=%s" % [duration, ",".join(recipes), target, interval, patience]
+		s += " duration=%s recipes=%s target=%d interval=%s patience=%s events=%s" % [duration, ",".join(recipes), target, interval, patience, ",".join(events)]
 	return s
 
 

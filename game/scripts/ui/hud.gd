@@ -44,6 +44,7 @@ var _target_hit := false
 var _last_served := 0
 var _last_orders_key := ""
 var _pay := 0
+var _event_banner: HudEventBanner
 
 
 func _ready() -> void:
@@ -62,6 +63,8 @@ func _ready() -> void:
 	_build_toasts()
 	_build_prompt()
 	_build_help()
+	_event_banner = HudEventBanner.new()   # shift events: "ev_*" banners, inspector countdown
+	add_child(_event_banner)
 	Net.event_received.connect(_on_event)
 
 
@@ -240,6 +243,8 @@ func _on_event(text: String, sfx: String) -> void:
 			_pay = int(m.get_string(1))
 	if text.is_empty() or sfx == "start" or sfx == "order":
 		return
+	if sfx.begins_with("ev_"):
+		return   # shift events: HudEventBanner shows these
 	var kind := "info"
 	match sfx:
 		"serve", "buy":
@@ -265,6 +270,7 @@ func _toast(text: String, kind: String, seconds := 2.6) -> void:
 func _process(_delta: float) -> void:
 	if world == null or not is_instance_valid(world):
 		return
+	_event_banner.world = world
 	var s := world.shift
 	var key := "%d:%d" % [world.get_instance_id(), s.index]
 	var fresh := key != _shift_key
