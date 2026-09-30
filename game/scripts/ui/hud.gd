@@ -1,19 +1,49 @@
 class_name Hud
 extends Control
-## In-game HUD: wallet/target, shift clock, order tickets, context hint, controls help (H),
-## toasts, and world-space progress bars (cooking, chopping) drawn over the 3D view.
+## In-game HUD: order rail (top centre), coins + shift target (top-left), timer (top-right), toasts,
+## controls help (bottom-left, H), context prompt (bottom-centre), shift banner, and world-space
+## progress bars (cooking, chopping) drawn over the 3D view. Reads the same replicated state as
+## before: world.shift, world.orders, world.plate.stack, world.hint_text, Net.event_received.
+
+const CORNER := 12.0
 
 var world: World = null
 
-var _status: Label
-var _clock: Label
-var _tickets: HBoxContainer
-var _ticket_key := ""
-var _ticket_bars: Array = []
-var _hint: Label
-var _help: PanelContainer
-var _toasts: VBoxContainer
 var _overlay: Control
+var _rail: HudOrderRail
+var _toasts: VBoxContainer
+# top-left
+var _stats: PanelContainer
+var _shift_cap: Label
+var _coins: UICoinChip
+var _goal_bar: UIProgress
+var _goal_lbl: Label
+var _count_lbl: Label
+# top-right
+var _timer_card: PanelContainer
+var _timer_lbl: Label
+var _timer_bar: UIProgress
+var _timer_sb_normal: StyleBoxFlat
+var _timer_sb_urgent: StyleBoxFlat
+var _timer_pulse: Tween
+# bottom
+var _prompt: PanelContainer
+var _prompt_row: HBoxContainer
+var _prompt_key := "\u0001"
+var _help: PanelContainer
+var _help_chip: PanelContainer
+var _help_space: Control
+var _help_shown := true
+var _banner: Control
+
+# tracking
+var _shift_key := ""
+var _max_time := 1.0
+var _last_sec := -1
+var _target_hit := false
+var _last_served := 0
+var _last_orders_key := ""
+var _pay := 0
 
 
 func _ready() -> void:
@@ -25,157 +55,418 @@ func _ready() -> void:
 	_overlay.draw.connect(_draw_overlay)
 	add_child(_overlay)
 
-	var tl := UI.panel(2)
-	var tlp: PanelContainer = tl[0]
-	tlp.position = Vector2(12, 12)
-	_status = UI.label("", 18)
-	(tl[1] as VBoxContainer).add_child(_status)
-	add_child(tlp)
-
-	var tr := UI.panel(0)
-	var trp: PanelContainer = tr[0]
-	trp.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	trp.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	trp.position = Vector2(-12, 12)
-	_clock = UI.label("0:00", 40, Color.WHITE)
-	(tr[1] as VBoxContainer).add_child(_clock)
-	add_child(trp)
-
-	var top := VBoxContainer.new()
-	top.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	top.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	top.position.y = 10
-	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top.alignment = BoxContainer.ALIGNMENT_BEGIN
-	_tickets = HBoxContainer.new()
-	_tickets.add_theme_constant_override("separation", 8)
-	_tickets.alignment = BoxContainer.ALIGNMENT_CENTER
-	top.add_child(_tickets)
-	_toasts = VBoxContainer.new()
-	_toasts.alignment = BoxContainer.ALIGNMENT_BEGIN
-	top.add_child(_toasts)
-	add_child(top)
-
-	_hint = UI.label("", 22, UI.YELLOW)
-	_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.position.y -= 18
-	add_child(_hint)
-
-	var hp := UI.panel(0)
-	_help = hp[0]
-	(hp[1] as VBoxContainer).add_child(UI.label(UI.controls_text(), 14, UI.DIM))
-	_help.anchor_left = 0.0
-	_help.anchor_right = 0.0
-	_help.anchor_top = 1.0
-	_help.anchor_bottom = 1.0
-	_help.offset_left = 12.0
-	_help.offset_right = 12.0
-	_help.offset_top = -12.0
-	_help.offset_bottom = -12.0
-	_help.grow_horizontal = Control.GROW_DIRECTION_END
-	_help.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	add_child(_help)
-
+	_rail = HudOrderRail.new()
+	add_child(_rail)
+	_build_stats()
+	_build_timer()
+	_build_toasts()
+	_build_prompt()
+	_build_help()
 	Net.event_received.connect(_on_event)
 
 
+# ================================================================ construction
+
+func _hud_card(fill := UITheme.CREAM, mx := 14, my := 10) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := UITheme.box(fill, UITheme.INK, 14, 4, 5)
+	sb.content_margin_left = mx
+	sb.content_margin_right = mx
+	sb.content_margin_top = my
+	sb.content_margin_bottom = my + 2
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p
+
+
+func _build_stats() -> void:
+	_stats = _hud_card()
+	_stats.anchor_left = 0.0
+	_stats.anchor_right = 0.0
+	_stats.offset_left = CORNER
+	_stats.offset_top = CORNER
+	_stats.offset_right = CORNER
+	_stats.custom_minimum_size = Vector2(216, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	_stats.add_child(v)
+	_shift_cap = UIKit.caption("")
+	_shift_cap.clip_text = true
+	v.add_child(_shift_cap)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	_coins = UIKit.coin_chip(0)
+	row.add_child(_coins)
+	var team := UIKit.caption("team coins")
+	team.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(team)
+	v.add_child(row)
+	_goal_bar = UIKit.progress(0.0, 188, 16, false)
+	_goal_bar.fill_color = UITheme.MUSTARD
+	_goal_bar.set_fraction(0.0)
+	v.add_child(_goal_bar)
+	var nums := HBoxContainer.new()
+	nums.add_theme_constant_override("separation", 6)
+	_goal_lbl = UIKit.body("0 / 0")
+	_goal_lbl.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
+	_goal_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nums.add_child(_goal_lbl)
+	_count_lbl = UIKit.caption("")
+	nums.add_child(_count_lbl)
+	v.add_child(nums)
+	add_child(_stats)
+
+
+func _build_timer() -> void:
+	_timer_card = _hud_card(UITheme.CREAM, 16, 8)
+	_timer_card.anchor_left = 1.0
+	_timer_card.anchor_right = 1.0
+	_timer_card.offset_left = -CORNER
+	_timer_card.offset_right = -CORNER
+	_timer_card.offset_top = CORNER
+	_timer_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_timer_card.custom_minimum_size = Vector2(132, 0)
+	_timer_sb_normal = _timer_card.get_theme_stylebox("panel") as StyleBoxFlat
+	_timer_sb_urgent = _timer_sb_normal.duplicate() as StyleBoxFlat
+	_timer_sb_urgent.bg_color = UITheme.TOMATO
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	_timer_card.add_child(v)
+	var cap := UIKit.caption("TIME LEFT")
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.name = "Cap"
+	v.add_child(cap)
+	_timer_lbl = UIKit.number("0:00")
+	_timer_lbl.add_theme_font_size_override("font_size", UITheme.S_TITLE)
+	_timer_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_timer_lbl)
+	_timer_bar = UIKit.progress(1.0, 100, 10, true)
+	v.add_child(_timer_bar)
+	add_child(_timer_card)
+
+
+func _build_toasts() -> void:
+	_toasts = VBoxContainer.new()
+	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toasts.add_theme_constant_override("separation", 6)
+	_toasts.anchor_left = 0.5
+	_toasts.anchor_right = 0.5
+	_toasts.offset_left = -220
+	_toasts.offset_right = 220
+	_toasts.offset_top = _rail.rail_bottom() + 14
+	add_child(_toasts)
+
+
+func _build_prompt() -> void:
+	_prompt = PanelContainer.new()
+	_prompt.theme_type_variation = "ChipPanel"
+	_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_prompt.anchor_left = 0.5
+	_prompt.anchor_right = 0.5
+	_prompt.anchor_top = 1.0
+	_prompt.anchor_bottom = 1.0
+	_prompt.offset_bottom = -26
+	_prompt.offset_top = -26
+	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_prompt.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_prompt_row = HBoxContainer.new()
+	_prompt_row.add_theme_constant_override("separation", 22)
+	_prompt.add_child(_prompt_row)
+	_prompt.visible = false
+	add_child(_prompt)
+
+
+func _key_row(key: String, text: String) -> HBoxContainer:
+	var h := UIKit.key_hint(key, text)
+	h.alignment = BoxContainer.ALIGNMENT_BEGIN
+	var cap := h.get_child(0) as Control
+	cap.custom_minimum_size = Vector2(64, 28)
+	(h.get_child(1) as Label).add_theme_font_size_override("font_size", UITheme.S_CAPTION)
+	return h
+
+
+func _build_help() -> void:
+	_help = _hud_card(UITheme.CREAM, 12, 8)
+	_help.anchor_top = 1.0
+	_help.anchor_bottom = 1.0
+	_help.offset_left = CORNER
+	_help.offset_right = CORNER
+	_help.offset_top = -CORNER - 6
+	_help.offset_bottom = -CORNER - 6
+	_help.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	_help.add_child(v)
+	v.add_child(_key_row("WASD", "Move"))
+	v.add_child(_key_row("LMB", "Grab / drop"))
+	v.add_child(_key_row("RMB", "Work (hold)"))
+	_help_space = _key_row("Space", "Punch")
+	_help_space.visible = false
+	v.add_child(_help_space)
+	v.add_child(_key_row("Esc", "Pause"))
+	v.add_child(_key_row("H", "Hide help"))
+	add_child(_help)
+
+	_help_chip = PanelContainer.new()
+	_help_chip.theme_type_variation = "ChipPanel"
+	_help_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_help_chip.anchor_top = 1.0
+	_help_chip.anchor_bottom = 1.0
+	_help_chip.offset_left = CORNER
+	_help_chip.offset_right = CORNER
+	_help_chip.offset_top = -CORNER - 6
+	_help_chip.offset_bottom = -CORNER - 6
+	_help_chip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_help_chip.add_child(UIKit.key_hint("H", "Help"))
+	_help_chip.visible = false
+	add_child(_help_chip)
+
+
 func toggle_help() -> void:
-	_help.visible = not _help.visible
+	_help_shown = not _help_shown
+	_help.visible = _help_shown
+	_help_chip.visible = not _help_shown
+	UIKit.pop_in(_help if _help_shown else _help_chip)
 
 
-func _on_event(text: String, _sfx: String) -> void:
-	if text.is_empty() or not visible:
+# ================================================================ events / toasts
+
+func _on_event(text: String, sfx: String) -> void:
+	if not visible:
 		return
-	var l := UI.label(text, 22, Color.WHITE)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toasts.add_child(l)
-	while _toasts.get_child_count() > 4:
+	if sfx == "serve":
+		var m := RegEx.create_from_string("\\+(\\d+)").search(text)
+		if m != null:
+			_pay = int(m.get_string(1))
+	if text.is_empty() or sfx == "start" or sfx == "order":
+		return
+	var kind := "info"
+	match sfx:
+		"serve", "buy":
+			kind = "success"
+		"fail":
+			kind = "error"
+		"buzz":
+			kind = "warn"
+	_toast(text, kind)
+
+
+func _toast(text: String, kind: String, seconds := 2.6) -> void:
+	var t := UIKit.toast(_toasts, text, kind, seconds)
+	t.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	while _toasts.get_child_count() > 3:
 		var old := _toasts.get_child(0)
 		_toasts.remove_child(old)
 		old.queue_free()
-	var tw := l.create_tween()
-	tw.tween_interval(2.4)
-	tw.tween_property(l, "modulate:a", 0.0, 0.6)
-	tw.tween_callback(l.queue_free)
 
+
+# ================================================================ per-frame
 
 func _process(_delta: float) -> void:
 	if world == null or not is_instance_valid(world):
 		return
 	var s := world.shift
-	var col := UI.GREEN if s.earned >= s.target() else Color.WHITE
-	_status.text = "Shift %d: %s\nTeam coins: %d\nThis shift: %d / %d target\nServed %d   Failed %d" % [
-		s.index + 1, s.shift_name(), s.coins, s.earned, s.target(), s.served, s.failed]
-	_status.add_theme_color_override("font_color", col)
-	_clock.text = UI.time_text(s.time_left)
-	_clock.add_theme_color_override("font_color", UI.RED if s.time_left < 30.0 and s.running else Color.WHITE)
-	_hint.text = world.hint_text
-	_update_tickets()
+	var key := "%d:%d" % [world.get_instance_id(), s.index]
+	var fresh := key != _shift_key
+	if fresh:
+		_new_shift(key, s)
+
+	_update_stats(s)
+	_update_timer(s)
+	_update_prompt()
+	if _help_space.visible != s.has_upgrade("gloves"):
+		_help_space.visible = s.has_upgrade("gloves")
+
+	var plate: Array = world.plate.stack if world.plate != null else []
+	var served_delta := maxi(0, s.served - _last_served)
+	_last_served = s.served
+	var ords: Array = world.orders.orders
+	_rail.sync_orders(ords, plate, served_delta, _pay, fresh)
+	if served_delta > 0:
+		_pay = 0
 	_overlay.queue_redraw()
 
 
-func _update_tickets() -> void:
-	var os: Array = world.orders.orders
-	var key := ""
-	for o in os:
-		key += "%d," % int(o["r"])
-	if key != _ticket_key:
-		_ticket_key = key
-		_ticket_bars.clear()
-		for c in _tickets.get_children():
-			c.queue_free()
-		for o in os:
-			_tickets.add_child(_make_ticket(int(o["r"])))
-	for i in mini(os.size(), _ticket_bars.size()):
-		var frac := clampf(float(os[i]["left"]) / float(os[i]["patience"]), 0.0, 1.0)
-		var bar: ColorRect = _ticket_bars[i]
-		bar.size.x = 180.0 * frac
-		bar.color = Color(1.0, 0.3, 0.25).lerp(Color(0.35, 0.95, 0.4), frac)
+func _new_shift(key: String, s: ShiftManager) -> void:
+	_shift_key = key
+	_max_time = maxf(s.time_left, 1.0)
+	_last_sec = -1
+	_target_hit = s.target() > 0 and s.earned >= s.target()
+	_last_served = s.served
+	_kill_timer_pulse()
+	if s.running and s.time_left > 0.0:
+		_show_banner(s)
 
 
-func _make_ticket(r: int) -> Control:
-	var rec: Dictionary = GameData.RECIPES[r]
-	var pv := UI.panel(4)
-	var p: PanelContainer = pv[0]
-	var v: VBoxContainer = pv[1]
-	p.custom_minimum_size = Vector2(208, 0)
-	var nl := UI.label(rec["name"], 17, UI.YELLOW)
-	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nl.custom_minimum_size = Vector2(180, 0)
-	v.add_child(nl)
-	var icons := HBoxContainer.new()
-	icons.add_theme_constant_override("separation", 3)
-	var counts := {}
-	var order: Array = []
-	for k in rec["items"]:
-		var d: Dictionary = GameData.ITEMS[k]
-		var shape := str(d["shape"])
-		icons.add_child(UI.swatch(d["color"], shape == "cyl" or shape == "sphere" or shape == "dome"))
-		if not counts.has(k):
-			order.append(k)
-		counts[k] = int(counts.get(k, 0)) + 1
-	v.add_child(icons)
-	var parts := PackedStringArray()
-	for k in order:
-		var lbl := str(GameData.ITEMS[k]["label"])
-		parts.append(("%dx %s" % [counts[k], lbl]) if int(counts[k]) > 1 else lbl)
-	var il := UI.label(", ".join(parts), 12, UI.DIM)
-	il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	il.custom_minimum_size = Vector2(180, 0)
-	v.add_child(il)
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.5)
-	bg.custom_minimum_size = Vector2(180, 8)
-	var fill := ColorRect.new()
-	fill.size = Vector2(180, 8)
-	bg.add_child(fill)
-	v.add_child(bg)
-	_ticket_bars.append(fill)
-	return p
+func _update_stats(s: ShiftManager) -> void:
+	_shift_cap.text = "Shift %d: %s" % [s.index + 1, s.shift_name()]
+	_coins.set_amount(s.coins)
+	var tgt := maxi(s.target(), 1)
+	var frac := clampf(float(s.earned) / float(tgt), 0.0, 1.0)
+	var reached := s.target() > 0 and s.earned >= s.target()
+	_goal_bar.fill_color = UITheme.LETTUCE if reached else UITheme.MUSTARD
+	_goal_bar.set_fraction(frac)
+	_goal_lbl.text = "Goal reached!" if reached else "%d / %d" % [maxi(s.earned, 0), s.target()]
+	var cnt := "%d served" % s.served
+	if s.failed > 0:
+		cnt += "  %d failed" % s.failed
+	_count_lbl.text = cnt
+	if reached and not _target_hit:
+		_target_hit = true
+		_celebrate()
+	elif not reached:
+		_target_hit = false
 
+
+func _celebrate() -> void:
+	UIKit.punch(_stats, 0.06, 0.4)
+	_toast("Shift target reached!", "success", 3.0)
+	var origin := _goal_bar.global_position + _goal_bar.size * 0.5
+	var cols := [UITheme.MUSTARD, UITheme.LETTUCE, UITheme.TOMATO, UITheme.SKY]
+	for i in 18:
+		var c := ColorRect.new()
+		c.color = cols[i % cols.size()]
+		c.size = Vector2(9, 9)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(c)
+		c.global_position = origin
+		c.pivot_offset = Vector2(4, 4)
+		var ang := randf() * TAU
+		var dist := randf_range(50.0, 130.0)
+		var to := origin + Vector2(cos(ang), sin(ang) * 0.7) * dist + Vector2(0, 40)
+		var tw := c.create_tween().set_parallel(true)
+		tw.tween_property(c, "global_position", to, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(c, "rotation", randf_range(-6.0, 6.0), 0.8)
+		tw.tween_property(c, "modulate:a", 0.0, 0.3).set_delay(0.55)
+		tw.chain().tween_callback(c.queue_free)
+
+
+func _kill_timer_pulse() -> void:
+	if _timer_pulse != null:
+		_timer_pulse.kill()
+		_timer_pulse = null
+		_timer_card.scale = Vector2.ONE
+
+
+func _update_timer(s: ShiftManager) -> void:
+	_timer_lbl.text = UI.time_text(s.time_left)
+	_timer_bar.set_fraction(s.time_left / _max_time)
+	var sec := maxi(0, int(ceil(s.time_left)))
+	var urgent := s.running and s.time_left < 30.0 and s.time_left > 0.0
+	var cap := _timer_card.find_child("Cap", true, false) as Label
+	var cur := _timer_card.get_theme_stylebox("panel")
+	var want: StyleBoxFlat = _timer_sb_urgent if urgent else _timer_sb_normal
+	if cur != want:
+		_timer_card.add_theme_stylebox_override("panel", want)
+		var tone := UITheme.CREAM if urgent else UITheme.INK
+		_timer_lbl.add_theme_color_override("font_color", tone)
+		cap.add_theme_color_override("font_color", UITheme.CREAM_DIM if urgent else UITheme.INK_SOFT)
+		if not urgent:
+			_kill_timer_pulse()
+	if urgent and sec != _last_sec:
+		if s.time_left <= 10.0:
+			_kill_timer_pulse()
+			UIKit.punch(_timer_card, 0.14, 0.3)
+		elif _timer_pulse == null:
+			_timer_pulse = UIKit.pulse(_timer_card, 0.04, 1.2)
+	_last_sec = sec
+
+
+# ================================================================ prompt
+
+## world.hint_text (written by HintSystem in the old key wording, e.g. "E: grab Cheese     hold F: chop")
+## -> [[key, text], ...] in the new scheme: grab/drop = LMB, work = RMB, punch = Space.
+static func parse_hint(t: String) -> Array:
+	var out: Array = []
+	for part in t.split("     ", false):
+		var p := part.strip_edges()
+		if p.is_empty():
+			continue
+		var hold := false
+		if p.begins_with("hold "):
+			hold = true
+			p = p.substr(5)
+		var key := ""
+		var rest := p
+		var ci := p.find(": ")
+		if ci > 0 and ci <= 3:
+			match p.substr(0, ci):
+				"E":
+					key = "LMB"
+				"F":
+					key = "RMB"
+				"Q":
+					key = "Space"
+				_:
+					key = p.substr(0, ci)
+			rest = p.substr(ci + 2).strip_edges()
+		rest = rest.replace("   ", " ")
+		if rest.is_empty():
+			continue
+		rest = rest.substr(0, 1).to_upper() + rest.substr(1)
+		if hold:
+			rest += " (hold)"
+		out.append([key, rest])
+	return out
+
+
+func _update_prompt() -> void:
+	var t := world.hint_text
+	if t == _prompt_key:
+		return
+	_prompt_key = t
+	for c in _prompt_row.get_children():
+		_prompt_row.remove_child(c)
+		c.queue_free()
+	var parts := parse_hint(t)
+	if parts.is_empty():
+		_prompt.visible = false
+		return
+	for pr in parts:
+		if str(pr[0]).is_empty():
+			_prompt_row.add_child(UIKit.body(str(pr[1])))
+		else:
+			_prompt_row.add_child(UIKit.key_hint(str(pr[0]), str(pr[1])))
+	if not _prompt.visible:
+		_prompt.visible = true
+		UIKit.pop_in(_prompt)
+
+
+# ================================================================ banner
+
+func _show_banner(s: ShiftManager) -> void:
+	if _banner != null and is_instance_valid(_banner):
+		_banner.queue_free()
+	var p := _hud_card(UITheme.CREAM, 34, 16)
+	p.anchor_left = 0.5
+	p.anchor_right = 0.5
+	p.anchor_top = 0.4
+	p.anchor_bottom = 0.4
+	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	p.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	p.add_child(v)
+	v.add_child(UIKit.title("Shift %d" % (s.index + 1)))
+	var h := UIKit.heading(s.shift_name())
+	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(h)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	row.add_child(UIKit.body("Earn"))
+	row.add_child(UIKit.coin_chip(s.target()))
+	v.add_child(row)
+	add_child(p)
+	_banner = p
+	UIKit.pop_in(p, 0.0, 0.3)
+	var tw := p.create_tween()
+	tw.tween_interval(2.8)
+	tw.tween_callback(func() -> void: UIKit.pop_out(p, true))
+
+
+# ================================================================ world-space bars
 
 func _draw_overlay() -> void:
 	if world == null or not is_instance_valid(world) or world.camera == null:
@@ -189,11 +480,13 @@ func _draw_overlay() -> void:
 			continue
 		var sp := cam.unproject_position(wp)
 		var w := 70.0
-		var rect := Rect2(sp - Vector2(w * 0.5, 6), Vector2(w, 12))
-		_overlay.draw_rect(rect.grow(2), Color(0, 0, 0, 0.75))
-		var c := Color(0.35, 0.95, 0.4)
+		var rect := Rect2(sp - Vector2(w * 0.5, 7), Vector2(w, 14))
+		_overlay.draw_style_box(UITheme.box(UITheme.INK, UITheme.INK, 7, 0, 3), rect.grow(3))
+		var c := UITheme.LETTUCE
 		if it.bar_kind == Item.Bar.BURN:
-			c = Color(0.95, 0.85, 0.2).lerp(Color(1.0, 0.15, 0.1), it.bar)
+			c = UITheme.MUSTARD.lerp(UITheme.TOMATO, clampf(it.bar, 0.0, 1.0))
 		elif it.bar_kind == Item.Bar.CHOP:
-			c = Color(0.35, 0.75, 1.0)
-		_overlay.draw_rect(Rect2(rect.position, Vector2(w * clampf(it.bar, 0.0, 1.0), 12)), c)
+			c = UITheme.SKY
+		var fw := w * clampf(it.bar, 0.0, 1.0)
+		if fw > 1.0:
+			_overlay.draw_style_box(UITheme.box(c, c, 7, 0), Rect2(rect.position, Vector2(maxf(fw, 10.0), 14)))

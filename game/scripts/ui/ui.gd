@@ -67,9 +67,9 @@ static func time_text(seconds: float) -> String:
 
 static func controls_text() -> String:
 	return "\n".join([
-		"WASD / arrows / left stick: move",
-		"E / Space / pad A: grab or let go (grab together for heavy food!)",
-		"F / left mouse / pad X (hold): work: dispense, chop, ring the bell",
-		"Q / right mouse / pad B: punch (needs Boxing Gloves)",
-		"Esc: pause menu     H: hide this help",
+		"WASD: move",
+		"Left click: grab or let go (grab together for heavy food!)",
+		"Right click (hold): work: dispense, chop, ring the bell",
+		"Space: punch (needs Boxing Gloves)",
+		"Esc: pause menu     H: hide the help",
 	])

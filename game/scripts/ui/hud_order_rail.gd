@@ -1,0 +1,141 @@
+class_name HudOrderRail
+extends Control
+## The order rail: a thin rail across the top centre with HudTickets hanging from it. Diffs the
+## replicated order list each frame to slide new tickets in, fly served ones off (green, +coins)
+## and drop expired ones (red). Tick marks come from the replicated plate stack.
+
+const GAP := 12.0
+const TICKET_Y := 16.0
+const RAIL_Y := 12.0
+const RAIL_H := 12.0
+
+var _tickets: Array[HudTicket] = []
+var _spawned := 0
+
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	offset_bottom = 220
+
+
+## Y under the tickets, for stacking toasts beneath.
+func rail_bottom() -> float:
+	return TICKET_Y + 138.0
+
+
+func clear_all() -> void:
+	for t in _tickets:
+		t.queue_free()
+	_tickets.clear()
+
+
+## orders: world.orders.orders. served_delta: orders served since the last call; pay: coins for the last serve.
+func sync_orders(orders: Array, plate: Array, served_delta: int, pay: int, instant: bool) -> void:
+	if instant:
+		clear_all()
+	var same_shape := orders.size() == _tickets.size()
+	if same_shape:
+		for i in orders.size():
+			if int(orders[i]["r"]) != _tickets[i].recipe:
+				same_shape = false
+				break
+	if not same_shape:
+		var idx := 0
+		var gone: Array[HudTicket] = []
+		var keep: Array[HudTicket] = []
+		for t in _tickets:
+			if idx < orders.size() and int(orders[idx]["r"]) == t.recipe and absf(float(orders[idx]["left"]) - t.left) < 2.5:
+				keep.append(t)
+				idx += 1
+			else:
+				gone.append(t)
+		_tickets = keep
+		var n_served := served_delta
+		for t in gone:
+			var was_served := n_served > 0
+			if was_served:
+				n_served -= 1
+			_leave(t, was_served, pay if was_served else 0)
+		while idx < orders.size():
+			_add(int(orders[idx]["r"]))
+			idx += 1
+	for i in mini(orders.size(), _tickets.size()):
+		_tickets[i].set_progress(float(orders[i]["left"]), float(orders[i]["patience"]))
+		_tickets[i].set_plate(plate)
+
+
+func _add(recipe: int) -> void:
+	_spawned += 1
+	var t := HudTicket.new()
+	var sgn := 1.0 if _spawned % 2 == 0 else -1.0
+	t.setup(recipe, "#%d" % _spawned, 1.6 * sgn)
+	add_child(t)
+	_tickets.append(t)
+	t.base_x = _target_x(_tickets.size() - 1)
+	t.position = Vector2(t.base_x, TICKET_Y - 150.0)
+	t.modulate.a = 0.0
+	t.fx_offset = Vector2(0, -150)
+	var tw := t.create_tween().set_parallel(true)
+	tw.tween_property(t, "fx_offset", Vector2.ZERO, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(t, "modulate:a", 1.0, 0.15)
+
+
+func _leave(t: HudTicket, served: bool, pay: int) -> void:
+	t.stop_urgent()
+	var p := t.position
+	var tw := t.create_tween().set_parallel(true)
+	if served:
+		t.flash(UITheme.LETTUCE, 0.5)
+		tw.tween_property(t, "position", p + Vector2(50, -210), 0.55).set_delay(0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		tw.tween_property(t, "rotation", t.tilt + 0.5, 0.55).set_delay(0.16)
+		tw.tween_property(t, "modulate:a", 0.0, 0.25).set_delay(0.45)
+		if pay > 0:
+			_float_text("+%d" % pay, p + Vector2(HudTicket.W * 0.5, 110))
+	else:
+		t.flash(UITheme.TOMATO, 0.5)
+		tw.tween_property(t, "position", p + Vector2(-20, 320), 0.6).set_delay(0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(t, "rotation", t.tilt - 0.45, 0.6).set_delay(0.18)
+		tw.tween_property(t, "modulate:a", 0.0, 0.3).set_delay(0.5)
+	tw.chain().tween_callback(t.queue_free)
+
+
+func _float_text(text: String, at: Vector2) -> void:
+	var l := UIKit.number(text, "world", UITheme.LETTUCE)
+	l.add_theme_font_size_override("font_size", UITheme.S_TITLE)
+	l.add_theme_constant_override("outline_size", 12)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(l)
+	l.position = at - Vector2(40, 30)
+	l.pivot_offset = Vector2(40, 30)
+	l.scale = Vector2(0.5, 0.5)
+	var tw := l.create_tween().set_parallel(true)
+	tw.tween_property(l, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "position:y", at.y - 55.0, 1.0).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(l, "modulate:a", 0.0, 0.35).set_delay(0.7)
+	tw.chain().tween_callback(l.queue_free)
+
+
+func _target_x(i: int) -> float:
+	var n := _tickets.size()
+	var total := n * HudTicket.W + maxi(0, n - 1) * GAP
+	return (size.x - total) * 0.5 + i * (HudTicket.W + GAP)
+
+
+func _process(delta: float) -> void:
+	var k := 1.0 - exp(-14.0 * delta)
+	for i in _tickets.size():
+		var t := _tickets[i]
+		t.base_x = lerpf(t.base_x, _target_x(i), k)
+		t.position = Vector2(t.base_x, TICKET_Y) + t.fx_offset
+	queue_redraw()
+
+
+func _draw() -> void:
+	# The rail: a chunky ink bar with a highlight, long enough for a full house of tickets.
+	var full := Tuning.MAX_ORDERS * HudTicket.W + (Tuning.MAX_ORDERS - 1) * GAP + 36.0
+	var r := Rect2((size.x - full) * 0.5, RAIL_Y, full, RAIL_H)
+	draw_style_box(UITheme.box(UITheme.INK_LIGHT, UITheme.INK, 6, 3, 4), r)
+	draw_line(r.position + Vector2(10, 4.5), r.position + Vector2(full - 10, 4.5), UITheme.INK_SOFT, 2.0)
+	for x in [r.position.x + 9.0, r.end.x - 9.0]:
+		draw_circle(Vector2(x, r.position.y + RAIL_H * 0.5), 3.5, UITheme.MUSTARD)
