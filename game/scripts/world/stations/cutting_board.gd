@@ -1,13 +1,17 @@
 class_name CuttingBoard
 extends Station
-## A tomato lying on the board is chopped while chefs stand at the board holding work.
+## Any food with "chops_to" lying on the board (tomato, onion, potato) is chopped while chefs stand at the
+## board holding work; CuttingBoardSystem turns it into its chop_count pieces.
 ## Rate: one chef = CHOP_TIME seconds, each extra chef adds the same rate; Sharp Knife doubles it.
 
 var progress := 0.0
 var chopping := false
-var tomato_local := Vector3.ZERO
-var has_tomato := false
-var _tomato_id := -1
+var food_local := Vector3.ZERO
+var has_food := false
+var has_tomato: bool:    # old name (bot, hint): any choppable food, not only tomatoes
+	get:
+		return has_food
+var _food_id := -1
 var _knife: Node3D
 var _t := 0.0
 var _last_phase := 0
@@ -36,67 +40,67 @@ func _rest_knife() -> void:
 
 
 func host_update(dt: float) -> void:
-	var tom: Item = null
+	var food: Item = null
 	for it in world.items.values():
 		if it.removed or it.is_carried() or not it.def.has("chops_to"):
 			continue
 		if contains_xz(it.global_position) and it.global_position.y < 3.0:
-			if tom == null or it.item_id == _tomato_id:
-				tom = it
-	if tom == null:
+			if food == null or it.item_id == _food_id:
+				food = it
+	if food == null:
 		progress = 0.0
 		chopping = false
-		has_tomato = false
-		_tomato_id = -1
+		has_food = false
+		_food_id = -1
 		return
-	if tom.item_id != _tomato_id:
+	if food.item_id != _food_id:
 		progress = 0.0
-		_tomato_id = tom.item_id
-	has_tomato = true
+		_food_id = food.item_id
+	has_food = true
 	var n := workers(0.3).size()
 	chopping = n > 0
-	tomato_local = tom.global_position - global_position
+	food_local = food.global_position - global_position
 	if chopping:
 		var mult := Tuning.KNIFE_MULT if world.shift.has_upgrade("knife") else 1.0
 		progress += dt * float(n) * mult / Tuning.CHOP_TIME
-	tom.bar = progress
-	tom.bar_kind = Item.Bar.CHOP
+	food.bar = progress
+	food.bar_kind = Item.Bar.CHOP
 	if progress >= 1.0:
-		world.chop(tom)
+		world.chop(food)
 		progress = 0.0
 		chopping = false
-		has_tomato = false
-		_tomato_id = -1
+		has_food = false
+		_food_id = -1
 
 
 func reset() -> void:
 	progress = 0.0
 	chopping = false
-	has_tomato = false
-	_tomato_id = -1
+	has_food = false
+	_food_id = -1
 
 
 func state() -> Variant:
-	return [progress, chopping, tomato_local, has_tomato]
+	return [progress, chopping, food_local, has_food]
 
 
 func apply_state(s: Variant) -> void:
 	if s is Array and s.size() >= 4:
 		progress = s[0]
 		chopping = s[1]
-		tomato_local = s[2]
-		has_tomato = s[3]
+		food_local = s[2]
+		has_food = s[3]
 
 
 func work_hint() -> String:
-	return "hold F: chop" if has_tomato else ""
+	return "hold F: chop" if has_food else ""
 
 
 func _process(delta: float) -> void:
 	if chopping:
 		_t += delta * 13.0
 		var lift := absf(sin(_t))
-		_knife.position = tomato_local + Vector3(0.8, 0.9 + lift * 2.6, 0)
+		_knife.position = food_local + Vector3(0.8, 0.9 + lift * 2.6, 0)
 		_knife.rotation = Vector3(PI * 0.5, 0, 0)
 		var ph := int(_t / PI)
 		if ph != _last_phase:

@@ -67,8 +67,10 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float) -> void:
 	head.add_child(name_l)
 	v.add_child(head)
 
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
+	# Wraps to a second row for long recipes (Burger Meal, The Works) so the ticket keeps its width W.
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 4)
+	row.add_theme_constant_override("v_separation", 4)
 	var counts := {}
 	var order: Array = []
 	for k in rec["items"]:

@@ -4,7 +4,7 @@ extends RigidBody3D
 ## Client: a frozen, collision-less puppet that eases towards the latest snapshot.
 ## Origin is the base centre; the collider comes from the contract size in GameData.
 
-enum Bar { NONE, COOK, BURN, CHOP }
+enum Bar { NONE, COOK, BURN, CHOP, FRY }  # replicated in 4 bits (SnapshotSystem)
 
 var item_id := 0
 var kind := ""
@@ -14,7 +14,7 @@ var puppet := false
 var carriers: Array = []      # host: Chef nodes holding it
 var carrier_count := 0        # host + replicated
 var cook_time := 0.0          # host: seconds in the current cook stage
-var cooking := false          # replicated: on the griddle and still changing
+var cooking := false          # replicated: on the griddle/fryer and still changing
 var bar := 0.0                # replicated progress 0..1
 var bar_kind := 0             # replicated Bar value
 var refuse_cooldown := 0.0    # host: plate will not look at it again until this runs out

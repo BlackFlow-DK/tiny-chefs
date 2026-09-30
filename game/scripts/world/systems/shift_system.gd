@@ -1,7 +1,7 @@
 class_name ShiftSystem
 extends RefCounted
 ## Owns the shift flow (host): start/end, the clock, order expiry and "new order" announcements, the
-## shop (try_buy), --upgrades, --quit-after-shift. Data lives in world.shift / world.orders.
+## shop (try_buy), --upgrades, --recipes, --quit-after-shift. Data lives in world.shift / world.orders.
 ## Reads world.chefs/items and the stations to reset them. Calls world.remove_item, world.release, Net.
 
 var world: World
@@ -27,10 +27,19 @@ func start_shift() -> void:
 	world.plate.clear_stack()
 	world.board.reset()
 	world.griddle.reset()
+	if world.fryer != null:
+		world.fryer.reset()
 	for c in world.chefs.values():
 		world.release(c)
 		c.respawn()
 	shift.begin(shift.next_index, maxi(1, world.chefs.size()), Net.arg_float("shift-seconds", 0.0))
+	# --recipes=<id,...> (agent tests): this shift orders only these recipes (first one first).
+	var only: Array = []
+	for id in Net.arg_str("recipes", "").split(",", false):
+		if GameData.recipe_index(id) >= 0:
+			only.append(id)
+	if not only.is_empty():
+		shift.def["recipes"] = only
 	world.orders.reset()
 	_last_order_count = 0
 	if int(Net.metrics["coins_start"]) < 0:

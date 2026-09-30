@@ -26,19 +26,30 @@ func build() -> void:
 	add_label(str(def["label"]), Vector3(0, size.y + 1.6, 0))
 
 
-## Where spawned food appears (world space): in front of the dispenser, towards the counter centre.
+## Where spawned food appears (world space): in front of the dispenser (its local +Z, turned by "yaw"),
+## towards the counter centre.
 func output_spots() -> Array:
 	var out: Array = []
 	var n := gives.size()
 	for i in n:
 		var x := (float(i) - float(n - 1) * 0.5) * 3.6
-		out.append(global_position + Vector3(x, 1.2, half.y + 2.2))
+		out.append(global_position + transform.basis * Vector3(x, 1.2, size.z * 0.5 + 2.2))
 	return out
 
 
-## Where a chef should stand to work it without being hit by the food (bots use this).
+## Where a chef should stand to work it without being hit by the food (bots use this): beside the output,
+## on its local -X side; a turned dispenser uses whichever side is nearer the counter centre.
 func stand_spot() -> Vector3:
-	return global_position + Vector3(-half.x + 0.3, 0, half.y + 0.55)
+	var a := global_position + transform.basis * Vector3(-size.x * 0.5 + 0.3, 0, size.z * 0.5 + 0.55)
+	if is_zero_approx(rotation.y):
+		return a
+	var b := global_position + transform.basis * Vector3(size.x * 0.5 - 0.3, 0, size.z * 0.5 + 0.55)
+	return a if Vector2(a.x, a.z).length() <= Vector2(b.x, b.z).length() else b
+
+
+## Seconds of holding work per batch.
+func hold_time() -> float:
+	return Tuning.DISPENSE_HOLD
 
 
 func host_update(dt: float) -> void:
@@ -49,7 +60,7 @@ func host_update(dt: float) -> void:
 		if t < 0.0:
 			continue
 		t += dt
-		if t >= Tuning.DISPENSE_HOLD:
+		if t >= hold_time():
 			t = -1.0
 			world.dispense(self)
 		_timers[c.peer_id] = t

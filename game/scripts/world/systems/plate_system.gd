@@ -33,10 +33,12 @@ func refuse_from_plate(it: Item, p: Station) -> void:
 	it.refuse_cooldown = 1.2
 	var k := str(it.kind)
 	var msg := "Chop it on the cutting board first!"
-	if k.ends_with("_raw"):
-		msg = "Raw! Cook it on the griddle first."
-	elif k.ends_with("_burnt"):
+	if k.ends_with("_burnt"):
 		msg = "Burnt food can't be served. Trash it!"
+	elif it.def.has("fries_to"):
+		msg = "Raw! Fry it in the fryer first."
+	elif it.def.has("cooks_to"):
+		msg = "Raw! Cook it on the griddle first."
 	world.toast(msg, "buzz")
 
 
@@ -60,6 +62,7 @@ func _serve(c: Chef) -> void:
 		_total_served += 1
 		Net.metrics["orders_served"] = _total_served
 		(Net.metrics["served_recipes"] as Array).append(r["name"])
+		print("content: served %s %s +%d" % [r["id"], str(plate.stack), pay])
 		Net.event("%s served! +%d" % [r["name"], pay], "serve")
 	else:
 		shift.add_coins(-Tuning.WRONG_SERVE_PENALTY)

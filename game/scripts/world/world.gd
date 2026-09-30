@@ -13,6 +13,8 @@ var inputs: Dictionary = {}  # host: peer id -> PlayerInput
 var stations: Array = []
 var dispensers: Array = []
 var griddle: Griddle
+var fryer: Fryer            # null on maps without one
+var soda: SodaFountain       # null on maps without one; also listed in dispensers
 var board: CuttingBoard
 var plate: Plate
 var bell: Bell
@@ -38,6 +40,7 @@ var _punch_sys: PunchSystem
 var _bounds_sys: BoundsSystem
 var _dispenser_sys: DispenserSystem
 var _griddle_sys: GriddleSystem
+var _fryer_sys: FryerSystem
 var _board_sys: CuttingBoardSystem
 var _plate_sys: PlateSystem
 var _shift_sys: ShiftSystem
@@ -59,6 +62,7 @@ func _ready() -> void:
 	_bounds_sys = BoundsSystem.new(self)
 	_dispenser_sys = DispenserSystem.new(self)
 	_griddle_sys = GriddleSystem.new(self)
+	_fryer_sys = FryerSystem.new(self)
 	_board_sys = CuttingBoardSystem.new(self)
 	_plate_sys = PlateSystem.new(self)
 	_shift_sys = ShiftSystem.new(self)
@@ -96,6 +100,13 @@ func _build_stations() -> void:
 			"board":
 				board = CuttingBoard.new()
 				s = board
+			"fryer":
+				fryer = Fryer.new()
+				s = fryer
+			"soda":
+				soda = SodaFountain.new()
+				dispensers.append(soda)
+				s = soda
 			"plate":
 				plate = Plate.new()
 				s = plate
@@ -259,6 +270,11 @@ func dispense(d: Dispenser) -> void:
 
 func change_kind(it: Item, k: String) -> void:
 	_griddle_sys.change_kind(it, k)
+
+
+## Host: the fryer finished a stage (FryerSystem).
+func fry(it: Item, k: String) -> void:
+	_fryer_sys.change_kind(it, k)
 
 
 func chop(tom: Item) -> void:
