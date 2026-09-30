@@ -18,6 +18,7 @@ Call as `powershell -NoProfile -ExecutionPolicy Bypass -File tools\<name>.ps1 ..
 - Single script check without the wrapper: `godot_console --headless --path game --check-only --script res://path.gd`.
 
 - `test-multiplayer.ps1 [-Solo] [-ShiftSeconds 100] [-Windowed] [-ShotDir build\screenshots -ShotAt 45] [-BotLog] [-Port 7777]` runs Tiny Chefs host + client bots on 127.0.0.1 (headless by default), one short shift, checks their JSON reports (connected, both chefs everywhere, order served, duo patty carry faster than solo, clean exits, no ERROR lines). Logs: `build\test-mp\` (`build\test-mp-<port>\` if `-Port` differs; use distinct ports for parallel runs).
+- `balance.ps1 [-Players 1,2,3,4] [-Shifts 0,1,2] [-Maps m] [-Difficulty d] [-ShiftSeconds 210] [-Runs 1] [-Port 7905] [-Out build\balance\<ts>]` balance harness: host + (n-1) client bots per combo (`--start-shift=<n>` starts at shift n), then `balance_summary.py` writes `summary.md`/`summary.csv` (served, expired, coins, target, met, coins/min, coins/target). Non-zero exit on timeout or missing report.
 
 ## Tiny Chefs (the game in game/)
 - Tunables: `game/scripts/data/tuning.gd` (speeds, timings, penalties, camera, net). Content: `game/scripts/data/game_data.gd` (item sizes/weights/colours from `docs/asset-contract.md`, station layout, recipes, shifts, upgrade prices).

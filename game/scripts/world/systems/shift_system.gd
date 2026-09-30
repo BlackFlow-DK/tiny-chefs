@@ -30,7 +30,10 @@ func start_shift() -> void:
 	for c in world.chefs.values():
 		world.release(c)
 		c.respawn()
+	if int(Net.metrics["coins_start"]) < 0:   # first start of the run: --start-shift=<n> (balance harness)
+		shift.next_index = Net.arg_int("start-shift", shift.next_index)
 	shift.begin(shift.next_index, maxi(1, world.chefs.size()), Net.arg_float("shift-seconds", 0.0))
+	Net.metrics["players"] = maxi(1, world.chefs.size())
 	world.orders.reset()
 	_last_order_count = 0
 	if int(Net.metrics["coins_start"]) < 0:
@@ -75,6 +78,7 @@ func _end_shift() -> void:
 	var info := {"shift": shift.index, "name": shift.shift_name(), "served": shift.served, "failed": shift.failed,
 		"earned": shift.earned, "target": shift.target(), "met": met, "coins": shift.coins}
 	Net.metrics["shifts_finished"] = int(Net.metrics["shifts_finished"]) + 1
+	Net.metrics["result"] = info   # balance harness: shift, name, served, failed, earned, target, met, coins
 	Net.set_phase(Net.Phase.RESULTS, info)
 	if Net.has_arg("quit-after-shift"):
 		_quit_timer = 2.0
