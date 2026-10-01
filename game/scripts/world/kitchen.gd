@@ -1,14 +1,16 @@
 class_name Kitchen
 extends RefCounted
 ## Static scenery for one map (a GameData.MAPS entry): lighting/atmosphere, one counter slab per
-## surface, the room around them (by theme: "diner" = EnvLook/EnvCounter/EnvRoom, "picnic" =
-## EnvPicnic), and the map's scenery props (solid obstacles unless "flat"). Identical on every peer (no unseeded randomness). The visuals live in world/env/
+## surface (or a wooden plank: MapDef "surface_styles"), the room around them (by theme: "diner" =
+## EnvLook/EnvCounter/EnvIslands/EnvRoom, "picnic" = EnvPicnic), and the map's scenery props (solid obstacles unless "flat"). Identical on every peer (no unseeded randomness). The visuals live in world/env/
 ## (EnvLook, EnvCounter, EnvRoom, EnvProps); this file owns the colliders: one box per surface,
 ## the back wall, one box per solid scenery prop.
 
 const SINK_MODEL := "sink_basin"
 const HOB_MODEL := "hob"
 const THEMES := ["diner", "picnic"]   # looks Kitchen can build; anything else falls back to the first
+const STYLE_COUNTER := "counter"
+const STYLE_PLANK := "plank"
 
 
 static func build(root: Node3D, map: Dictionary) -> void:
@@ -25,16 +27,31 @@ static func build(root: Node3D, map: Dictionary) -> void:
 	else:
 		EnvLook.build(root)
 		var holes := _sink_holes(scenery)
-		for r: Rect2 in surfaces:
-			EnvCounter.build(root, r, holes)
+		for i in surfaces.size():
+			if surface_style(map, i) == STYLE_PLANK:
+				EnvIslands.plank(root, surfaces[i], _plank_gap(map, i))
+			else:
+				EnvCounter.build(root, surfaces[i], holes)
 		EnvRoom.build(root, surfaces)
-	if (map.get("decor", []) as Array).has("diner_clutter"):
+	var decor: Array = map.get("decor", [])
+	if decor.has("diner_clutter"):
 		EnvProps.clutter(root, bounds)
+	if decor.has("island_sink"):
+		# The double sink fills the gap under every plank, over the whole counter depth.
+		for i in surfaces.size():
+			if surface_style(map, i) == STYLE_PLANK:
+				var g := _plank_gap(map, i)
+				EnvIslands.double_sink(root, Rect2(g.x, bounds.position.y, g.y - g.x, bounds.size.y), bounds.position.y - 0.5)
+	if decor.has("islands_clutter"):
+		EnvIslands.clutter(root)
 
-	# Colliders: each surface is one solid block, top at y = 0; indoors, the wall behind the back-most
-	# edge (outdoors nothing stops food blowing off the far edge).
-	for r: Rect2 in surfaces:
-		_solid(root, Vector3(r.size.x, ch, r.size.y), Vector3(r.get_center().x, -ch, r.get_center().y))
+	# Colliders: each counter surface is one solid block, top at y = 0 (a plank only its own
+	# thickness, so nothing solid hides under it); indoors, the wall behind the back-most edge
+	# (outdoors nothing stops food blowing off the far edge).
+	for i in surfaces.size():
+		var r: Rect2 = surfaces[i]
+		var h := EnvIslands.PLANK_T if surface_style(map, i) == STYLE_PLANK else ch
+		_solid(root, Vector3(r.size.x, h, r.size.y), Vector3(r.get_center().x, -h, r.get_center().y))
 	if theme != "picnic":
 		_solid(root, Vector3(260, 90, 1.0), Vector3(0, -ch, bounds.position.y - 1.0))
 
@@ -60,6 +77,31 @@ static func build(root: Node3D, map: Dictionary) -> void:
 
 	if root is World and EnvDebug.wanted():
 		root.add_child(EnvDebug.new())
+
+
+## Look of surface i: MapDef "surface_styles" (optional, parallel to "surfaces"): "counter" (default:
+## terrazzo slab, trim, cabinets, full-height collider) or "plank" (EnvIslands wooden board, collider
+## only PLANK_T thick, nothing built under it). Missing or unknown entries are "counter".
+static func surface_style(map: Dictionary, i: int) -> String:
+	var styles: Array = map.get("surface_styles", [])
+	return str(styles[i]) if i < styles.size() else STYLE_COUNTER
+
+
+## X span (x0, x1) of plank surface i that no counter surface holds up: from the right-most end of
+## the counters it overlaps on its left to the left-most start of those on its right.
+static func _plank_gap(map: Dictionary, i: int) -> Vector2:
+	var surfaces: Array = map["surfaces"]
+	var r: Rect2 = surfaces[i]
+	var g := Vector2(r.position.x, r.end.x)
+	for j in surfaces.size():
+		var o: Rect2 = surfaces[j]
+		if j == i or surface_style(map, j) == STYLE_PLANK or not o.intersects(r, true):
+			continue
+		if o.get_center().x < r.get_center().x:
+			g.x = maxf(g.x, o.end.x)
+		else:
+			g.y = minf(g.y, o.position.x)
+	return g
 
 
 ## XZ rects of the sink basin footprints (the counter slabs get holes there).

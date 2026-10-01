@@ -1,12 +1,18 @@
 class_name MenuDiorama
 extends SubViewportContainer
-## Living backdrop for menu/lobby: the selected map's kitchen (built by Kitchen, read-only) with a few
-## chefs, stations and a burger stack, seen by a slowly drifting shallow-focus camera + vignette.
+## Living backdrop for menu/lobby: the selected map's kitchen (Net.settings.map, built by Kitchen,
+## read-only; rebuilt when the setting changes) with a few chefs, stations and a burger stack, seen by
+## a slowly drifting shallow-focus camera + vignette. A MapDef frames it with optional "menu_view"
+## {"focus": Vector3, "yaw": degrees, "lift": m} and/or "menu" {"focus": Vector3, "plate": Vector3,
+## "height": m (camera above the focus)} (merged; "menu" wins on "focus"); the diner framing is the default.
 ## Rendering pauses while hidden.
 
 const DEFAULT_FOCUS := Vector3(4.4, 1.0, 5.0)
+const DEFAULT_PLATE := Vector3(12.5, 0, 2.5)
 
 var focus := DEFAULT_FOCUS
+var height := 2.0            # map "menu" height: camera this far above the focus
+var _plate := DEFAULT_PLATE  # map "menu" plate (else the diner plate moved by _set_pos)
 var _yaw := 0.0              # map "menu_view" yaw: 180 looks from the far side towards the front edge
 var _lift := 0.0             # map "menu_view" lift: look this far above the focus (more sky)
 var _vp: SubViewport
@@ -65,10 +71,13 @@ void fragment() {
 func _build_world() -> void:
 	_map_id = str(Net.settings.map) if Net.settings != null else "diner"
 	var map := GameData.map(_map_id)
-	var view: Dictionary = map.get("menu_view", {})
+	var view: Dictionary = (map.get("menu_view", {}) as Dictionary).duplicate()
+	view.merge(map.get("menu", {}), true)
 	focus = view.get("focus", DEFAULT_FOCUS)
 	_yaw = deg_to_rad(float(view.get("yaw", 0.0)))
 	_lift = float(view.get("lift", 0.0))
+	height = float(view.get("height", 2.0))
+	_plate = view.get("plate", _set_pos(DEFAULT_PLATE))
 	_root = Node3D.new()
 	_vp.add_child(_root)
 	_vp.move_child(_root, 0)
@@ -104,7 +113,7 @@ func _build_set(root: Node3D) -> void:
 		n.rotation.y = deg_to_rad(float(s.get("yaw", 0.0)))
 		root.add_child(n)
 	# Burger stack on the plate.
-	var at := _set_pos(Vector3(12.5, 0, 2.5))
+	var at := _plate
 	var plate := Models.load_model("plate")
 	if plate != null:
 		plate.position = at
@@ -161,7 +170,7 @@ func _process(delta: float) -> void:
 func _place_camera() -> void:
 	var a := sin(_t * 0.16 + _seed) * 0.32
 	var r := 6.8
-	var pos := focus + Vector3(sin(a) * r, 2.0 + sin(_t * 0.23) * 0.35, cos(a) * r).rotated(Vector3.UP, _yaw)
+	var pos := focus + Vector3(sin(a) * r, height + sin(_t * 0.23) * 0.35, cos(a) * r).rotated(Vector3.UP, _yaw)
 	_cam.position = pos
 	_cam.look_at(focus + Vector3(0, _lift, 0), Vector3.UP)
 	_cam.h_offset = -1.9

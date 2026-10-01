@@ -131,9 +131,12 @@ const SPAWN_POINTS := [Vector3(-2, 0, 1), Vector3(2, 0, 1), Vector3(-2, 0, -3), 
 ##   scenery: Array of prop dicts (format of SCENERY). "flat": true = decoration without collider
 ##     ("hob" is built in code); "sink_basin" cuts a hole in the surface under it.
 ##   spawn_points: Array of Vector3, one per player slot (wraps). hazards: Array of hazard ids.
-##   decor: Array (optional) theme dressing tied to this layout ("diner_clutter", "picnic_clutter").
+##   decor: Array (optional) theme dressing tied to this layout ("diner_clutter", "picnic_clutter", "island_sink", "islands_clutter").
 ##   camera_bounds: Rect2 (optional) camera focus clamp instead of the surfaces' bounds.
+##   surface_styles: Array (optional, parallel to surfaces) "counter" (default) or "plank" (Kitchen.surface_style).
 ##   menu_view: Dictionary (optional) menu backdrop camera: "focus" Vector3, "yaw" degrees, "lift" m (MenuDiorama).
+##   menu: Dictionary (optional) menu backdrop framing: "focus" Vector3, "plate" Vector3, "height" m (MenuDiorama;
+##     merged with menu_view, so a map may use either or both).
 ## A static var (not const) so bigger maps can live in their own file (data/maps/map_<id>.gd, def()).
 static var MAPS := {
 	"diner": {
@@ -160,6 +163,7 @@ static var MAPS := {
 		"hazards": [],
 	},
 	"picnic": MapPicnic.def(),
+	"twin_islands": preload("res://scripts/data/maps/map_twin_islands.gd").DEF,
 }
 
 ## Player colours: blue, red, green, yellow. A player's default is its join slot; any can be picked
