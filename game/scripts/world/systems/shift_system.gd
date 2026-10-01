@@ -4,9 +4,11 @@ extends RefCounted
 ## shop (try_buy), --upgrades, --recipes, --quit-after-shift. Data lives in world.shift / world.orders.
 ## Reads world.chefs/items and the stations to reset them. Calls world.remove_item, world.release, Net.
 
+## Upgrades whose only effect is opening a station that carries "upgrade": <id> (Station.is_locked).
+const STATION_UPGRADES := ["second_plate"]
+
 var world: World
 var _last_order_count := 0
-var _quit_timer := -1.0
 
 
 func _init(w: World) -> void:
@@ -100,7 +102,9 @@ func _end_shift() -> void:
 	Net.metrics["result"] = info   # balance harness: shift, name, served, failed, earned, target, met, coins
 	Net.set_phase(Net.Phase.RESULTS, info)
 	if Net.has_arg("quit-after-shift"):
-		_quit_timer = 4.5 if Net.has_arg("results-shot") else 2.0   # let --results-shot (2.8 s) fire first
+		# A SceneTree timer, not a World one: it survives Main rebuilding the World on a map change.
+		var secs := 4.5 if Net.has_arg("results-shot") else 2.0   # let --results-shot (2.8 s) fire first
+		Net.get_tree().create_timer(secs, true, false, true).timeout.connect(Net.finish_test)
 
 
 ## Host: best coins (this shift) per map + difficulty and per campaign mission. True when a new best.
@@ -134,6 +138,9 @@ func try_buy(id: String) -> void:
 	var u := GameData.upgrade(id)
 	if u.is_empty() or shift.has_upgrade(id):
 		return
+	if not upgrade_available(id, shift.next_index):
+		Net.event("%s: not available on this kitchen." % u["name"], "buzz")
+		return
 	if shift.coins < int(u["price"]):
 		Net.event("Not enough coins for %s." % u["name"], "buzz")
 		return
@@ -145,9 +152,12 @@ func try_buy(id: String) -> void:
 			c.set_gloves(true)
 
 
-## Every frame on every peer (only ever armed on the host): --quit-after-shift countdown.
-func process_quit(delta: float) -> void:
-	if _quit_timer > 0.0:
-		_quit_timer -= delta
-		if _quit_timer <= 0.0:
-			Net.finish_test()
+## False for an upgrade that only opens a station (MapDef station "upgrade", e.g. second_plate) when the
+## next shift's map has no such station. Every peer (ShopView greys the card out with the same rule).
+static func upgrade_available(id: String, next_index: int) -> bool:
+	if not STATION_UPGRADES.has(id):
+		return true
+	for st in GameData.map(ShiftPlan.map_for(Net.settings, next_index)).get("stations", []):
+		if str((st as Dictionary).get("upgrade", "")) == id:
+			return true
+	return false

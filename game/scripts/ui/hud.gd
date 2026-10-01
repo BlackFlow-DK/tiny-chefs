@@ -39,6 +39,7 @@ var _banner: Control
 # tracking
 var _shift_key := ""
 var _max_time := 1.0
+var _was_running := false   # a client's first frames have running=false, time_left=0 until the first snapshot
 var _last_sec := -1
 var _target_hit := false
 var _last_served := 0
@@ -281,9 +282,12 @@ func _process(_delta: float) -> void:
 	_event_banner.world = world
 	var s := world.shift
 	var key := "%d:%d" % [world.get_instance_id(), s.index]
-	var fresh := key != _shift_key
+	var fresh := key != _shift_key or (s.running and not _was_running)
+	_was_running = s.running
 	if fresh:
 		_new_shift(key, s)
+	if s.time_left > _max_time:
+		_max_time = s.time_left
 
 	# Toasts hang under the tallest ticket (two chip rows are taller than one).
 	_toasts.offset_top = lerpf(_toasts.offset_top, _rail.rail_bottom() + 14.0, 0.25)

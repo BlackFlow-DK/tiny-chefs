@@ -20,8 +20,10 @@ func _init(w: World) -> void:
 	world = w
 
 
-## Objective entries for a ShiftDef ([] unless campaign).
-static func build(def: Dictionary) -> Array:
+## Objective entries for a ShiftDef ([] unless campaign). "earn n" scales like the shift target does
+## (ShiftPlan.build: difficulty preset "target" multiplier, then x (1 + SCALE_TARGET_PER_PLAYER per extra
+## player)), so it stays above the target instead of being a free star.
+static func build(def: Dictionary, players := 1) -> Array:
 	if str(def.get("mode", "")) != "campaign":
 		return []
 	var out: Array = [["target", "", int(def.get("target", 0)), 0, PENDING]]
@@ -29,11 +31,15 @@ static func build(def: Dictionary) -> Array:
 		if out.size() > MAX_BONUS:
 			break
 		var d: Dictionary = o
-		out.append([str(d.get("type", "")), str(d.get("recipe", "")), int(d.get("n", 0)), 0, PENDING])
+		var n := int(d.get("n", 0))
+		if str(d.get("type", "")) == "earn":
+			n = int(round(float(n) * float(Difficulty.preset(str(def.get("difficulty", "normal")))["target"])))
+			n = int(round(float(n) * (1.0 + Tuning.SCALE_TARGET_PER_PLAYER * maxi(0, players - 1))))
+		out.append([str(d.get("type", "")), str(d.get("recipe", "")), n, 0, PENDING])
 	return out
 
 
-## Every peer: one line for the HUD / intro / results, e.g. "Serve 3 Double Beef Cheeseburgers".
+## Every peer: one line for the HUD / intro / results, e.g. "Serve 3x Double Beef Cheeseburger".
 static func label(e: Array) -> String:
 	var n := int(e[2])
 	match str(e[0]):
@@ -44,7 +50,7 @@ static func label(e: Array) -> String:
 		"serve_n":
 			var i := GameData.recipe_index(str(e[1]))
 			var rn: String = str(GameData.RECIPES[i]["name"]) if i >= 0 else str(e[1]).capitalize()
-			return "Serve %d %s%s" % [n, rn, "s" if n != 1 else ""]
+			return "Serve %dx %s" % [n, rn]
 		"no_burnt":
 			return "Burn nothing"
 		"no_expired":
@@ -74,7 +80,7 @@ static func stars_for(entries: Array) -> int:
 ## Host, after ShiftManager.begin.
 func start() -> void:
 	_served.clear()
-	world.shift.objectives = build(world.shift.def)
+	world.shift.objectives = build(world.shift.def, maxi(1, world.chefs.size()))
 	if not world.shift.objectives.is_empty():
 		print("objectives: start mission %d %s" % [int(world.shift.def.get("mission_id", -1)), JSON.stringify(world.shift.objectives)])
 

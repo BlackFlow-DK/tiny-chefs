@@ -8,6 +8,17 @@ var _button: Button
 var _tween: Tween
 
 
+## True when the results info is a cleared final campaign mission (ObjectiveSystem.finish next_mission -1).
+static func campaign_done(info: Dictionary) -> bool:
+	return info.has("stars") and bool(info.get("met", false)) and int(info.get("next_mission", 0)) < 0
+
+
+## The phase the host's results button (and --autostart) goes to: the lobby after the campaign, else the
+## shop (or the next shift with no_shop).
+static func next_phase(info: Dictionary) -> int:
+	return Net.Phase.LOBBY if campaign_done(info) else ModifierSystem.after_results_phase()
+
+
 func _init() -> void:
 	UI.full_rect(self)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -195,9 +206,11 @@ func show_results(info: Dictionary) -> void:
 	var foot := CenterContainer.new()
 	foot.custom_minimum_size = Vector2(0, 64)
 	if Net.is_host:
-		# no_shop (ModifierSystem): straight into the next shift.
+		# no_shop (ModifierSystem): straight into the next shift. Last mission cleared: back to the lobby.
 		var label := "Start next shift" if ModifierSystem.skip_shop() else "Go to the shop"
-		_button = UIKit.button(label, func() -> void: Net.set_phase(ModifierSystem.after_results_phase(), Net.phase_info), "primary", 320)
+		if campaign_done(info):
+			label = "Back to lobby"
+		_button = UIKit.button(label, func() -> void: Net.set_phase(next_phase(Net.phase_info), Net.phase_info), "primary", 320)
 		foot.add_child(_button)
 	else:
 		_button = null

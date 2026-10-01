@@ -226,6 +226,8 @@ func _simulate(dt: float) -> void:
 	_bounds_sys.drop_over_edge()
 	_plate_sys.tick(dt)
 	for s in stations:
+		if not playing and s is Griddle:
+			continue   # griddle + fryer freeze between shifts: nothing burns during results/shop
 		s.host_update(dt)
 	events.tick(dt, playing)
 	_hazard_sys.host_tick(dt, playing)
@@ -326,6 +328,11 @@ func detach_all(it: Item) -> void:
 	_carry_sys.detach_all(it)
 
 
+## A system just launched it (punch): drop-momentum effects (slippery) must not overwrite its velocity.
+func item_launched(it: Item) -> void:
+	_mod_sys.forget_item(it.item_id)
+
+
 func spawn_item(kind: String, pos: Vector3) -> Item:
 	var it := Item.new()
 	it.setup(_next_item_id, kind, false)
@@ -404,7 +411,6 @@ func _process(delta: float) -> void:
 	_hint_sys.update()
 	events.process(delta)
 	_hazard_sys.client_tick(delta)
-	_shift_sys.process_quit(delta)
 
 
 func _on_event(_text: String, sfx: String) -> void:

@@ -169,7 +169,16 @@ func _make_card(u: Dictionary) -> Control:
 	active.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	active.visible = false
 	v.add_child(active)
-	_cards[id] = {"card": card, "button": btn, "price": price, "chip": price_row, "badge": badge, "active": active, "state": ""}
+	var na := UIKit.body("Not available on this kitchen")
+	na.add_theme_color_override("font_color", UITheme.TOMATO_DARK)
+	na.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	na.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	na.custom_minimum_size = Vector2(116 if compact else 190, 0)
+	na.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	na.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	na.visible = false
+	v.add_child(na)
+	_cards[id] = {"card": card, "button": btn, "price": price, "chip": price_row, "badge": badge, "active": active, "na": na, "state": ""}
 	return card
 
 
@@ -222,13 +231,20 @@ func update(sm: ShiftManager) -> void:
 		var btn: Button = c["button"]
 		var price := int(u["price"])
 		var st := "owned" if sm.has_upgrade(id) else ("buy" if sm.coins >= price else "poor")
+		if st != "owned" and not ShiftSystem.upgrade_available(id, sm.next_index):
+			st = "na"   # e.g. Second Plate on a kitchen without a second plate
 		if st == c["state"]:
 			continue
 		var prev: String = c["state"]
 		c["state"] = st
 		var owned := st == "owned"
-		btn.visible = not owned
-		(c["chip"] as Control).visible = not owned
+		var na := st == "na"
+		btn.visible = not owned and not na
+		(c["chip"] as Control).visible = not owned and not na
+		(c["na"] as Control).visible = na
+		(c["card"] as Control).modulate = Color(1, 1, 1, 0.6) if na else Color.WHITE
+		if na and btn.has_focus():
+			focus_lost = true
 		(c["badge"] as Control).visible = owned
 		(c["active"] as Control).visible = owned
 		(c["price"] as Label).add_theme_color_override("font_color", UITheme.TOMATO_DARK if st == "poor" else UITheme.INK)

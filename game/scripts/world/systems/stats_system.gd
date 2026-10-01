@@ -27,7 +27,7 @@ var run_team_burnt_unowned := 0
 var _touched: Dictionary = {}      # item id -> [peer ids who carried it]
 var _last_holder: Dictionary = {}  # item id -> peer id of the last chef who held it
 var _assisted: Dictionary = {}     # item id -> [peer ids already credited with an assist]
-var _plated: Array = []            # peer ids who carried items now on the plate
+var _plated: Dictionary = {}       # plate instance id -> [peer ids who carried the items now on that plate]
 var _was_down: Dictionary = {}     # peer id -> was respawning last tick
 
 
@@ -104,25 +104,33 @@ func on_punch(c: Chef) -> void:
 	_add(c.peer_id, "punches")
 
 
-## Food snapped onto the plate: remember who carried it.
-func on_plated(it: Item) -> void:
+## Food snapped onto `plate`: remember who carried it (per plate, so two plates keep their own credit).
+func on_plated(it: Item, plate: Object) -> void:
+	var key := plate.get_instance_id()
+	var on: Array = _plated.get(key, [])
 	for id in _touched.get(it.item_id, []):
-		if not _plated.has(id):
-			_plated.append(id)
+		if not on.has(id):
+			on.append(id)
+	_plated[key] = on
 
 
-func on_plate_cleared() -> void:
-	_plated.clear()
+func on_plate_cleared(plate: Object) -> void:
+	_plated.erase(plate.get_instance_id())
 
 
-## The bell rang on a matching plate worth `pay` coins.
-func on_serve(ringer: Chef, pay: int) -> void:
+## The bell rang on a matching `plate` worth `pay` coins.
+func on_serve(ringer: Chef, pay: int, plate: Object) -> void:
 	var rid := ringer.peer_id
 	_add(rid, "served")
 	var who: Array = [rid]
-	for id in _plated:
+	for id in _plated.get(plate.get_instance_id(), []):
 		if not who.has(id):
 			who.append(id)
+	if world.plates.size() > 1:
+		var others := _plated.duplicate()
+		others.erase(plate.get_instance_id())
+		print("stats: serve on plate %d by %d, coins split %s, other plates keep carriers %s" % [
+			world.plates.find(plate) + 1, rid, str(who), str(others.values())])
 	var share := pay / who.size()
 	for id in who:
 		_add(id, "coins", share)

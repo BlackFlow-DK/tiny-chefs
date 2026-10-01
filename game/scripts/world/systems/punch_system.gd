@@ -52,8 +52,13 @@ func _punch(c: Chef) -> void:
 	elif best is Item:
 		var it := best as Item
 		Net.metrics["punch_hits"] = int(Net.metrics.get("punch_hits", 0)) + 1
+		var held := it.carriers.size()
 		world.detach_all(it)
+		world.item_launched(it)   # slippery: no "keeps its carry velocity" on top of the punch
 		var w := sqrt(float(it.weight()))
 		it.linear_velocity = fwd * (Tuning.PUNCH_ITEM_SPEED / w) + Vector3.UP * (Tuning.PUNCH_ITEM_UP / w)
 		it.angular_velocity = Vector3(0, 8.0, 0)
 		it.refuse_cooldown = 0.3
+		if Net.has_arg("carry-log"):
+			print("punch: chef %d launched %s %d (held by %d) at %.2f m/s" % [c.peer_id, it.kind, it.item_id, held,
+				it.linear_velocity.length()])

@@ -142,6 +142,8 @@ func host_tick(dt: float) -> void:
 			var v: Vector3 = _carry_vel.get(id, Vector3.ZERO)
 			v.y = 0.0
 			it.linear_velocity = v * SLIP_DROP_KEEP
+			if Net.has_arg("carry-log"):
+				print("modifiers: slippery drop %d keeps carry velocity %.2f m/s" % [id, it.linear_velocity.length()])
 			_carry_pos.erase(id)
 			_carry_vel.erase(id)
 	if not slip and not _carry_pos.is_empty():
@@ -149,6 +151,15 @@ func host_tick(dt: float) -> void:
 		_carry_vel.clear()
 	if Net.has_arg("slide-test"):
 		_slide_test(dt)
+
+
+## Host (World.item_launched): forget the item's carry tracking, so a punch that frees it keeps the punch
+## velocity instead of the slippery drop momentum.
+func forget_item(id: int) -> void:
+	if _carry_pos.has(id) and Net.has_arg("carry-log"):
+		print("modifiers: slippery tracking cleared for launched item %d" % id)
+	_carry_pos.erase(id)
+	_carry_vel.erase(id)
 
 
 func _set_item_slip(it: Item, on: bool) -> void:
