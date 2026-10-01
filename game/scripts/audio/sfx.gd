@@ -28,6 +28,7 @@ func _ready() -> void:
 	_make("crack", [[1400.0, 700.0, 0.03], [260.0, 140.0, 0.07]], "noise", 0.45)
 	_make("fry", [[2400.0, 1600.0, 0.55]], "noise", 0.16)
 	_make("fizz", [[3200.0, 2600.0, 0.12], [2600.0, 3400.0, 0.45]], "noise", 0.14)
+	_make_whoosh("gust", 3.8, 0.5)
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -68,6 +69,33 @@ func _make(sfx_name: String, segments: Array, wave: String, vol: float) -> void:
 					s = sin(phase)
 			var env := minf(1.0, float(i) / (RATE * 0.004)) * minf(1.0, float(n - i) / (RATE * 0.03))
 			data.encode_s16(start + i * 2, int(clampf(s * vol * env, -1.0, 1.0) * 32767.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = RATE
+	w.stereo = false
+	w.data = data
+	_streams[sfx_name] = w
+
+
+## Wind whoosh: low-passed noise whose cutoff and level swell to a peak at 55% and fade out, with a
+## slow flutter (the wind hazard's gust).
+func _make_whoosh(sfx_name: String, seconds: float, vol: float) -> void:
+	var n := int(seconds * RATE)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var lp := 0.0
+	var lp2 := 0.0
+	for i in n:
+		var k := float(i) / float(n)
+		var swell := pow(sin(PI * pow(k, 0.8)), 1.6)
+		var flutter := 0.8 + 0.2 * sin(k * TAU * 5.0) * sin(k * TAU * 1.7)
+		var cutoff := lerpf(0.02, 0.16, swell)
+		lp += (rng.randf_range(-1.0, 1.0) - lp) * cutoff
+		lp2 += (lp - lp2) * cutoff
+		var s := lp2 * 3.2 * swell * flutter
+		data.encode_s16(i * 2, int(clampf(s * vol, -1.0, 1.0) * 32767.0))
 	var w := AudioStreamWAV.new()
 	w.format = AudioStreamWAV.FORMAT_16_BITS
 	w.mix_rate = RATE
