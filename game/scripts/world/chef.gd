@@ -44,6 +44,7 @@ var seq_ready := false
 var last_grab_seq := 0
 var last_punch_seq := 0
 var last_work_seq := 0
+var traction := 1.0           # host: walk accel multiplier (ModifierSystem: < 1 on a slippery floor)
 
 var _anim_root: Node3D
 var _visual: Node3D
@@ -244,7 +245,7 @@ func host_move(dt: float, inp: PlayerInput, speed_mult: float) -> bool:
 	if holding != null:
 		return false
 	var dir := inp.move3()
-	walk_vel = walk_vel.move_toward(dir * Tuning.PLAYER_SPEED * speed_mult, Tuning.PLAYER_ACCEL * dt)
+	walk_vel = walk_vel.move_toward(dir * Tuning.PLAYER_SPEED * speed_mult, Tuning.PLAYER_ACCEL * traction * dt)
 	knock = knock.move_toward(Vector3.ZERO, Tuning.KNOCK_DECAY * dt)
 	if is_on_floor():
 		vy = 0.0

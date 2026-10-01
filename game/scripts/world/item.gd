@@ -92,8 +92,9 @@ func set_kind(k: String) -> void:
 	add_child(_shape)
 
 
+## Carriers needed for full speed: the data weight, +1 under heavy_hands (ModifierSystem).
 func weight() -> int:
-	return int(def["weight"])
+	return int(def["weight"]) + ModifierSystem.weight_bonus()
 
 
 func radius() -> float:

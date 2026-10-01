@@ -149,7 +149,9 @@ func show_results(info: Dictionary) -> void:
 	var foot := CenterContainer.new()
 	foot.custom_minimum_size = Vector2(0, 64)
 	if Net.is_host:
-		_button = UIKit.button("Go to the shop", func() -> void: Net.set_phase(Net.Phase.SHOP, Net.phase_info), "primary", 320)
+		# no_shop (ModifierSystem): straight into the next shift.
+		var label := "Start next shift" if ModifierSystem.skip_shop() else "Go to the shop"
+		_button = UIKit.button(label, func() -> void: Net.set_phase(ModifierSystem.after_results_phase(), Net.phase_info), "primary", 320)
 		foot.add_child(_button)
 	else:
 		_button = null

@@ -88,6 +88,9 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float, is_vip := fals
 		row.add_child(c)
 		_chips.append(c)
 	v.add_child(row)
+	if ModifierSystem.is_active("mystery_orders"):
+		row.visible = false   # chips still tick internally (set_plate), just hidden
+		v.add_child(_mystery_row())
 
 	_bar = UIKit.progress(1.0, 150, 14, true)
 	_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -113,6 +116,22 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float, is_vip := fals
 
 	_card.resized.connect(_on_card_resized)
 	_on_card_resized.call_deferred()
+
+
+## mystery_orders: a row of "?" chips in place of the ingredients.
+func _mystery_row() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	for i in 3:
+		var p := PanelContainer.new()
+		p.add_theme_stylebox_override("panel", UITheme.box(UITheme.CREAM_HI, UITheme.INK, 8, 3))
+		p.custom_minimum_size = Vector2(32, 30)
+		var q := UIKit.number("?")
+		q.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
+		q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		p.add_child(q)
+		row.add_child(p)
+	return row
 
 
 ## Gold VIP star with an ink outline and a highlight, centred on c.

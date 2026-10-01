@@ -29,6 +29,7 @@ Call as `powershell -NoProfile -ExecutionPolicy Bypass -File tools\<name>.ps1 ..
 - Controls: move WASD/arrows/left stick; grab LMB/E/pad A; work (hold) RMB/F/pad X; punch Space/Q/pad B; ping MMB/pad Y (3 s marker everyone sees). Chef faces the cursor (`PlayerInput.aim_point/has_aim`) when not carrying; a lone carrier holds the food in front and swings it towards the cursor (else the move direction), slower the heavier it is; group carriers face the food.
 - Game settings args (host, applied before `--autostart`): `--mode=campaign|endless|custom --map=<id> --difficulty=easy|normal|hard|chaos --modifiers=a,b --mission=<n>`. Host and client log `net: settings ...` and `shift: host|client def ...`. `test-multiplayer.ps1 -HostExtra "<args>" -ClientExtra "<args>"` passes extra user args.
 - Shift events (host): `--events=vip,inspector,cat_paw` forces those events on in endless/custom (campaign missions and endless shift 2+ enable them anyway; cat_paw needs the map hazard), `--event-fast` fires the first one 6 s into the shift (then 15 s gaps). Host logs `events: ...`; test report `events` counters.
+- Modifiers (`--modifiers=rush_hour,heavy_hands,slippery,mystery_orders,no_shop,lights_out`): host and client log `modifiers: ...`; `--slide-test` (host) shoves a cheese slice at 8 m/s and logs how far it slides (compare with/without `slippery`).
 - Relative `--test-report` paths resolve against `game/`; pass absolute paths.
 - New `class_name` scripts need `godot-import` before `godot-check` (global class cache).
 - Player guide: `docs/PLAYING.md`.

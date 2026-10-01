@@ -53,6 +53,7 @@ var _snapshot_sys: SnapshotSystem
 var _camera_sys: CameraSystem
 var _hint_sys: HintSystem
 var _hazard_sys: HazardSystem
+var _mod_sys: ModifierSystem
 
 
 func _ready() -> void:
@@ -76,6 +77,7 @@ func _ready() -> void:
 	_board_sys = CuttingBoardSystem.new(self)
 	_plate_sys = PlateSystem.new(self)
 	_shift_sys = ShiftSystem.new(self)
+	_mod_sys = ModifierSystem.new(self)
 	events = EventSystem.new(self)
 	_snapshot_sys = SnapshotSystem.new(self)
 	_camera_sys = CameraSystem.new(self)   # adds the camera, then the hint rings, as before
@@ -219,6 +221,7 @@ func _simulate(dt: float) -> void:
 	events.tick(dt, playing)
 	_hazard_sys.host_tick(dt, playing)
 	_bounds_sys.remove_fallen()
+	_mod_sys.host_tick(dt)
 	_toast_cooldown -= dt
 	_shift_sys.tick(dt, playing)
 
@@ -373,6 +376,7 @@ func toast(msg: String, sfx: String) -> void:
 
 func _process(delta: float) -> void:
 	_camera_sys.update(delta)
+	_mod_sys.update(delta)
 	_hint_sys.update()
 	events.process(delta)
 	_hazard_sys.client_tick(delta)

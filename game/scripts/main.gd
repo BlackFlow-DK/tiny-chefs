@@ -90,7 +90,7 @@ func _process(delta: float) -> void:
 		_auto_timer -= delta
 		if _auto_timer <= 0.0:
 			if Net.phase == Net.Phase.RESULTS:
-				Net.set_phase(Net.Phase.SHOP, Net.phase_info)
+				Net.set_phase(ModifierSystem.after_results_phase(), Net.phase_info)
 			elif Net.phase == Net.Phase.SHOP:
 				Net.set_phase(Net.Phase.PLAYING, {})
 

@@ -64,7 +64,9 @@ func tick(dt: float, playing: bool) -> void:
 			shift.failed += 1
 			Net.event("%s%s order expired! -%d" % ["VIP " if o.get("vip", false) else "", GameData.RECIPES[int(o["r"])]["name"], pen], "fail")
 			world.order_expired(o)
-		if orders.orders.size() > _last_order_count:
+		if orders.last_spawned >= 2:
+			Net.event("Rush! %d orders at once!" % orders.last_spawned, "order")
+		elif orders.orders.size() > _last_order_count:
 			var newest: Dictionary = orders.orders[orders.orders.size() - 1]
 			Net.event("New order: %s" % GameData.RECIPES[int(newest["r"])]["name"], "order")
 		_last_order_count = orders.orders.size()
@@ -112,6 +114,8 @@ func _log_upgrades() -> void:
 func try_buy(id: String) -> void:
 	var shift := world.shift
 	if Net.phase != Net.Phase.SHOP and Net.phase != Net.Phase.RESULTS:
+		return
+	if ModifierSystem.skip_shop():
 		return
 	var u := GameData.upgrade(id)
 	if u.is_empty() or shift.has_upgrade(id):

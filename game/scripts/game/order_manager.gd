@@ -6,6 +6,7 @@ extends RefCounted
 var orders: Array = []
 var _timer := 0.0
 var _spawned := 0
+var last_spawned := 0   # orders added by the last update() (2-3 = a burst: ModifierSystem.bursts)
 var _rng := RandomNumberGenerator.new()
 
 
@@ -19,11 +20,18 @@ func reset() -> void:
 ## Host tick. Returns the orders that expired this tick.
 func update(dt: float, sdef: Dictionary) -> Array:
 	_timer -= dt
+	last_spawned = 0
 	if orders.is_empty():
 		_timer = minf(_timer, Tuning.EMPTY_ORDER_DELAY)
 	if _timer <= 0.0 and orders.size() < Tuning.MAX_ORDERS:
-		_spawn(sdef)
-		_timer = float(sdef["interval"])
+		# Bursts (rush_hour / chaos): 2-3 at once, then a gap as long as that many intervals (same rate).
+		var n := 1
+		if _spawned > 0 and ModifierSystem.bursts(sdef):
+			n = ModifierSystem.burst_size(_rng, Tuning.MAX_ORDERS - orders.size())
+		for i in n:
+			_spawn(sdef)
+		last_spawned = n
+		_timer = float(sdef["interval"]) * n
 	var expired: Array = []
 	for o in orders:
 		o["left"] = float(o["left"]) - dt
