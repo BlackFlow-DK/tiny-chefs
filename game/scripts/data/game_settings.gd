@@ -133,7 +133,7 @@ func describe() -> String:
 
 ## Known map ids: GameData.MAPS keys once that table exists, else FALLBACK_MAP_IDS.
 static func map_ids() -> Array:
-	var maps: Variant = (GameData as Script).get_script_constant_map().get("MAPS")
+	var maps: Variant = GameData.MAPS   # a static var now (was a const)
 	if maps is Dictionary and not (maps as Dictionary).is_empty():
 		return (maps as Dictionary).keys()
 	return FALLBACK_MAP_IDS

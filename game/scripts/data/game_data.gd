@@ -119,7 +119,7 @@ const SCENERY := [
 const SPAWN_POINTS := [Vector3(-2, 0, 1), Vector3(2, 0, 1), Vector3(-2, 0, -3), Vector3(2, 0, -3)]
 
 ## Maps: id -> MapDef. Kitchen, bounds, spawns, camera and bots read the chosen one through World.map.
-##   name, blurb: String (menu text). theme: String room/props look ("diner"; unknown -> diner).
+##   name, blurb: String (menu text). theme: String room/props look ("diner", "picnic"; unknown -> diner).
 ##   dev: bool (optional) hidden from players, only via --map=<id>.
 ##   surfaces: Array of Rect2(x, z, w, h) counter tops at y = 0 (overlap them to join; a point is on
 ##     the counter when it is inside any of them). Each gets a slab, trim, cabinets and a collider.
@@ -131,9 +131,11 @@ const SPAWN_POINTS := [Vector3(-2, 0, 1), Vector3(2, 0, 1), Vector3(-2, 0, -3), 
 ##   scenery: Array of prop dicts (format of SCENERY). "flat": true = decoration without collider
 ##     ("hob" is built in code); "sink_basin" cuts a hole in the surface under it.
 ##   spawn_points: Array of Vector3, one per player slot (wraps). hazards: Array of hazard ids.
-##   decor: Array (optional) theme dressing tied to this layout ("diner_clutter").
+##   decor: Array (optional) theme dressing tied to this layout ("diner_clutter", "picnic_clutter").
 ##   camera_bounds: Rect2 (optional) camera focus clamp instead of the surfaces' bounds.
-const MAPS := {
+##   menu_view: Dictionary (optional) menu backdrop camera: "focus" Vector3, "yaw" degrees, "lift" m (MenuDiorama).
+## A static var (not const) so bigger maps can live in their own file (data/maps/map_<id>.gd, def()).
+static var MAPS := {
 	"diner": {
 		"id": "diner", "name": "The Diner", "blurb": "The classic kitchen island: everything within a few steps.",
 		"theme": "diner", "surfaces": [Rect2(-30, -18, 60, 36)], "stations": STATIONS, "scenery": SCENERY,
@@ -157,6 +159,7 @@ const MAPS := {
 		"spawn_points": [Vector3(-9, 0, 2), Vector3(-15, 0, 2), Vector3(-8, 0, 0), Vector3(-15, 0, 6)],
 		"hazards": [],
 	},
+	"picnic": MapPicnic.def(),
 }
 
 ## Player colours: blue, red, green, yellow. A player's default is its join slot; any can be picked

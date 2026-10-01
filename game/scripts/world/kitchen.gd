@@ -1,14 +1,14 @@
 class_name Kitchen
 extends RefCounted
 ## Static scenery for one map (a GameData.MAPS entry): lighting/atmosphere, one counter slab per
-## surface, the room around them (by theme), and the map's scenery props (solid obstacles unless
-## "flat"). Identical on every peer (no unseeded randomness). The visuals live in world/env/
+## surface, the room around them (by theme: "diner" = EnvLook/EnvCounter/EnvRoom, "picnic" =
+## EnvPicnic), and the map's scenery props (solid obstacles unless "flat"). Identical on every peer (no unseeded randomness). The visuals live in world/env/
 ## (EnvLook, EnvCounter, EnvRoom, EnvProps); this file owns the colliders: one box per surface,
 ## the back wall, one box per solid scenery prop.
 
 const SINK_MODEL := "sink_basin"
 const HOB_MODEL := "hob"
-const THEMES := ["diner"]   # room looks EnvRoom can build; anything else falls back to the first
+const THEMES := ["diner", "picnic"]   # looks Kitchen can build; anything else falls back to the first
 
 
 static func build(root: Node3D, map: Dictionary) -> void:
@@ -20,19 +20,23 @@ static func build(root: Node3D, map: Dictionary) -> void:
 	if not THEMES.has(theme):
 		theme = THEMES[0]
 
-	EnvLook.build(root)
-	var holes := _sink_holes(scenery)
-	for r: Rect2 in surfaces:
-		EnvCounter.build(root, r, holes)
-	if theme == "diner":   # new themes: add their room builder here and the id to THEMES
+	if theme == "picnic":
+		EnvPicnic.build(root, map)   # sky, table + cloth, lawn, trees, bee/ants/leaves, clutter
+	else:
+		EnvLook.build(root)
+		var holes := _sink_holes(scenery)
+		for r: Rect2 in surfaces:
+			EnvCounter.build(root, r, holes)
 		EnvRoom.build(root, surfaces)
 	if (map.get("decor", []) as Array).has("diner_clutter"):
 		EnvProps.clutter(root, bounds)
 
-	# Colliders: each surface is one solid block, top at y = 0; the wall behind the back-most edge.
+	# Colliders: each surface is one solid block, top at y = 0; indoors, the wall behind the back-most
+	# edge (outdoors nothing stops food blowing off the far edge).
 	for r: Rect2 in surfaces:
 		_solid(root, Vector3(r.size.x, ch, r.size.y), Vector3(r.get_center().x, -ch, r.get_center().y))
-	_solid(root, Vector3(260, 90, 1.0), Vector3(0, -ch, bounds.position.y - 1.0))
+	if theme != "picnic":
+		_solid(root, Vector3(260, 90, 1.0), Vector3(0, -ch, bounds.position.y - 1.0))
 
 	for s in scenery:
 		if str(s["model"]) == HOB_MODEL:

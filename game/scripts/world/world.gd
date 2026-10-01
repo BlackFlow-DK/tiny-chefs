@@ -52,6 +52,7 @@ var _shift_sys: ShiftSystem
 var _snapshot_sys: SnapshotSystem
 var _camera_sys: CameraSystem
 var _hint_sys: HintSystem
+var _hazard_sys: HazardSystem
 
 
 func _ready() -> void:
@@ -80,6 +81,7 @@ func _ready() -> void:
 	_camera_sys = CameraSystem.new(self)   # adds the camera, then the hint rings, as before
 	_hint_sys = HintSystem.new(self)
 	_input_sys = InputSystem.new(self)
+	_hazard_sys = HazardSystem.new(self)   # map hazards (world.map.hazards)
 	Net.players_changed.connect(_on_players_changed)
 	Net.phase_changed.connect(_on_phase_changed)
 	Net.event_received.connect(_on_event)
@@ -193,7 +195,7 @@ func _physics_process(dt: float) -> void:
 	Net.metric_max("max_chefs_seen", chefs.size())
 
 
-## Host tick, fixed order: chef actions + walking, carrying, edge, cooldowns, stations, falls, shift.
+## Host tick, fixed order: chef actions + walking, carrying, edge, cooldowns, stations, hazards, falls, shift.
 func _simulate(dt: float) -> void:
 	var playing := Net.phase == Net.Phase.PLAYING
 	var mult := Tuning.SHOES_MULT if shift.has_upgrade("shoes") else 1.0
@@ -215,6 +217,7 @@ func _simulate(dt: float) -> void:
 	for s in stations:
 		s.host_update(dt)
 	events.tick(dt, playing)
+	_hazard_sys.host_tick(dt, playing)
 	_bounds_sys.remove_fallen()
 	_toast_cooldown -= dt
 	_shift_sys.tick(dt, playing)
@@ -372,6 +375,7 @@ func _process(delta: float) -> void:
 	_camera_sys.update(delta)
 	_hint_sys.update()
 	events.process(delta)
+	_hazard_sys.client_tick(delta)
 	_shift_sys.process_quit(delta)
 
 
