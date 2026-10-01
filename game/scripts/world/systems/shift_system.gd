@@ -95,6 +95,7 @@ func _end_shift() -> void:
 		"earned": shift.earned, "target": shift.target(), "met": met, "coins": shift.coins}
 	info["stats"] = world.stats.results()   # replicated to clients with the phase info
 	info["new_best"] = _save_best(shift)
+	info.merge(world.finish_objectives())   # campaign: mission, objectives, stars (saved), next_mission
 	Net.metrics["shifts_finished"] = int(Net.metrics["shifts_finished"]) + 1
 	Net.metrics["result"] = info   # balance harness: shift, name, served, failed, earned, target, met, coins
 	Net.set_phase(Net.Phase.RESULTS, info)

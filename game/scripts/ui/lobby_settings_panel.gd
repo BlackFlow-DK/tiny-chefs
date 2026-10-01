@@ -43,8 +43,6 @@ var _pending := {}
 var _timer: Timer
 var _last_mode := ""
 var _last_mission := -1
-var _progress_obj: Object = null
-var _progress_looked := false
 
 
 func _ready() -> void:
@@ -299,39 +297,14 @@ func _build_custom(parent: Control) -> void:
 	_sec_custom.add_child(_dish_count)
 
 
-# ---------------------------------------------------------------- Progress (the campaign agent builds it later)
-
-func _find_progress() -> Object:
-	if _progress_looked:
-		return _progress_obj
-	_progress_looked = true
-	var loop := Engine.get_main_loop()
-	if loop is SceneTree:
-		var n := (loop as SceneTree).root.get_node_or_null("Progress")
-		if n != null:
-			_progress_obj = n
-			return n
-	for c in ProjectSettings.get_global_class_list():
-		if str(c.get("class", "")) == "Progress":
-			_progress_obj = load(str(c["path"]))
-			break
-	return _progress_obj
-
+# ---------------------------------------------------------------- Progress (local campaign stars)
 
 func _is_unlocked(i: int) -> bool:
-	var p := _find_progress()
-	if p != null and p.has_method("is_unlocked"):
-		return bool(p.call("is_unlocked", i))
-	return true  # TODO(campaign agent): Progress.is_unlocked(i) decides once Progress exists
+	return Progress.is_unlocked(i)
 
 
 func _stars(i: int) -> int:
-	var p := _find_progress()
-	if p != null:
-		for m in ["stars_for", "get_stars", "stars"]:
-			if p.has_method(m):
-				return clampi(int(p.call(m, i)), 0, 3)
-	return 0  # TODO(campaign agent): show earned stars from Progress
+	return Progress.get_stars(i)
 
 
 # ---------------------------------------------------------------- input (host only)

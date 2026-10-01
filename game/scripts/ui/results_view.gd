@@ -32,6 +32,34 @@ func _row(label: String, value: Label) -> HBoxContainer:
 	return h
 
 
+## Campaign: each objective's outcome (tick / cross), then what comes next: retry, the next mission and
+## its map, or the end of the campaign.
+func _add_mission_outcome(box: VBoxContainer, info: Dictionary, met: bool) -> void:
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 6)
+	var objs: Array = info.get("objectives", [])
+	for i in objs.size():
+		var row := ObjectiveRow.new(170.0)
+		row.set_entry(objs[i])
+		row.modulate.a = 0.0
+		UIKit.pop_in(row, 1.0 + 0.18 * i, 0.2)
+		list.add_child(row)
+	box.add_child(list)
+	var nxt := int(info.get("next_mission", -1))
+	var text := "Same mission again. You've got this."
+	if met and nxt < 0:
+		text = "Campaign complete! Every mission cleared."
+	elif met:
+		var m := Missions.get_mission(nxt)
+		var map_def: Dictionary = GameData.MAPS.get(str(m["map"]), {})
+		text = "Next mission: %s (%s)" % [m["name"], map_def.get("name", str(m["map"]).capitalize())]
+	var l := UIKit.body(text)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(250, 0)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(l)
+
+
 func _line() -> ColorRect:
 	var r := ColorRect.new()
 	r.color = UITheme.PAPER_OFF
@@ -50,6 +78,9 @@ func show_results(info: Dictionary) -> void:
 	var earned := int(info.get("earned", 0))
 	var target := int(info.get("target", 0))
 	var stars := stars_for(earned, target)
+	var campaign := info.has("stars")   # campaign mission (ObjectiveSystem.finish): stars come from the objectives
+	if campaign:
+		stars = int(info["stars"])
 	var accent := UITheme.LETTUCE if met else UITheme.TOMATO
 
 	add_child(UIKit.backdrop(0.72))
@@ -59,6 +90,8 @@ func show_results(info: Dictionary) -> void:
 
 	var hero := Label.new()
 	hero.text = "Shift complete!" if met else "Shift failed"
+	if campaign:
+		hero.text = "Mission complete!" if met else "Mission failed"
 	hero.theme_type_variation = "HeroLabel"
 	hero.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if not met:
@@ -76,7 +109,7 @@ func show_results(info: Dictionary) -> void:
 	var left := VBoxContainer.new()
 	left.custom_minimum_size = Vector2(340, 0)
 	left.add_theme_constant_override("separation", 8)
-	left.add_child(UIKit.heading("Shift %d" % (int(info.get("shift", 0)) + 1)))
+	left.add_child(UIKit.heading("Mission %d" % (int(info.get("mission", 0)) + 1) if campaign else "Shift %d" % (int(info.get("shift", 0)) + 1)))
 	left.add_child(UIKit.caption(str(info.get("name", ""))))
 	left.add_child(_line())
 	var served := UIKit.number(str(int(info.get("served", 0))))
@@ -138,7 +171,9 @@ func show_results(info: Dictionary) -> void:
 	stamp.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	stamp.grow_vertical = Control.GROW_DIRECTION_BOTH
 	right.add_child(stamp_box)
-	if not met:
+	if campaign:
+		_add_mission_outcome(right, info, met)
+	elif not met:
 		right.add_child(UIKit.caption("Same shift again. You've got this."))
 	else:
 		right.add_child(UIKit.caption("On to the next shift!"))

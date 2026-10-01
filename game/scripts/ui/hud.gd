@@ -63,6 +63,7 @@ func _ready() -> void:
 	_build_toasts()
 	_build_prompt()
 	_build_help()
+	add_child(HudObjectives.new(_stats))   # campaign: objectives card, mission intro, training prompts
 	_event_banner = HudEventBanner.new()   # shift events: "ev_*" banners, inspector countdown
 	add_child(_event_banner)
 	Net.event_received.connect(_on_event)
@@ -442,6 +443,8 @@ func _update_prompt() -> void:
 # ================================================================ banner
 
 func _show_banner(s: ShiftManager) -> void:
+	if str(s.def.get("mode", "")) == "campaign":
+		return   # HudObjectives shows the MissionIntro card instead
 	if _banner != null and is_instance_valid(_banner):
 		_banner.queue_free()
 	var p := _hud_card(UITheme.CREAM, 34, 16)

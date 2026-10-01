@@ -54,6 +54,20 @@ func _handle_args() -> void:
 func _on_phase(ph: int) -> void:
 	menu.visible = ph == Net.Phase.MENU
 	lobby.visible = ph == Net.Phase.LOBBY
+	if ph == Net.Phase.PLAYING and world != null and _map_changes():
+		# Campaign: the next mission is on another map. Rebuild the World, keeping the run (wallet, upgrades,
+		# next shift index) in its ShiftManager. remove_child first so the old World stops at once.
+		var carry := world.shift
+		var run_stats: Dictionary = world.stats.run_stats if world.stats != null else {}
+		Net.world = null
+		remove_child(world)
+		world.queue_free()
+		print("main: map change -> %s, rebuilding the world" % Net.phase_info.get("map", ""))
+		world = World.new()
+		world.shift = carry
+		add_child(world)
+		move_child(world, 0)
+		world.stats.run_stats = run_stats   # the MVP card's "whole run" survives the rebuild
 	if ph >= Net.Phase.PLAYING and world == null:
 		world = World.new()
 		add_child(world)
@@ -76,6 +90,14 @@ func _on_phase(ph: int) -> void:
 			_auto_timer = Tuning.AUTO_SHOP_SECONDS
 	if ph == Net.Phase.LOBBY:
 		_check_autostart()
+
+
+## True when the phase info names a different map than the one the current World was built from.
+func _map_changes() -> bool:
+	var want := str(Net.phase_info.get("map", ""))
+	if want.is_empty() or not GameData.MAPS.has(want):
+		return false
+	return str(world.map.get("id", "")) != want
 
 
 func _check_autostart() -> void:

@@ -12,6 +12,7 @@ var earned := 0           # this shift: payments minus penalties
 var served := 0
 var failed := 0
 var upgrades: Array = []  # upgrade ids owned
+var objectives: Array = []  # campaign: [type, recipe, n, have, state] per objective (ObjectiveSystem)
 
 
 ## Host: start shift i. The ShiftDef comes from the session settings (ShiftPlan, see shift_plan.gd).
@@ -20,6 +21,8 @@ func begin(i: int, players: int, duration_override: float) -> void:
 	def = ShiftPlan.build(Net.settings, i, players)
 	if duration_override > 0.0:
 		def["duration"] = duration_override
+	if Net.has_arg("target"):   # test helper: --target=<coins> (e.g. walk a campaign run across missions)
+		def["target"] = Net.arg_int("target", target())
 	print("shift: host def %s" % ShiftPlan.describe(def))
 	time_left = float(def["duration"])
 	earned = 0
@@ -46,7 +49,7 @@ func shift_name() -> String:
 
 
 func to_meta() -> Array:
-	return [index, shift_name(), time_left, coins, earned, target(), served, failed, upgrades, running, next_index]
+	return [index, shift_name(), time_left, coins, earned, target(), served, failed, upgrades, running, next_index, objectives]
 
 
 ## Client. The full ShiftDef (map, modifiers, events, objectives...) is rebuilt locally from the replicated
@@ -66,3 +69,4 @@ func from_meta(a: Array) -> void:
 	upgrades = a[8]
 	running = a[9]
 	next_index = a[10]
+	objectives = a[11] if a.size() > 11 else []

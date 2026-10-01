@@ -55,6 +55,7 @@ var _camera_sys: CameraSystem
 var _hint_sys: HintSystem
 var _hazard_sys: HazardSystem
 var _mod_sys: ModifierSystem
+var _objective_sys: ObjectiveSystem
 
 
 func _ready() -> void:
@@ -79,6 +80,7 @@ func _ready() -> void:
 	_plate_sys = PlateSystem.new(self)
 	_shift_sys = ShiftSystem.new(self)
 	_mod_sys = ModifierSystem.new(self)
+	_objective_sys = ObjectiveSystem.new(self)
 	stats = StatsSystem.new(self)
 	events = EventSystem.new(self)
 	_snapshot_sys = SnapshotSystem.new(self)
@@ -101,6 +103,11 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if Net.world == self:
 		Net.world = null
+	# Main swaps the World on a map change mid-run: the old one must stop reacting at once.
+	if Net.phase_changed.is_connected(_on_phase_changed):
+		Net.players_changed.disconnect(_on_players_changed)
+		Net.phase_changed.disconnect(_on_phase_changed)
+		Net.event_received.disconnect(_on_event)
 
 
 func _build_stations() -> void:
@@ -152,7 +159,7 @@ func _on_players_changed() -> void:
 
 
 func _on_phase_changed(ph: int) -> void:
-	if is_host and ph == Net.Phase.PLAYING:
+	if is_host and ph == Net.Phase.PLAYING and is_inside_tree():
 		start_shift()
 
 
@@ -226,6 +233,7 @@ func _simulate(dt: float) -> void:
 	_mod_sys.host_tick(dt)
 	stats.tick()
 	_toast_cooldown -= dt
+	_objective_sys.tick(playing)
 	_shift_sys.tick(dt, playing)
 
 
@@ -244,12 +252,18 @@ func _handle_actions(c: Chef, inp: PlayerInput) -> void:
 
 # ================================================================ map (every peer)
 
-## Host: the map id this session plays (--map=<id>, default diner). The one place the choice is read;
-## replace the body with the lobby setting. Net.set_phase sends it to clients with every phase change.
+## Host: the map id this session plays (--map=<id>, else the settings; a campaign mission names its own).
+## During a run it is the map of the running shift, or of the next one between shifts (RESULTS/SHOP), so
+## the PLAYING phase carries the next mission's map and Main rebuilds the World when it differs.
+## Net.set_phase sends it to clients with every phase change.
 static func map_id_for_session() -> String:
 	if Net.has_arg("map"):
 		return Net.arg_str("map", "diner")
-	return ShiftPlan.map_for(Net.settings, 0)
+	var i := 0
+	var w := Net.world as World
+	if w != null and is_instance_valid(w):
+		i = w.shift.index if w.shift.running else w.shift.next_index
+	return ShiftPlan.map_for(Net.settings, i)
 
 
 ## True when xz (world X, Z) is on any counter surface of the map.
@@ -271,6 +285,7 @@ func input_of(id: int) -> PlayerInput:
 
 func start_shift() -> void:
 	_shift_sys.start_shift()
+	_objective_sys.start()
 	events.start_shift()
 
 
@@ -280,11 +295,17 @@ func note_orders_changed() -> void:
 
 ## An order was served for pay coins (PlateSystem) / expired (ShiftSystem): event hooks (VIP).
 func order_served(o: Dictionary, pay: int) -> void:
+	_objective_sys.note_served(str(GameData.RECIPES[int(o["r"])]["id"]))
 	events.on_order_served(o, pay)
 
 
 func order_expired(o: Dictionary) -> void:
 	events.on_order_expired(o)
+
+
+## Host, at shift end: campaign objective results (stars saved) merged into the RESULTS info; {} otherwise.
+func finish_objectives() -> Dictionary:
+	return _objective_sys.finish()
 
 
 ## Every peer: the food chef c would grab with input inp (aim first; see CarrySystem.grab_candidate).
