@@ -57,6 +57,7 @@ func host_update(_dt: float) -> void:
 			world.refuse_from_plate(it, self, "This plate is closed. Buy %s in the shop!" % unlock_name())
 		elif bool(it.def["plate"]) and stack.size() < Tuning.PLATE_MAX_STACK:
 			stack.append(it.kind)
+			world.stats.on_plated(it)
 			print("content: plate took %s (%d on the plate)" % [it.kind, stack.size()])
 			world.remove_item(it)
 			Net.event("", "plop")
@@ -67,6 +68,8 @@ func host_update(_dt: float) -> void:
 
 func clear_stack() -> void:
 	stack.clear()
+	if world.is_host:
+		world.stats.on_plate_cleared()
 	_refresh()
 
 

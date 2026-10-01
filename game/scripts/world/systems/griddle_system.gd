@@ -17,6 +17,7 @@ func change_kind(it: Item, k: String) -> void:
 	it.set_kind(k)
 	print("content: griddle %s -> %s" % [was, k])
 	if k.ends_with("_burnt"):
+		world.stats.on_burnt(it)
 		Net.event("Something burnt on the griddle!", "fail")
 	elif crack:
 		Net.event("", "crack")

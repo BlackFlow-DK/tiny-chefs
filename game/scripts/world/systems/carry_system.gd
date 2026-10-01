@@ -107,6 +107,7 @@ func _try_grab(c: Chef) -> void:
 	if best.carriers.size() == 1:
 		_enter_solo(c, best)
 	# 2+: group mode keeps everyone where they are; move_carried turns them to face the item.
+	world.stats.on_grab(c, best)
 	Net.event("", "grab", c.peer_id)
 	Net.metrics["grabs"] = int(Net.metrics.get("grabs", 0)) + 1
 

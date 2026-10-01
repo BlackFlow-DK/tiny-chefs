@@ -20,6 +20,7 @@ func drop_over_edge() -> void:
 			continue
 		var ip: Vector3 = it.global_position
 		if not world.on_counter(Vector2(ip.x, ip.z)):
+			world.stats.on_dropped(it)
 			world.detach_all(it)
 
 

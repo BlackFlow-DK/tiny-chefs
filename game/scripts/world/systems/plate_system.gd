@@ -83,6 +83,7 @@ func _serve(c: Chef, b: Bell) -> void:
 		var pay := OrderManager.pay_for(o)   # x VIP_PAY_MULT for a VIP order
 		shift.add_coins(pay)
 		shift.served += 1
+		world.stats.on_serve(c, pay)
 		orders.orders.remove_at(idx)
 		world.note_orders_changed()
 		_total_served += 1

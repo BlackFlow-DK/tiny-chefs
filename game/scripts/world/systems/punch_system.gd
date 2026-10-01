@@ -20,6 +20,7 @@ func on_punch_pressed(c: Chef) -> void:
 func _punch(c: Chef) -> void:
 	c.punch_cd = Tuning.PUNCH_COOLDOWN
 	c.punch_anim = 0.25
+	world.stats.on_punch(c)
 	Net.event("", "punch")
 	Net.metrics["punches"] = int(Net.metrics.get("punches", 0)) + 1
 	var fwd := c.facing

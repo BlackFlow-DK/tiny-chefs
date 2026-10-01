@@ -24,6 +24,7 @@ func start_shift() -> void:
 	var shift := world.shift
 	for it in world.items.values():
 		world.remove_item(it)
+	world.stats.begin_shift()
 	for p in world.plates:
 		p.clear_stack()
 	world.board.reset()
@@ -92,11 +93,23 @@ func _end_shift() -> void:
 		world.release(c)
 	var info := {"shift": shift.index, "name": shift.shift_name(), "served": shift.served, "failed": shift.failed,
 		"earned": shift.earned, "target": shift.target(), "met": met, "coins": shift.coins}
+	info["stats"] = world.stats.results()   # replicated to clients with the phase info
+	info["new_best"] = _save_best(shift)
 	Net.metrics["shifts_finished"] = int(Net.metrics["shifts_finished"]) + 1
 	Net.metrics["result"] = info   # balance harness: shift, name, served, failed, earned, target, met, coins
 	Net.set_phase(Net.Phase.RESULTS, info)
 	if Net.has_arg("quit-after-shift"):
-		_quit_timer = 2.0
+		_quit_timer = 4.5 if Net.has_arg("results-shot") else 2.0   # let --results-shot (2.8 s) fire first
+
+
+## Host: best coins (this shift) per map + difficulty and per campaign mission. True when a new best.
+func _save_best(shift: ShiftManager) -> bool:
+	var earned := maxi(0, shift.earned)
+	var fresh := Progress.set_best(str(shift.def.get("map", "")), str(shift.def.get("difficulty", "")), earned)
+	var mid := int(shift.def.get("mission_id", -1))
+	if mid >= 0:
+		fresh = Progress.set_best_coins(mid, earned) or fresh
+	return fresh and earned > 0
 
 
 ## Host: what the owned timer/reach upgrades change this shift (evidence for tests and balance runs).

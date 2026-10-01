@@ -30,6 +30,7 @@ Call as `powershell -NoProfile -ExecutionPolicy Bypass -File tools\<name>.ps1 ..
 - Game settings args (host, applied before `--autostart`): `--mode=campaign|endless|custom --map=<id> --difficulty=easy|normal|hard|chaos --modifiers=a,b --mission=<n>`. Host and client log `net: settings ...` and `shift: host|client def ...`. `test-multiplayer.ps1 -HostExtra "<args>" -ClientExtra "<args>"` passes extra user args.
 - Shift events (host): `--events=vip,inspector,cat_paw` forces those events on in endless/custom (campaign missions and endless shift 2+ enable them anyway; cat_paw needs the map hazard), `--event-fast` fires the first one 6 s into the shift (then 15 s gaps). Host logs `events: ...`; test report `events` counters.
 - Modifiers (`--modifiers=rush_hour,heavy_hands,slippery,mystery_orders,no_shop,lights_out`): host and client log `modifiers: ...`; `--slide-test` (host) shoves a cheese slice at 8 m/s and logs how far it slides (compare with/without `slippery`).
+- Stats: `--results-shot=<png>` (any peer; `{role}` -> host|client) saves the results screen 2.8 s after it appears (with `--quit-after-shift` the host then waits 4.5 s). Local progress (stars, best coins): `user://progress.cfg` (in `%APPDATA%/Godot/app_userdata/Tiny Chefs/`).
 - Relative `--test-report` paths resolve against `game/`; pass absolute paths.
 - New `class_name` scripts need `godot-import` before `godot-check` (global class cache).
 - Player guide: `docs/PLAYING.md`.

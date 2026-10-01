@@ -23,6 +23,7 @@ var plates: Array[Plate] = []  # every plate / bell; each bell serves its neares
 var bells: Array[Bell] = []
 var trash: Trash
 var shift := ShiftManager.new()
+var stats: StatsSystem       # host: per-player counters (StatsSystem); hooks call world.stats.on_*
 var orders := OrderManager.new()
 var events: EventSystem      # shift events (vip, inspector, cat_paw): host schedules, every peer shows
 var camera: Camera3D          # created by CameraSystem
@@ -78,6 +79,7 @@ func _ready() -> void:
 	_plate_sys = PlateSystem.new(self)
 	_shift_sys = ShiftSystem.new(self)
 	_mod_sys = ModifierSystem.new(self)
+	stats = StatsSystem.new(self)
 	events = EventSystem.new(self)
 	_snapshot_sys = SnapshotSystem.new(self)
 	_camera_sys = CameraSystem.new(self)   # adds the camera, then the hint rings, as before
@@ -222,6 +224,7 @@ func _simulate(dt: float) -> void:
 	_hazard_sys.host_tick(dt, playing)
 	_bounds_sys.remove_fallen()
 	_mod_sys.host_tick(dt)
+	stats.tick()
 	_toast_cooldown -= dt
 	_shift_sys.tick(dt, playing)
 

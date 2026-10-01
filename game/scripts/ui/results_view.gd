@@ -143,7 +143,18 @@ func show_results(info: Dictionary) -> void:
 	else:
 		right.add_child(UIKit.caption("On to the next shift!"))
 	split.add_child(right)
-	col.add_child(card)
+	card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var stats_info: Dictionary = info.get("stats", {})
+	var mvp := _mvp_card(stats_info)
+	var mid: Control = card
+	if mvp != null:
+		var cards := HBoxContainer.new()
+		cards.add_theme_constant_override("separation", 20)
+		cards.alignment = BoxContainer.ALIGNMENT_CENTER
+		cards.add_child(card)
+		cards.add_child(mvp)
+		mid = cards
+	col.add_child(mid)
 
 	# Button / waiting note.
 	var foot := CenterContainer.new()
@@ -162,6 +173,8 @@ func show_results(info: Dictionary) -> void:
 	col.add_child(foot)
 	add_child(UI.centred(col))
 
+	_agent_shot()
+
 	# Reveal choreography.
 	hero.modulate.a = 0.0
 	card.modulate.a = 0.0
@@ -169,6 +182,9 @@ func show_results(info: Dictionary) -> void:
 	stamp.modulate.a = 0.0
 	UIKit.pop_in(hero, 0.0, 0.3)
 	UIKit.pop_in(card, 0.2, 0.2)
+	if mvp != null:
+		mvp.modulate.a = 0.0
+		UIKit.pop_in(mvp, 0.45, 0.2)
 	UIKit.pop_in(foot, 1.7, 0.2)
 	if _button != null:
 		_button.grab_focus.call_deferred()
@@ -198,3 +214,117 @@ func show_results(info: Dictionary) -> void:
 		var tw := stamp.create_tween()
 		tw.tween_property(stamp, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tw.tween_callback(func() -> void: UIKit.punch(card, 0.025, 0.2)))
+
+
+## Agent helper: --results-shot=<png> saves the viewport 2.8 s after the results appear ("{role}" -> host|client).
+func _agent_shot() -> void:
+	var path := Net.arg_str("results-shot", "")
+	if path.is_empty():
+		return
+	path = path.replace("{role}", "host" if Net.is_host else "client")
+	get_tree().create_timer(2.8).timeout.connect(func() -> void:
+		var img := get_viewport().get_texture().get_image()
+		DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+		print("screenshot: results saved %s (%s)" % [path, error_string(img.save_png(path))]))
+
+
+# ---------------------------------------------------------------- MVP card (stats)
+
+const AWARDS := [
+	# [title, stat column in a player row, icon, colour, wink shown under the title]
+	["Top server", 3, "server", UITheme.MUSTARD, "rang the bell"],
+	["Pack mule", 4, "mule", UITheme.SKY, "carried the most"],
+	["Team player", 5, "team", UITheme.LETTUCE, "carried together"],
+	["Butterfingers", COL_DROPPED, "butter", UITheme.TOMATO, "it slipped, honest"],
+]
+## Player row: [id, name, slot, served, carried, assists, burnt, dropped, falls, punches, coins].
+const COL_SERVED := 3
+const COL_CARRIED := 4
+const COL_DROPPED := 7
+const COL_FALLS := 8
+
+
+func _mvp_card(st: Dictionary) -> Control:
+	var shift_rows: Array = st.get("players", [])
+	var run_rows: Array = st.get("run", [])
+	if run_rows.is_empty():
+		return null
+	var solo := run_rows.size() < 2
+	var cv := UIKit.card(8)
+	var card: PanelContainer = cv[0]
+	var body: VBoxContainer = cv[1]
+	body.custom_minimum_size = Vector2(0 if solo else 480, 0)
+	body.add_child(UIKit.heading("Chef stats" if solo else "MVP"))
+	if not solo:
+		body.add_child(UIKit.caption("This shift"))
+		for a in AWARDS:
+			body.add_child(_award_row(a, shift_rows))
+		body.add_child(_line())
+	body.add_child(UIKit.caption("Whole run so far"))
+	body.add_child(_run_table(run_rows))
+	return card
+
+
+func _col(rows: Array, col: int) -> int:
+	var best := -1
+	var idx := -1
+	for i in rows.size():
+		var v := int(rows[i][col])
+		if v > best:
+			best = v
+			idx = i
+	return idx
+
+
+func _award_row(a: Array, rows: Array) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	h.add_child(StatsIcon.new(str(a[2]), 34, a[3]))
+	var t := VBoxContainer.new()
+	t.add_theme_constant_override("separation", 0)
+	t.custom_minimum_size = Vector2(150, 0)
+	t.add_child(UIKit.body(str(a[0])))
+	t.add_child(UIKit.caption(str(a[4])))
+	h.add_child(t)
+	var who := Control.new()
+	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	who.custom_minimum_size = Vector2(0, 1)
+	who.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(who)
+	var i := _col(rows, int(a[1]))
+	if i < 0 or int(rows[i][int(a[1])]) <= 0:
+		h.add_child(UIKit.caption("nobody" if int(a[1]) != COL_DROPPED else "clean hands!"))
+		return h
+	var r: Array = rows[i]
+	h.add_child(UIKit.player_badge(str(r[1]), int(r[2])))
+	var n := UIKit.number(str(int(r[int(a[1])])))
+	n.custom_minimum_size = Vector2(48, 0)
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	h.add_child(n)
+	return h
+
+
+func _run_table(rows: Array) -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = 5
+	g.add_theme_constant_override("h_separation", 16)
+	g.add_theme_constant_override("v_separation", 4)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	g.add_child(spacer)
+	for h in ["Served", "Carried", "Dropped", "Falls"]:
+		var l := UIKit.caption(h)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		l.custom_minimum_size = Vector2(72, 0)
+		g.add_child(l)
+	for r in rows:
+		var b := UIKit.player_badge(str(r[1]), int(r[2]))
+		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		g.add_child(b)
+		for c in [COL_SERVED, COL_CARRIED, COL_DROPPED, COL_FALLS]:
+			var l := UIKit.body(str(int(r[c])))
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			l.custom_minimum_size = Vector2(72, 0)
+			l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			g.add_child(l)
+	return g
