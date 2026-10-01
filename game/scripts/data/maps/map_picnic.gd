@@ -22,6 +22,7 @@ static func def() -> Dictionary:
 		"theme": "picnic", "surfaces": [SURFACE], "stations": stations(), "scenery": scenery(),
 		"spawn_points": [Vector3(-2, 0, 3), Vector3(2, 0, 3), Vector3(-2, 0, -1), Vector3(2, 0, -1)],
 		"hazards": ["wind", "cat_paw"], "decor": ["picnic_clutter"],
+		"target_scale": 0.8,   # wider table + wind: bot teams earn ~75-80% of the diner (docs/balance.md)
 		# Menu backdrop: from the far side towards the front edge, so the lawn, trees and sky show.
 		"menu_view": {"focus": Vector3(0.0, 1.0, 13.5), "yaw": 180.0, "lift": 1.1},
 	}

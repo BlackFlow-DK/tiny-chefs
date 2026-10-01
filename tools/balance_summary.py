@@ -17,7 +17,8 @@ def main():
         res = None
         if host.exists():
             res = json.loads(host.read_text(encoding="utf-8-sig")).get("result")
-        row = {"players": meta["players"], "shift": meta["shift"], "map": meta["map"],
+        tag = meta.get("tag") or ""
+        row = {"players": meta["players"], "shift": meta["shift"], "map": meta["map"] + ("/" + tag if tag else ""),
                "difficulty": meta["difficulty"], "run": meta["run"]}
         if res:
             secs = float(meta["shift_seconds"])

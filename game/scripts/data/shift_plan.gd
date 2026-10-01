@@ -8,7 +8,16 @@ extends RefCounted
 ##   recipes: Array[String] (only ids present in GameData.RECIPES), duration: float (s), interval: float
 ##   (s between orders), patience: float (s), target: int (coins), burn_scale: float (multiplies the burn
 ##   window, Tuning.BURN_TIME), bursts: bool (orders in bursts; chaos preset).
-## Order: base values (mission / endless ramp / custom fields) -> Difficulty.apply -> player-count scaling.
+## Order: base values (mission / endless ramp / custom fields) -> map target_scale (endless only: a mission's
+## target already prices in its map, custom uses the host's number) -> Difficulty.apply -> player-count scaling.
+
+## Endless "Overtime k" (shift index >= GameData.SHIFTS.size()): each step multiplies the interval and patience
+## of the last SHIFTS entry by these (down to Tuning.MIN_ORDER_INTERVAL / MIN_PATIENCE) and adds
+## OVERTIME_TARGET_STEP of its target. Tuned with tools/balance.ps1 (docs/balance.md): a bot team just
+## about meets Overtime 3 (--start-shift=5) and clearly misses Overtime 6 (--start-shift=8).
+const OVERTIME_INTERVAL := 0.88
+const OVERTIME_PATIENCE := 0.94
+const OVERTIME_TARGET_STEP := 0.04
 
 ## Campaign: mission (settings.mission + shift_index), clamped to the last one.
 ## Endless: GameData.SHIFTS, then "Overtime k" keeps getting harder. Custom: the settings' custom fields.
@@ -40,10 +49,12 @@ static func build(settings: GameSettings, shift_index: int, players: int) -> Dic
 		d["blurb"] = ""
 	d["mode"] = settings.mode if GameSettings.MODES.has(settings.mode) else "endless"
 	d["recipes"] = _known_recipes(d["recipes"])
+	if d["mode"] == "endless":
+		d["target"] = int(round(float(d["target"]) * target_scale(str(d["map"]))))
 	d = Difficulty.apply(d, preset)
 	var extra := maxi(0, players - 1)
 	d["interval"] = float(d["interval"]) / (1.0 + Tuning.SCALE_ORDER_RATE_PER_PLAYER * extra)
-	d["target"] = int(round(float(d["target"]) * (1.0 + Tuning.SCALE_TARGET_PER_PLAYER * extra)))
+	d["target"] = int(round(float(d["target"]) * Tuning.target_players_scale(players)))
 	d["index"] = shift_index
 	return d
 
@@ -53,6 +64,13 @@ static func map_for(settings: GameSettings, shift_index: int) -> String:
 	if settings != null and settings.mode == "campaign":
 		return str(Missions.get_mission(settings.mission + shift_index)["map"])
 	return settings.map if settings != null else "diner"
+
+
+## MapDef "target_scale" (default 1.0): endless targets on maps with longer hauls are this much lower.
+static func target_scale(map_id: String) -> float:
+	if not GameData.MAPS.has(map_id):
+		return 1.0
+	return float(GameData.MAPS[map_id].get("target_scale", 1.0))
 
 
 ## One line for logs.
@@ -75,9 +93,9 @@ static func _endless_base(i: int) -> Dictionary:
 		var k := i - shifts.size() + 1
 		d = shifts[shifts.size() - 1].duplicate(true)
 		d["name"] = "Overtime %d" % k
-		d["interval"] = maxf(Tuning.MIN_ORDER_INTERVAL, float(d["interval"]) * pow(0.88, k))
-		d["patience"] = maxf(Tuning.MIN_PATIENCE, float(d["patience"]) * pow(0.94, k))
-		d["target"] = int(d["target"]) + 50 * k
+		d["interval"] = maxf(Tuning.MIN_ORDER_INTERVAL, float(d["interval"]) * pow(OVERTIME_INTERVAL, k))
+		d["patience"] = maxf(Tuning.MIN_PATIENCE, float(d["patience"]) * pow(OVERTIME_PATIENCE, k))
+		d["target"] = int(round(float(d["target"]) * (1.0 + OVERTIME_TARGET_STEP * k)))
 	return d
 
 

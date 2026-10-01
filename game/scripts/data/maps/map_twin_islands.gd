@@ -70,6 +70,7 @@ const DEF := {
 	"spawn_points": [Vector3(-12, 0, -3), Vector3(8.5, 0, 4.2), Vector3(-19.5, 0, -3), Vector3(16.8, 0, 3.2)],
 	"hazards": [],
 	"decor": ["island_sink", "islands_clutter"],
+	"target_scale": 0.65,   # every raw ingredient crosses the plank (estimate: bots stall here, docs/balance.md)
 	# Menu backdrop (MenuDiorama): drifting camera focus and where the burger plate stands.
 	"menu": {"focus": Vector3(0.6, 0.4, 0.6), "plate": Vector3(8.0, 0, 6.0), "height": 4.2},
 }

@@ -21,8 +21,8 @@ func _init(w: World) -> void:
 
 
 ## Objective entries for a ShiftDef ([] unless campaign). "earn n" scales like the shift target does
-## (ShiftPlan.build: difficulty preset "target" multiplier, then x (1 + SCALE_TARGET_PER_PLAYER per extra
-## player)), so it stays above the target instead of being a free star.
+## (ShiftPlan.build: difficulty preset "target" multiplier, then x Tuning.target_players_scale(players)),
+## so it stays above the target instead of being a free star.
 static func build(def: Dictionary, players := 1) -> Array:
 	if str(def.get("mode", "")) != "campaign":
 		return []
@@ -34,7 +34,7 @@ static func build(def: Dictionary, players := 1) -> Array:
 		var n := int(d.get("n", 0))
 		if str(d.get("type", "")) == "earn":
 			n = int(round(float(n) * float(Difficulty.preset(str(def.get("difficulty", "normal")))["target"])))
-			n = int(round(float(n) * (1.0 + Tuning.SCALE_TARGET_PER_PLAYER * maxi(0, players - 1))))
+			n = int(round(float(n) * Tuning.target_players_scale(players)))
 		out.append([str(d.get("type", "")), str(d.get("recipe", "")), n, 0, PENDING])
 	return out
 

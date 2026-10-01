@@ -42,18 +42,20 @@ const MAX_ORDERS := 4
 const FIRST_ORDER_DELAY := 2.0
 const EMPTY_ORDER_DELAY := 4.0     # when no order is open, the next one comes at most this soon
 const WRONG_SERVE_PENALTY := 10
-const EXPIRE_PENALTY := 10
+const EXPIRE_PENALTY := 15         # ~1/4 of an average order (docs/balance.md)
 const MIN_ORDER_INTERVAL := 12.0
 const MIN_PATIENCE := 55.0
 const SCALE_ORDER_RATE_PER_PLAYER := 0.35  # each extra player: orders this much more often
-const SCALE_TARGET_PER_PLAYER := 0.5       # each extra player: target this much higher
+## Shift target x this for 1, 2, 3, 4 players (target_players_scale). Bot teams (tools/balance.ps1) earn
+## about 1.75x / 1.9x / 1.8x a single bot: one plate is the bottleneck, so the curve flattens (docs/balance.md).
+const SCALE_TARGET_BY_PLAYERS := [1.0, 1.75, 1.9, 2.05]
 
 # Shift events (world/systems/event_system.gd, world/events/*.gd)
 const EVENT_QUIET_START := 30.0    # s: no event telegraph before this much of the shift has passed
 const EVENT_QUIET_END := 20.0      # s: every event's effect is over this long before the shift ends
 const EVENT_GAP := 15.0            # s: between one event's effect ending and the next telegraph
 const EVENT_FAST_START := 6.0      # s: --event-fast replaces EVENT_QUIET_START (testing)
-const VIP_PERIOD := 70.0           # s between VIPs (each event: its own cadence, +-15% jitter)
+const VIP_PERIOD := 100.0          # s between VIPs (each event: its own cadence, +-15% jitter)
 const VIP_LEAD := 4.0              # s of telegraph before the gold ticket appears
 const VIP_PAY_MULT := 3.0          # price and bonus
 const VIP_PATIENCE_MULT := 0.6
@@ -122,3 +124,8 @@ const LAYER_ITEMS := 4
 # Flow
 const AUTO_RESULTS_SECONDS := 4.0  # --autostart: results -> shop
 const AUTO_SHOP_SECONDS := 6.0     # --autostart: shop -> next shift
+
+
+## Shift target multiplier for a team of `players` (1..4, clamped).
+static func target_players_scale(players: int) -> float:
+	return float(SCALE_TARGET_BY_PLAYERS[clampi(players, 1, SCALE_TARGET_BY_PLAYERS.size()) - 1])

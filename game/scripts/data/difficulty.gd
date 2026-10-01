@@ -12,7 +12,7 @@ const PRESETS := {
 	"normal": {"label": "Normal", "desc": "The kitchen as intended.",
 		"interval": 1.0, "patience": 1.0, "target": 1.0, "burn": 1.0, "bursts": false},
 	"hard": {"label": "Hard", "desc": "Faster orders, impatient customers, higher targets, food burns sooner.",
-		"interval": 0.8, "patience": 0.85, "target": 1.3, "burn": 0.8, "bursts": false},
+		"interval": 0.8, "patience": 0.85, "target": 1.45, "burn": 0.8, "bursts": false},
 	"chaos": {"label": "Chaos", "desc": "Orders pour in bursts, nobody waits, food burns in a blink.",
 		"interval": 0.65, "patience": 0.7, "target": 1.6, "burn": 0.6, "bursts": true},
 }

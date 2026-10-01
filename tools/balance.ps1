@@ -5,6 +5,7 @@
 # Exit 0 only if every run produced a host report with a shift result and no run timed out.
 # Usage: tools\balance.ps1 [-Players 1,2,3,4] [-Shifts 0,1,2] [-Maps diner] [-Difficulty normal] [-ShiftSeconds 210]
 #                          [-Runs 1] [-Port 7905] [-Out build\balance\<timestamp>] [-TimeoutSec <ShiftSeconds+120>]
+#                          [-HostExtra '--mode=campaign --mission=4'] [-Tag m4]
 # -Maps / -Difficulty are passed as --map= / --difficulty= (omit them to pass nothing).
 # Shift N is started directly with --start-shift=N (the team starts that shift with 0 coins and no upgrades).
 param(
@@ -16,7 +17,9 @@ param(
     [int]$Runs = 1,
     [int]$Port = 7905,
     [string]$Out = '',
-    [int]$TimeoutSec = 0
+    [int]$TimeoutSec = 0,
+    [string]$HostExtra = '',   # extra host user args, space-separated, e.g. '--mode=campaign --mission=4'
+    [string]$Tag = ''      # added to every run folder name (p1_s0_<map>_<tag>_r1)
 )
 . "$PSScriptRoot\_common.ps1"
 
@@ -56,9 +59,10 @@ try {
         $mapName = $m; if ($mapName -eq '') { $mapName = 'default' }
         $diffName = $Difficulty; if ($diffName -eq '') { $diffName = 'default' }
         $name = "p$($n)_s$($s)_$($mapName)_r$r"
+        if ($Tag -ne '') { $name = "p$($n)_s$($s)_$($mapName)_$($Tag)_r$r" }
         $dir = Join-Path $Out $name
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
-        @{ players = $n; shift = $s; map = $mapName; difficulty = $diffName; run = $r; shift_seconds = $ShiftSeconds; port = $Port } |
+        @{ players = $n; shift = $s; map = $mapName; difficulty = $diffName; run = $r; shift_seconds = $ShiftSeconds; port = $Port; extra = $HostExtra; tag = $Tag } |
             ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath (Join-Path $dir 'meta.json')
         Write-Host ">> run $name (timeout ${TimeoutSec}s)"
 
@@ -68,7 +72,8 @@ try {
         $quitAfter = $ShiftSeconds + 90
         $procs = @()
         $hostArgs = @('--host', '--name=HostBot', '--bot', '--autostart', "--players=$n", "--shift-seconds=$ShiftSeconds", "--start-shift=$s",
-            '--bind=127.0.0.1', "--port=$Port", '--quit-after-shift', "--test-report=$(Join-Path $dir 'host.json')", "--quit-after=$quitAfter") + $extra
+            '--bind=127.0.0.1', "--port=$Port", '--quit-after-shift', "--test-report=$(Join-Path $dir 'host.json')", "--quit-after=$quitAfter") + $extra +
+            @($HostExtra -split '\s+' | Where-Object { $_ -ne '' })
         $procs += Start-Bot $dir 'host' $hostArgs
         for ($i = 1; $i -lt $n; $i++) {
             Start-Sleep -Milliseconds 1500

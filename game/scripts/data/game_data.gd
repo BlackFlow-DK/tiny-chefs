@@ -133,6 +133,8 @@ const SPAWN_POINTS := [Vector3(-2, 0, 1), Vector3(2, 0, 1), Vector3(-2, 0, -3), 
 ##   spawn_points: Array of Vector3, one per player slot (wraps). hazards: Array of hazard ids.
 ##   decor: Array (optional) theme dressing tied to this layout ("diner_clutter", "picnic_clutter", "island_sink", "islands_clutter").
 ##   camera_bounds: Rect2 (optional) camera focus clamp instead of the surfaces' bounds.
+##   target_scale: float (optional, default 1.0) endless shift targets x this on maps with longer hauls
+##     (ShiftPlan.target_scale; campaign missions set their own targets). See docs/balance.md.
 ##   surface_styles: Array (optional, parallel to surfaces) "counter" (default) or "plank" (Kitchen.surface_style).
 ##   menu_view: Dictionary (optional) menu backdrop camera: "focus" Vector3, "yaw" degrees, "lift" m (MenuDiorama).
 ##   menu: Dictionary (optional) menu backdrop framing: "focus" Vector3, "plate" Vector3, "height" m (MenuDiorama;
@@ -197,41 +199,41 @@ static func has_accessory(id: String) -> bool:
 ## Recipes. Plate contents must match "items" exactly as a multiset (stacking order is free).
 ## price is paid on serve, plus up to "bonus" scaled by the patience left.
 const RECIPES := [
-	{"id": "cheeseburger", "name": "Cheeseburger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bun_top"], "price": 40, "bonus": 20},
+	{"id": "cheeseburger", "name": "Cheeseburger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bun_top"], "price": 45, "bonus": 20},
 	{"id": "salad", "name": "Garden Salad", "items": ["lettuce_leaf", "lettuce_leaf", "tomato_slice", "tomato_slice"], "price": 35, "bonus": 15},
 	{"id": "double", "name": "Double Beef Cheeseburger", "items": ["bun_bottom", "patty_cooked", "patty_cooked", "cheese_slice", "cheese_slice", "bun_top"], "price": 75, "bonus": 30},
-	{"id": "hotdog", "name": "Hot Dog", "items": ["hotdog_bun", "sausage_cooked"], "price": 35, "bonus": 15},
-	{"id": "bacon_cheeseburger", "name": "Bacon Cheeseburger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bacon_cooked", "bun_top"], "price": 55, "bonus": 25},
-	{"id": "breakfast_burger", "name": "Breakfast Burger", "items": ["bun_bottom", "patty_cooked", "fried_egg", "bacon_cooked", "bun_top"], "price": 60, "bonus": 25},
-	{"id": "chicken_burger", "name": "Crispy Chicken Burger", "items": ["bun_bottom", "chicken_cooked", "lettuce_leaf", "bun_top"], "price": 50, "bonus": 20},
-	{"id": "pickle_burger", "name": "Pickle Burger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "pickle_slice", "pickle_slice", "bun_top"], "price": 50, "bonus": 20},
-	{"id": "the_works", "name": "The Works", "items": ["bun_bottom", "patty_cooked", "patty_cooked", "cheese_slice", "bacon_cooked", "onion_slice", "tomato_slice", "lettuce_leaf", "bun_top"], "price": 110, "bonus": 40},
-	{"id": "fries", "name": "Fries", "items": ["fries"], "price": 20, "bonus": 10},
+	{"id": "hotdog", "name": "Hot Dog", "items": ["hotdog_bun", "sausage_cooked"], "price": 40, "bonus": 15},
+	{"id": "bacon_cheeseburger", "name": "Bacon Cheeseburger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bacon_cooked", "bun_top"], "price": 60, "bonus": 25},
+	{"id": "breakfast_burger", "name": "Breakfast Burger", "items": ["bun_bottom", "patty_cooked", "fried_egg", "bacon_cooked", "bun_top"], "price": 65, "bonus": 25},
+	{"id": "chicken_burger", "name": "Crispy Chicken Burger", "items": ["bun_bottom", "chicken_cooked", "lettuce_leaf", "bun_top"], "price": 60, "bonus": 25},
+	{"id": "pickle_burger", "name": "Pickle Burger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "pickle_slice", "pickle_slice", "bun_top"], "price": 60, "bonus": 25},
+	{"id": "the_works", "name": "The Works", "items": ["bun_bottom", "patty_cooked", "patty_cooked", "cheese_slice", "bacon_cooked", "onion_slice", "tomato_slice", "lettuce_leaf", "bun_top"], "price": 120, "bonus": 45},
+	{"id": "fries", "name": "Fries", "items": ["fries"], "price": 30, "bonus": 10},
 	{"id": "onion_rings", "name": "Onion Rings", "items": ["onion_rings"], "price": 25, "bonus": 10},
-	{"id": "loaded_hotdog", "name": "Loaded Hot Dog", "items": ["hotdog_bun", "sausage_cooked", "onion_slice"], "price": 45, "bonus": 20},
+	{"id": "loaded_hotdog", "name": "Loaded Hot Dog", "items": ["hotdog_bun", "sausage_cooked", "onion_slice"], "price": 50, "bonus": 20},
 	{"id": "chicken_salad", "name": "Chicken Salad", "items": ["lettuce_leaf", "lettuce_leaf", "chicken_cooked", "tomato_slice"], "price": 55, "bonus": 20},
-	{"id": "burger_meal", "name": "Burger Meal", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bun_top", "fries", "soda_cup"], "price": 85, "bonus": 35},
-	{"id": "hotdog_meal", "name": "Hot Dog Meal", "items": ["hotdog_bun", "sausage_cooked", "fries", "soda_cup"], "price": 75, "bonus": 30},
+	{"id": "burger_meal", "name": "Burger Meal", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bun_top", "fries", "soda_cup"], "price": 90, "bonus": 35},
+	{"id": "hotdog_meal", "name": "Hot Dog Meal", "items": ["hotdog_bun", "sausage_cooked", "fries", "soda_cup"], "price": 80, "bonus": 30},
 ]
 
 ## Shifts (base values for ONE player; see Tuning.SCALE_* for more players).
 ## interval: seconds between new orders. patience: seconds an order waits. target: coins to earn.
 const SHIFTS := [
-	{"name": "Lunch Warm-up", "recipes": ["cheeseburger", "salad"], "interval": 40.0, "patience": 110.0, "duration": 210.0, "target": 80},
-	{"name": "Double Trouble", "recipes": ["cheeseburger", "salad", "double"], "interval": 34.0, "patience": 105.0, "duration": 210.0, "target": 120},
-	{"name": "Hot Dog Rush", "recipes": ["cheeseburger", "salad", "double", "hotdog"], "interval": 28.0, "patience": 95.0, "duration": 210.0, "target": 160},
+	{"name": "Lunch Warm-up", "recipes": ["cheeseburger", "salad"], "interval": 40.0, "patience": 110.0, "duration": 210.0, "target": 190},
+	{"name": "Double Trouble", "recipes": ["cheeseburger", "salad", "double"], "interval": 34.0, "patience": 105.0, "duration": 210.0, "target": 300},
+	{"name": "Hot Dog Rush", "recipes": ["cheeseburger", "salad", "double", "hotdog"], "interval": 28.0, "patience": 95.0, "duration": 210.0, "target": 310},
 ]
 
 ## Shared team wallet; upgrades last for the run. icon: model spun on the shop card (ShopIcon); "" = an
 ## emblem drawn for the id (flat models like the plate read badly in the small tilted view).
 const UPGRADES := [
-	{"id": "gloves", "name": "Boxing Gloves", "desc": "Unlocks punching (Space / Q / pad B). Launch food, shove friends.", "price": 60, "icon": "boxing_glove"},
-	{"id": "knife", "name": "Sharp Knife", "desc": "Chopping is twice as fast.", "price": 50, "icon": "knife"},
-	{"id": "shoes", "name": "Running Shoes", "desc": "+20% move and carry speed.", "price": 80, "icon": ""},
-	{"id": "second_plate", "name": "Second Plate", "desc": "Enables the second plate and bell on kitchens that have one.", "price": 90, "icon": ""},
-	{"id": "oven_mitts", "name": "Oven Mitts", "desc": "Food takes 50% longer to burn.", "price": 70, "icon": ""},
-	{"id": "hot_griddle", "name": "Hot Griddle", "desc": "Griddle and fryer cook 30% faster.", "price": 90, "icon": ""},
-	{"id": "tongs", "name": "Long Tongs", "desc": "Grab food from 50% further away.", "price": 60, "icon": ""},
+	{"id": "gloves", "name": "Boxing Gloves", "desc": "Unlocks punching (Space / Q / pad B). Launch food, shove friends.", "price": 200, "icon": "boxing_glove"},
+	{"id": "knife", "name": "Sharp Knife", "desc": "Chopping is twice as fast.", "price": 200, "icon": "knife"},
+	{"id": "shoes", "name": "Running Shoes", "desc": "+20% move and carry speed.", "price": 300, "icon": ""},
+	{"id": "second_plate", "name": "Second Plate", "desc": "Enables the second plate and bell on kitchens that have one.", "price": 300, "icon": ""},
+	{"id": "oven_mitts", "name": "Oven Mitts", "desc": "Food takes 50% longer to burn.", "price": 250, "icon": ""},
+	{"id": "hot_griddle", "name": "Hot Griddle", "desc": "Griddle and fryer cook 30% faster.", "price": 300, "icon": ""},
+	{"id": "tongs", "name": "Long Tongs", "desc": "Grab food from 50% further away.", "price": 200, "icon": ""},
 ]
 
 
