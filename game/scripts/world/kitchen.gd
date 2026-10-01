@@ -2,13 +2,13 @@ class_name Kitchen
 extends RefCounted
 ## Static scenery for one map (a GameData.MAPS entry): lighting/atmosphere, one counter slab per
 ## surface (or a wooden plank: MapDef "surface_styles"), the room around them (by theme: "diner" =
-## EnvLook/EnvCounter/EnvIslands/EnvRoom, "picnic" = EnvPicnic), and the map's scenery props (solid obstacles unless "flat"). Identical on every peer (no unseeded randomness). The visuals live in world/env/
+## EnvLook/EnvCounter/EnvIslands/EnvRoom, "picnic" = EnvPicnic, "truck" = EnvTruck), and the map's scenery props (solid obstacles unless "flat"). Identical on every peer (no unseeded randomness). The visuals live in world/env/
 ## (EnvLook, EnvCounter, EnvRoom, EnvProps); this file owns the colliders: one box per surface,
 ## the back wall, one box per solid scenery prop.
 
 const SINK_MODEL := "sink_basin"
 const HOB_MODEL := "hob"
-const THEMES := ["diner", "picnic"]   # looks Kitchen can build; anything else falls back to the first
+const THEMES := ["diner", "picnic", "truck"]   # looks Kitchen can build; anything else falls back to the first
 const STYLE_COUNTER := "counter"
 const STYLE_PLANK := "plank"
 
@@ -24,6 +24,8 @@ static func build(root: Node3D, map: Dictionary) -> void:
 
 	if theme == "picnic":
 		EnvPicnic.build(root, map)   # sky, table + cloth, lawn, trees, bee/ants/leaves, clutter
+	elif theme == "truck":
+		EnvTruck.build(root, map)    # steel counter + walls, hatch onto the street, lights, floor + end-wall colliders
 	else:
 		EnvLook.build(root)
 		var holes := _sink_holes(scenery)

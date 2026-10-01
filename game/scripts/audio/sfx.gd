@@ -38,6 +38,9 @@ func _ready() -> void:
 	_make("paw_whoosh", [[300.0, 900.0, 0.35]], "noise", 0.3)
 	_make("paw_swoosh", [[1100.0, 250.0, 0.6]], "noise", 0.4)
 	_make_whoosh("gust", 3.8, 0.5)
+	# Food truck lurch: a two-honk horn warning, then the clunk of the truck jolting.
+	_make_horn("horn", 0.3)
+	_make("clunk", [[170.0, 60.0, 0.05], [80.0, 36.0, 0.32]], "noise", 0.55)
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -78,6 +81,42 @@ func _make(sfx_name: String, segments: Array, wave: String, vol: float) -> void:
 					s = sin(phase)
 			var env := minf(1.0, float(i) / (RATE * 0.004)) * minf(1.0, float(n - i) / (RATE * 0.03))
 			data.encode_s16(start + i * 2, int(clampf(s * vol * env, -1.0, 1.0) * 32767.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = RATE
+	w.stereo = false
+	w.data = data
+	_streams[sfx_name] = w
+
+
+## Truck horn: two honks of a two-tone chord (a minor third, ~311 + 370 Hz) built from a few saw
+## harmonics, with a little pitch sag at the start and a soft low-pass (the food truck's lurch warning).
+func _make_horn(sfx_name: String, vol: float) -> void:
+	var honks := [[0.0, 0.26], [0.36, 0.5]]   # [start, length] seconds
+	var seconds := 0.9
+	var n := int(seconds * RATE)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var ph := [0.0, 0.0]
+	var freqs := [311.0, 370.0]
+	var lp := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var env := 0.0
+		for h in honks:
+			var lt: float = t - float(h[0])
+			if lt >= 0.0 and lt <= float(h[1]):
+				env = minf(1.0, lt / 0.012) * minf(1.0, (float(h[1]) - lt) / 0.04)
+		var s := 0.0
+		for k in 2:
+			var sag := 1.0 - 0.03 * exp(-fmod(t, 0.36) * 30.0)
+			ph[k] = fmod(float(ph[k]) + float(freqs[k]) * sag / RATE, 1.0)
+			var p: float = ph[k]
+			# Band-limited-ish saw: first four harmonics.
+			for m in range(1, 5):
+				s += sin(TAU * p * m) / m
+		lp += (s * 0.25 - lp) * 0.35
+		data.encode_s16(i * 2, int(clampf(lp * env * vol, -1.0, 1.0) * 32767.0))
 	var w := AudioStreamWAV.new()
 	w.format = AudioStreamWAV.FORMAT_16_BITS
 	w.mix_rate = RATE

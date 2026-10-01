@@ -119,7 +119,7 @@ const SCENERY := [
 const SPAWN_POINTS := [Vector3(-2, 0, 1), Vector3(2, 0, 1), Vector3(-2, 0, -3), Vector3(2, 0, -3)]
 
 ## Maps: id -> MapDef. Kitchen, bounds, spawns, camera and bots read the chosen one through World.map.
-##   name, blurb: String (menu text). theme: String room/props look ("diner", "picnic"; unknown -> diner).
+##   name, blurb: String (menu text). theme: String room/props look ("diner", "picnic", "truck"; unknown -> diner).
 ##   dev: bool (optional) hidden from players, only via --map=<id>.
 ##   surfaces: Array of Rect2(x, z, w, h) counter tops at y = 0 (overlap them to join; a point is on
 ##     the counter when it is inside any of them). Each gets a slab, trim, cabinets and a collider.
@@ -166,6 +166,7 @@ static var MAPS := {
 	},
 	"picnic": MapPicnic.def(),
 	"twin_islands": preload("res://scripts/data/maps/map_twin_islands.gd").DEF,
+	"food_truck": MapFoodTruck.def(),
 }
 
 ## Player colours: blue, red, green, yellow. A player's default is its join slot; any can be picked

@@ -134,6 +134,7 @@ target already prices in its map; custom shifts use the host's number).
 |---|---|---|
 | diner | 1.0 | reference |
 | picnic | 0.8 | bot coins 0.70 to 0.88 of the diner (1p, 2p, 3p, shifts 0 and 1); after: 2p ratio 1.52 / 1.53 / 1.23 |
+| food_truck | 0.9 | **estimate**: one long counter (longer hauls than the diner) plus lurches; not yet measured by the harness |
 | twin_islands | 0.65 | **estimate**: the bots stall here (see below), so this is the haul maths (every raw item crosses the plank, a solo patty moves at 2.3 m/s) |
 
 ## Not measured / known limits
@@ -142,7 +143,7 @@ target already prices in its map; custom shifts use the host's number).
   (The Works first). After the first burger they stall (logs show no new plate work). Islands numbers (0.65
   scale, missions 9 to 11) are estimates; fix the bot's plank routing, then re-run
   `balance.ps1 -Maps twin_islands` and `-HostExtra '--mode=campaign --mission=9'` (10, 11).
-- `food_truck` does not exist yet; missions 3 to 5 were measured on the diner. Re-measure when it lands.
+- `food_truck` landed after this pass: missions 3 to 5 were measured on the diner and its 0.9 scale is an estimate. Re-run `balance.ps1 -Maps food_truck` and `-HostExtra '--mode=campaign --mission=3'` (4, 5).
 - 4 bots crowd the single plate (they earn about what 2 bots earn); humans with the Second Plate should do
   better, so 4p targets may be easy for people. The bots never buy upgrades, so upgrade effects are unmeasured.
 - Every row is 1 to 4 runs; treat single numbers as +-15 %.
