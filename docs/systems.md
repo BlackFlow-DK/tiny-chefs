@@ -26,7 +26,7 @@ plate cooldowns -> every `Station.host_update` -> bounds falls -> shift. Snapsho
 | Griddle (`systems/griddle_system.gd` + `world/stations/griddle.gd`) | slots, cook/burn timers along `cooks_to`, bars (station; cook stage = the result changes again, `CRACK_TIME` for `"crack"` items); kind change + ding/crack/burnt events (system) | `change_kind`; `Griddle.reset, is_cook_stage, key` | both |
 | Fryer (`systems/fryer_system.gd` + `world/stations/fryer.gd`) | `Fryer extends Griddle` along `fries_to`: `FRY_TIME`/`FRY_BURN_TIME`, `FRYER_SLOTS`, `Item.Bar.FRY` bar, oil bubbles (station); kind change + ding/burnt events (system). Flat, no collider; `world.fryer` may be null | `world.fry`; `Fryer.reset` | both |
 | Cutting board (`systems/cutting_board_system.gd` + `world/stations/cutting_board.gd`) | chop progress of any `chops_to` food, workers, knife anim, state (station); whole -> `chop_count` pieces (system) | `chop`; `CuttingBoard.reset, state, apply_state, has_food` (`has_tomato` = old alias) | both |
-| Plate + bell (`systems/plate_system.gd` + `world/stations/plate.gd`, `bell.gd`) | stack snapping (station); serve at bell, pay/penalty, raw/burnt/whole refusal, refuse cooldown (system) | `on_work_pressed, refuse_from_plate, tick`; `Plate.stack, clear_stack, state`; `Bell.ring` | all three |
+| Plate + bell (`systems/plate_system.gd` + `world/stations/plate.gd`, `bell.gd`) | N plate + bell pairs (`world.plates/bells`, first = `world.plate/bell`; each bell serves its nearest plate, `Bell.plate`); stack snapping (station); serve at the bell in reach, pay/penalty, raw/burnt/whole refusal, refuse cooldown (system); closed stations (see below) | `on_work_pressed, bell_near, refuse_from_plate(it, p, msg), tick`; `Plate.stack, clear_stack, state`; `Bell.ring` (replicated counter via `state()`) | all three |
 | Trash (`world/stations/trash.gd`) | food on the drain disappears (no system file needed) | `host_update` | it |
 | Shift (`systems/shift_system.gd`) | shift start/end, clock, order expiry + "new order" events, shop buy, --upgrades, --quit-after-shift | `start_shift, tick, sync_order_count, try_buy, apply_test_upgrades, process_quit` | it, `game/shift_manager.gd`, `game/order_manager.gd` |
 | Events (`systems/event_system.gd` + `world/events/*.gd`: `shift_event.gd` base, `vip_event.gd`, `inspector_event.gd`, `cat_paw_event.gd`) | timed shift events: schedule (own cadence each, telegraph 4 s / inspector 15 s, one at a time, `EVENT_GAP` 15 s between, none in the first 30 s / last 20 s), enabled from ShiftDef `events` (+ map hazard `cat_paw`), host `--events=a,b` (endless/custom) + `--event-fast`; VIP order flag + pay/penalty multipliers (`OrderManager.add_vip, pay_for, expire_penalty`), inspector fines, paw launch/shove; replicated as snapshot meta `"e"` (clients animate the paw from it); visuals every peer; banners in `ui/hud_event_banner.gd` | `world.events`: `start_shift, tick, process, state, apply_state, inspector_left, on_order_served, on_order_expired` (via `world.order_served/order_expired`); stats: signals `vip_served(pay), vip_expired, inspector_fined(kind, coins), inspected(burnt_count), paw_hit(target)` + `counters` (run totals, also `Net.metrics["events"]`) | it, `world/events/**`, `ui/hud_event_banner.gd` |
@@ -39,6 +39,29 @@ plate cooldowns -> every `Station.host_update` -> bounds falls -> shift. Snapsho
 | Chef (`world/chef.gd`) | chef body, walk, fall/respawn, puppet easing, animation, look (colour/hat/accessory; `setup` applies `Net.look_of(id)`) | `setup, host_move, face, aim_at, respawn, host_flags, set_target, set_gloves, set_player_name, apply_look(color_idx, hat, acc)` (sets `color`, which the ground ring, name badge and hint outline read); static `Chef.dress(model, color, hat, acc)` / `Chef.tint` for any chef.glb instance (lobby turntable, menu diorama): tints `ChefBody`+`HatTint`, shows the `Toque` mesh only for hat `toque`, attaches `hat_<id>.glb` at `HAT_ANCHOR` / `acc_<id>.glb` at `FACE_ANCHOR` (not carrying + `has_aim`: `host_move` turns to `aim_point` at 14 rad/s, else faces movement; while carrying CarrySystem turns it) | it |
 | Item (`world/item.gd`) | food body, kind, carry attach/detach, puppet easing, bars | `setup, set_kind, weight, attach, detach, set_target, set_cooking` | it |
 | Kitchen / Models (`world/kitchen.gd`, `world/models.gd`) | static scenery for a MapDef: one slab + collider per surface (`EnvCounter`), room by theme (`EnvRoom`, unknown -> diner), scenery props (`hob` and `flat` ones have no collider), decor; .glb-or-primitive factory | `Kitchen.build(root, map)`; `Models.make, load_model, mesh_node, label` | them |
+
+### Map data: second plates and closed stations
+A MapDef may list any number of `plate` and `bell` stations (same dict shape as the first pair). Each bell
+serves the plate nearest to it, so put a bell beside its own plate. Optional `"upgrade": "<upgrade id>"` on a
+station keeps it closed until the team owns that upgrade (`Station.is_locked()`, every peer): a closed plate
+wears a lid + "CLOSED" sign and bounces all food off with a hint, a closed bell wears a cover and only says
+which upgrade opens it, and IndicatorLayer floats a "Buy <upgrade>" pill over it. The Diner's second pair:
+`{"type": "plate", ..., "pos": Vector3(-8, 0, 8), "label": "Plate 2", "upgrade": "second_plate"}` and
+`{"type": "bell", ..., "pos": Vector3(-14, 0, 8), "label": "Serve 2", "upgrade": "second_plate"}`.
+Snapshot meta carries every plate stack (`"p"`: Array, map order) and every bell's ring counter (`"r"`).
+
+### Upgrade hooks
+`second_plate`: `Station.is_locked`. `oven_mitts`: `Griddle._burn_scale()` (x `Tuning.OVEN_MITTS_MULT` on top of
+the ShiftDef `burn_scale`; the Fryer inherits it). `hot_griddle`: `Griddle.cook_speed()` divides the cook stage
+(griddle + fryer). `tongs`: `CarrySystem.grab_reach()` / `World.grab_reach()` (x `Tuning.TONGS_REACH_MULT`). The
+host logs `upgrades: ...` at shift start and for every upgraded stage / long grab. Shop cards come from
+`GameData.UPGRADES` (`icon`: model name, or "" for an emblem ShopIcon draws for the id).
+
+### Ping
+Middle mouse / pad Y (`ping` action, InputSystem): the aim point, else 3 m in front of the chef ->
+`World.request_ping` -> `Net.ping` (client: `_rpc_ping` to the host) -> `World.host_ping` (1 s cooldown per
+player) -> `Net.event("<peer>:<x>:<z>", "ping")`. IndicatorLayer draws it (pin + ground ring in the player's
+colour, 3 s, one per player), Sfx plays "ping", the HUD skips it.
 
 ## Everything else
 

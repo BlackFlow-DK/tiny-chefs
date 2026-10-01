@@ -5,7 +5,7 @@ extends RefCounted
 ## the current camera (viewport.get_camera_3d() at call time). Calls Bot.update.
 ## The host copies local_input into its own chef's slot; clients Net.send_input it.
 ##
-## Presses (grab/work/punch) are counted from _unhandled_input, so a click the GUI takes (pause
+## Presses (grab/work/punch/ping) are counted from _unhandled_input, so a click the GUI takes (pause
 ## menu, shop, results buttons) never reaches the game. Movement is polled.
 ## Aim: see PlayerInput.aim_point / has_aim. The mouse is the active device after it moves or
 ## clicks; a pad button or stick makes the pad active. Keyboard does not switch device.
@@ -23,6 +23,7 @@ var _mouse_pos := Vector2.ZERO    # viewport coordinates, from the last mouse ev
 var _work_armed := false          # work held and its press started in the game, not on the GUI
 var _log := false
 var _ignore_focus := false
+var _last_ping := -99.0
 
 
 class Events extends Node:
@@ -97,6 +98,26 @@ func _on_unhandled(event: InputEvent) -> void:
 		inp.work_seq += 1
 		_work_armed = true
 		_note("work", inp.work_seq, event)
+	if event.is_action_pressed("ping"):
+		_ping(event)
+
+
+## Ping (middle mouse / pad Y): the aim point, else a few metres in front of the chef. Not part of
+## PlayerInput: World.request_ping -> Net -> host -> a "ping" event for everyone (1 s local cooldown too).
+func _ping(event: InputEvent) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var me := world.my_chef()
+	if me == null or now - _last_ping < Tuning.PING_COOLDOWN:
+		return
+	_last_ping = now
+	var inp := world.local_input
+	_update_aim(inp)
+	var at := inp.aim_point
+	if not inp.has_aim:
+		var p := me.global_position
+		at = Vector2(p.x + sin(me.rotation.y) * PAD_AIM_DISTANCE, p.z + cos(me.rotation.y) * PAD_AIM_DISTANCE)
+	_note("ping", 0, event)
+	world.request_ping(at)
 
 
 func _update_aim(inp: PlayerInput) -> void:

@@ -24,7 +24,8 @@ func start_shift() -> void:
 	var shift := world.shift
 	for it in world.items.values():
 		world.remove_item(it)
-	world.plate.clear_stack()
+	for p in world.plates:
+		p.clear_stack()
 	world.board.reset()
 	world.griddle.reset()
 	if world.fryer != null:
@@ -47,6 +48,7 @@ func start_shift() -> void:
 	_last_order_count = 0
 	if int(Net.metrics["coins_start"]) < 0:
 		Net.metrics["coins_start"] = shift.coins
+	_log_upgrades()
 	Net.event("Shift %d: %s. Earn %d coins!" % [shift.index + 1, shift.shift_name(), shift.target()], "start")
 
 
@@ -93,6 +95,18 @@ func _end_shift() -> void:
 	Net.set_phase(Net.Phase.RESULTS, info)
 	if Net.has_arg("quit-after-shift"):
 		_quit_timer = 2.0
+
+
+## Host: what the owned timer/reach upgrades change this shift (evidence for tests and balance runs).
+func _log_upgrades() -> void:
+	var u := world.shift.upgrades
+	if u.is_empty():
+		return
+	var burn := Tuning.BURN_TIME * world.griddle.burn_scale()
+	var cook := Tuning.COOK_TIME / world.griddle.cook_speed()
+	print("upgrades: %s | griddle cook %.2fs burn %.2fs (base %.1f/%.1f, burn_scale %.2f) | grab reach %.2fm (base %.2f) | plates open %d/%d" % [
+		",".join(u), cook, burn, Tuning.COOK_TIME, Tuning.BURN_TIME, float(world.shift.def.get("burn_scale", 1.0)),
+		world.grab_reach(), Tuning.REACH, world.plates.filter(func(p: Plate) -> bool: return not p.is_locked()).size(), world.plates.size()])
 
 
 func try_buy(id: String) -> void:

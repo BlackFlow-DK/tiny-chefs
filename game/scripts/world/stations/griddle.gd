@@ -38,9 +38,30 @@ func _slots() -> int:
 
 
 ## Seconds for the stage an item of this def is in.
-## Difficulty burn window (ShiftDef burn_scale); upgrades may scale it further.
+## Difficulty burn window (ShiftDef burn_scale) x Tuning.OVEN_MITTS_MULT with the oven_mitts upgrade.
 func _burn_scale() -> float:
-	return float(world.shift.def.get("burn_scale", 1.0)) if world != null and world.shift != null else 1.0
+	if world == null or world.shift == null:
+		return 1.0
+	var k := float(world.shift.def.get("burn_scale", 1.0))
+	if world.shift.has_upgrade("oven_mitts"):
+		k *= Tuning.OVEN_MITTS_MULT
+	return k
+
+
+## Burn-window multiplier in force (difficulty x upgrades).
+func burn_scale() -> float:
+	return _burn_scale()
+
+
+## Cook-stage speed multiplier: Tuning.HOT_GRIDDLE_MULT with the hot_griddle upgrade (griddle and fryer).
+func cook_speed() -> float:
+	return Tuning.HOT_GRIDDLE_MULT if world != null and world.shift != null and world.shift.has_upgrade("hot_griddle") else 1.0
+
+
+## Stage time with the cook speed applied (the burn stage already carries _burn_scale()).
+func _limit(d: Dictionary, cook_stage: bool) -> float:
+	var t := _stage_time(d, cook_stage)
+	return t / cook_speed() if cook_stage else t
 
 
 func _stage_time(d: Dictionary, cook_stage: bool) -> float:
@@ -106,8 +127,10 @@ func host_update(dt: float) -> void:
 		it.set_cooking(true)
 		it.cook_time += dt
 		var cook := is_cook_stage(it.kind)
-		var limit := _stage_time(it.def, cook)
+		var limit := _limit(it.def, cook)
 		if it.cook_time >= limit:
+			if world.shift.has_upgrade("hot_griddle") or world.shift.has_upgrade("oven_mitts"):
+				print("upgrades: %s %s stage done after %.2fs" % [type, it.kind, limit])
 			it.cook_time = 0.0
 			_transform(it, str(it.def[k]))
 			if not it.def.has(k):
@@ -115,7 +138,7 @@ func host_update(dt: float) -> void:
 				it.bar_kind = Item.Bar.NONE
 				continue
 			cook = is_cook_stage(it.kind)
-			limit = _stage_time(it.def, cook)
+			limit = _limit(it.def, cook)
 		it.bar = it.cook_time / limit
 		it.bar_kind = _cook_bar() if cook else Item.Bar.BURN
 

@@ -19,7 +19,8 @@ static func setup() -> void:
 	_action("aim_down", [_axis(JOY_AXIS_RIGHT_Y, 1.0)])
 	_action("grab", [_mouse(MOUSE_BUTTON_LEFT), _key(KEY_E), _joy(JOY_BUTTON_A)])
 	_action("work", [_mouse(MOUSE_BUTTON_RIGHT), _key(KEY_F), _joy(JOY_BUTTON_X)])
-	_action("punch", [_key(KEY_SPACE), _key(KEY_Q), _mouse(MOUSE_BUTTON_MIDDLE), _joy(JOY_BUTTON_B)])
+	_action("punch", [_key(KEY_SPACE), _key(KEY_Q), _joy(JOY_BUTTON_B)])
+	_action("ping", [_mouse(MOUSE_BUTTON_MIDDLE), _joy(JOY_BUTTON_Y)])
 	_action("pause", [_key(KEY_ESCAPE), _joy(JOY_BUTTON_START)])
 	_action("toggle_hints", [_key(KEY_H), _joy(JOY_BUTTON_BACK)])
 

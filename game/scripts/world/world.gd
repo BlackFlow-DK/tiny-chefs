@@ -17,8 +17,10 @@ var griddle: Griddle
 var fryer: Fryer            # null on maps without one
 var soda: SodaFountain       # null on maps without one; also listed in dispensers
 var board: CuttingBoard
-var plate: Plate
+var plate: Plate              # first plate / bell of the map (bots and the HUD use these)
 var bell: Bell
+var plates: Array[Plate] = []  # every plate / bell; each bell serves its nearest plate (Bell.plate)
+var bells: Array[Bell] = []
 var trash: Trash
 var shift := ShiftManager.new()
 var orders := OrderManager.new()
@@ -34,6 +36,7 @@ var _idle := PlayerInput.new()
 var _next_item_id := 1
 var _tick := 0
 var _toast_cooldown := 0.0
+var _ping_at: Dictionary = {}   # host: peer id -> time of the last ping (s)
 
 var _roster_sys: RosterSystem
 var _input_sys: InputSystem
@@ -115,11 +118,11 @@ func _build_stations() -> void:
 				dispensers.append(soda)
 				s = soda
 			"plate":
-				plate = Plate.new()
-				s = plate
+				s = Plate.new()
+				plates.append(s)
 			"bell":
-				bell = Bell.new()
-				s = bell
+				s = Bell.new()
+				bells.append(s)
 			"trash":
 				trash = Trash.new()
 				s = trash
@@ -128,6 +131,12 @@ func _build_stations() -> void:
 		s.setup(d, self)
 		add_child(s)
 		stations.append(s)
+	plate = plates[0] if not plates.is_empty() else null
+	bell = bells[0] if not bells.is_empty() else null
+	for b in bells:
+		for p in plates:
+			if b.plate == null or b.centre_distance(p.global_position) < b.centre_distance(b.plate.global_position):
+				b.plate = p
 
 
 # ================================================================ Net targets
@@ -274,6 +283,11 @@ func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
 	return _carry_sys.grab_candidate(c, inp)
 
 
+## Every peer: grab reach in m (tongs upgrade), see CarrySystem.grab_reach.
+func grab_reach() -> float:
+	return _carry_sys.grab_reach()
+
+
 func release(c: Chef, sound := false) -> void:
 	_carry_sys.release(c, sound)
 
@@ -319,8 +333,29 @@ func chop(tom: Item) -> void:
 	_board_sys.chop(tom)
 
 
-func refuse_from_plate(it: Item, p: Station) -> void:
-	_plate_sys.refuse_from_plate(it, p)
+func refuse_from_plate(it: Item, p: Station, msg := "") -> void:
+	_plate_sys.refuse_from_plate(it, p, msg)
+
+
+## Every peer: the bell within reach of p (nearest), or null.
+func bell_near(p: Vector3) -> Bell:
+	return _plate_sys.bell_near(p)
+
+
+## Every peer: this player pings world point xz (x, z). The host checks the cooldown and tells everyone.
+func request_ping(xz: Vector2) -> void:
+	if xz.is_finite():
+		Net.ping(xz)
+
+
+## Host: peer id pinged xz. One ping per Tuning.PING_COOLDOWN per player; everyone gets a "ping" event
+## whose text is "<peer>:<x>:<z>" (IndicatorLayer draws it, the HUD skips it).
+func host_ping(id: int, xz: Vector2) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if not chefs.has(id) or not xz.is_finite() or now - float(_ping_at.get(id, -99.0)) < Tuning.PING_COOLDOWN:
+		return
+	_ping_at[id] = now
+	Net.event("%d:%.2f:%.2f" % [id, xz.x, xz.y], "ping")
 
 
 ## Rate-limited toast + sound for everyone (1.5 s shared cooldown).
@@ -341,9 +376,7 @@ func _process(delta: float) -> void:
 
 
 func _on_event(_text: String, sfx: String) -> void:
-	Sfx.play(sfx)
-	if sfx == "serve" or sfx == "buzz":
-		bell.ring()
+	Sfx.play(sfx)   # the serving bell rings itself (Bell.ring, replicated); pings are drawn by IndicatorLayer
 
 
 func my_chef() -> Chef:

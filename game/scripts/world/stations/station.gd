@@ -95,6 +95,37 @@ func apply_state(_s: Variant) -> void:
 	pass
 
 
+## Every peer: true while the def's optional "upgrade" is not owned yet (the station is closed).
+func is_locked() -> bool:
+	return def.has("upgrade") and world != null and not world.shift.has_upgrade(str(def["upgrade"]))
+
+
+## Name of the upgrade that opens this station ("" when it needs none).
+func unlock_name() -> String:
+	return str(GameData.upgrade(str(def.get("upgrade", ""))).get("name", ""))
+
+
+## A little standing "CLOSED" board (w m wide) facing the camera (+Z), for closed stations.
+func closed_sign(w: float) -> Node3D:
+	var n := Node3D.new()
+	var h := w * 0.42
+	var board := Node3D.new()
+	board.rotation.x = deg_to_rad(-28.0)   # leans back towards the camera's view
+	board.add_child(box(Vector3(w + 0.24, h + 0.24, 0.12), UITheme.INK, Vector3(0, -0.12, -0.02)))
+	board.add_child(box(Vector3(w, h, 0.16), UITheme.CREAM, Vector3.ZERO))
+	var l := Label3D.new()
+	l.text = "CLOSED"
+	l.font = UITheme.font(true)
+	l.font_size = 96
+	l.pixel_size = w / 520.0
+	l.modulate = UITheme.TOMATO_DARK
+	l.outline_size = 0
+	l.position = Vector3(0, h * 0.5, 0.09)
+	board.add_child(l)
+	n.add_child(board)
+	return n
+
+
 ## Text for the context hint when the local chef can work here, "" when not.
 func work_hint() -> String:
 	return ""

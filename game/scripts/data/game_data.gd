@@ -76,6 +76,9 @@ const STATIONS := [
 	{"type": "plate", "model": "plate", "pos": Vector3(0, 0, 8), "size": Vector3(7, 0.4, 7), "label": "Plate"},
 	{"type": "bell", "model": "service_bell", "pos": Vector3(6.5, 0, 8), "size": Vector3(2, 1.6, 2), "label": "Serve"},
 	{"type": "trash", "model": "trash_drain", "pos": Vector3(-18, 0, 8), "size": Vector3(4, 0.2, 4), "label": "Trash"},
+	# Second plate + bell: closed until the "second_plate" upgrade is bought.
+	{"type": "plate", "model": "plate", "pos": Vector3(-8, 0, 8), "size": Vector3(7, 0.4, 7), "label": "Plate 2", "upgrade": "second_plate"},
+	{"type": "bell", "model": "service_bell", "pos": Vector3(-14, 0, 8), "size": Vector3(2, 1.6, 2), "label": "Serve 2", "upgrade": "second_plate"},
 	# Overnight content. Optional "yaw" (degrees) turns a station; the end dispensers face the counter centre.
 	{"type": "dispenser", "model": "dispenser_bacon", "pos": Vector3(-27.4, 0, 5.5), "yaw": 90.0, "size": Vector3(5, 4, 5), "gives": ["bacon_raw"], "label": "Bacon"},
 	{"type": "dispenser", "model": "dispenser_eggs", "pos": Vector3(-27.4, 0, 10.5), "yaw": 90.0, "size": Vector3(5, 4, 5), "gives": ["egg"], "label": "Eggs"},
@@ -120,8 +123,11 @@ const SPAWN_POINTS := [Vector3(-2, 0, 1), Vector3(2, 0, 1), Vector3(-2, 0, -3), 
 ##   dev: bool (optional) hidden from players, only via --map=<id>.
 ##   surfaces: Array of Rect2(x, z, w, h) counter tops at y = 0 (overlap them to join; a point is on
 ##     the counter when it is inside any of them). Each gets a slab, trim, cabinets and a collider.
-##   stations: Array of station dicts (format of STATIONS). Exactly one griddle, board, plate, bell and
-##     trash per map (World keeps one of each), any number of dispensers.
+##   stations: Array of station dicts (format of STATIONS). Exactly one griddle, board and trash per map
+##     (World keeps one of each), any number of dispensers. One or more plate + bell pairs: each bell serves
+##     its nearest plate (World.plates/bells, first = World.plate/bell). Optional "upgrade": "<id>" on any
+##     plate/bell keeps it closed (lid, refuses food and serving) until that upgrade is owned, e.g. a second
+##     pair with "upgrade": "second_plate".
 ##   scenery: Array of prop dicts (format of SCENERY). "flat": true = decoration without collider
 ##     ("hob" is built in code); "sink_basin" cuts a hole in the surface under it.
 ##   spawn_points: Array of Vector3, one per player slot (wraps). hazards: Array of hazard ids.
@@ -209,11 +215,16 @@ const SHIFTS := [
 	{"name": "Hot Dog Rush", "recipes": ["cheeseburger", "salad", "double", "hotdog"], "interval": 28.0, "patience": 95.0, "duration": 210.0, "target": 160},
 ]
 
-## Shared team wallet; upgrades last for the run.
+## Shared team wallet; upgrades last for the run. icon: model spun on the shop card (ShopIcon); "" = an
+## emblem drawn for the id (flat models like the plate read badly in the small tilted view).
 const UPGRADES := [
-	{"id": "gloves", "name": "Boxing Gloves", "desc": "Unlocks punching (Q / right mouse / pad B). Launch food, shove friends.", "price": 60},
-	{"id": "knife", "name": "Sharp Knife", "desc": "Chopping is twice as fast.", "price": 50},
-	{"id": "shoes", "name": "Running Shoes", "desc": "+20% move and carry speed.", "price": 80},
+	{"id": "gloves", "name": "Boxing Gloves", "desc": "Unlocks punching (Space / Q / pad B). Launch food, shove friends.", "price": 60, "icon": "boxing_glove"},
+	{"id": "knife", "name": "Sharp Knife", "desc": "Chopping is twice as fast.", "price": 50, "icon": "knife"},
+	{"id": "shoes", "name": "Running Shoes", "desc": "+20% move and carry speed.", "price": 80, "icon": ""},
+	{"id": "second_plate", "name": "Second Plate", "desc": "Enables the second plate and bell on kitchens that have one.", "price": 90, "icon": ""},
+	{"id": "oven_mitts", "name": "Oven Mitts", "desc": "Food takes 50% longer to burn.", "price": 70, "icon": ""},
+	{"id": "hot_griddle", "name": "Hot Griddle", "desc": "Griddle and fryer cook 30% faster.", "price": 90, "icon": ""},
+	{"id": "tongs", "name": "Long Tongs", "desc": "Grab food from 50% further away.", "price": 60, "icon": ""},
 ]
 
 

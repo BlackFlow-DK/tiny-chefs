@@ -27,6 +27,7 @@ func _ready() -> void:
 	_make("order", [[880.0, 990.0, 0.08]], "sine", 0.25)
 	_make("crack", [[1400.0, 700.0, 0.03], [260.0, 140.0, 0.07]], "noise", 0.45)
 	_make("fry", [[2400.0, 1600.0, 0.55]], "noise", 0.16)
+	_make("ping", [[1175.0, 1175.0, 0.07], [1568.0, 1568.0, 0.3]], "sine", 0.2)
 	_make("fizz", [[3200.0, 2600.0, 0.12], [2600.0, 3400.0, 0.45]], "noise", 0.14)
 	# Shift events (EventSystem): "ev_*" arrive as Net.event sfx, the paw ones play locally.
 	_make("ev_vip", [[523.0, 523.0, 0.1], [659.0, 659.0, 0.1], [784.0, 784.0, 0.1], [1046.0, 1046.0, 0.3]], "sine", 0.35)

@@ -42,7 +42,7 @@ func _ready() -> void:
 	grid.add_theme_constant_override("h_separation", 28)
 	grid.add_theme_constant_override("v_separation", 10)
 	for e in [["WASD", "Move"], ["Left click", "Grab / drop"], ["Right click", "Work (hold)"],
-			["Space", "Punch"], ["H", "Help"], ["Esc", "Resume"]]:
+			["Space", "Punch"], ["Middle click", "Ping"], ["H", "Help"], ["Esc", "Resume"]]:
 		var kh := UIKit.key_hint(e[0], e[1])
 		kh.alignment = BoxContainer.ALIGNMENT_BEGIN
 		kh.size_flags_horizontal = Control.SIZE_EXPAND_FILL

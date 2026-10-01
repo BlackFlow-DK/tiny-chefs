@@ -4,7 +4,7 @@ extends RefCounted
 ## (shown by the HUD, now only for carrying states and punch: the target prompts are key chips floating
 ## over the target, drawn by IndicatorLayer); writes world.grab_target / world.work_target.
 ## Every peer, from replicated state only.
-## Reads world.my_chef(), world.items, world.bell/dispensers/board, world.shift. Calls world.grab_candidate.
+## Reads world.my_chef(), world.items, world.bells/dispensers/board, world.shift. Calls world.grab_candidate.
 
 var world: World
 var _grab_ring: HighlightRing
@@ -35,7 +35,7 @@ func update() -> void:
 		return
 	var grab_target: Item = null
 	var work_target: Station = null
-	var bell := world.bell
+	var bell := world.bell_near(me.global_position)   # nearest bell in reach (any of world.bells)
 	var board := world.board
 	var parts := PackedStringArray()
 	var p := me.global_position
@@ -47,7 +47,7 @@ func update() -> void:
 		parts.append(t)
 	else:
 		grab_target = world.grab_candidate(me, world.local_input)  # the exact item a grab press takes
-		if bell.footprint_distance(p) <= Tuning.REACH:
+		if bell != null and not bell.is_locked():
 			work_target = bell
 		else:
 			for s in world.dispensers:

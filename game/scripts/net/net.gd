@@ -529,6 +529,21 @@ func _event(text: String, sfx: String) -> void:
 	event_received.emit(text, sfx)
 
 
+## Every peer: ping world point xz (see World.host_ping); clients ask the host.
+func ping(xz: Vector2) -> void:
+	if is_host:
+		if world != null:
+			world.host_ping(1, xz)
+	elif multiplayer.multiplayer_peer is ENetMultiplayerPeer:
+		_rpc_ping.rpc_id(1, xz)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _rpc_ping(xz: Vector2) -> void:
+	if is_host and world != null:
+		world.host_ping(multiplayer.get_remote_sender_id(), xz)
+
+
 func buy(upgrade_id: String) -> void:
 	if is_host:
 		if world != null:

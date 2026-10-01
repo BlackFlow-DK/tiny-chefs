@@ -44,6 +44,7 @@ func _init(w: World) -> void:
 ## the way the chef faces): one right behind needs to be GRAB_FRONT_BIAS nearer to win.
 func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
 	var p := c.global_position
+	var reach := grab_reach()
 	var fwd := Vector3(sin(c.rotation.y), 0.0, cos(c.rotation.y))
 	var aim := inp.aim3()
 	if inp.has_aim:
@@ -57,7 +58,7 @@ func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
 	for it in world.items.values():
 		if it.removed or absf(it.global_position.y - p.y) > 3.0:
 			continue
-		if it.footprint_distance(p) > Tuning.REACH:
+		if it.footprint_distance(p) > reach:
 			continue
 		if inp.has_aim:
 			var da: float = it.footprint_distance(aim)
@@ -75,6 +76,12 @@ func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
 	return by_aim if by_aim != null else best
 
 
+## Every peer: how far (m, chef centre to food footprint) a chef can grab: Tuning.REACH, x
+## Tuning.TONGS_REACH_MULT with the tongs upgrade.
+func grab_reach() -> float:
+	return Tuning.REACH * (Tuning.TONGS_REACH_MULT if world.shift.has_upgrade("tongs") else 1.0)
+
+
 ## A fresh grab press: drop what the chef holds, else grab the best candidate.
 func on_grab_pressed(c: Chef) -> void:
 	if c.respawn_timer < 0.0:
@@ -88,6 +95,9 @@ func _try_grab(c: Chef) -> void:
 	var best := grab_candidate(c, world.input_of(c.peer_id))
 	if best == null:
 		return
+	var reach_used: float = best.footprint_distance(c.global_position)
+	if reach_used > Tuning.REACH:
+		print("upgrades: tongs grab %s at %.2fm (base reach %.2f, now %.2f)" % [best.kind, reach_used, Tuning.REACH, grab_reach()])
 	best.attach(c)
 	c.holding = best
 	c.held_id = best.item_id

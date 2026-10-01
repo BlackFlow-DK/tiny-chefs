@@ -2,7 +2,8 @@ class_name IndicatorLayer
 extends CanvasLayer
 ## Screen-space projection of every in-world indicator (crisp text at any zoom): station markers that fade
 ## when the local chef is close, target prompt chips, cook/chop/dispense bars with DONE!/BURNT pops,
-## crew pips on heavy carried food, and name badges over remote chefs.
+## crew pips on heavy carried food, name badges over remote chefs, "Buy <upgrade>" pills over closed
+## stations, and pings (a bouncing pin + ground ring in the player's colour, from "ping" Net events).
 ## Sits under the HUD (layer -1) and runs with process_priority 200: after the camera driver (100), so
 ## the projected points use this frame's camera and do not lag or jitter.
 ## Reads world.camera, chefs, items, stations, grab_target, work_target, shift, local_input. Every peer.
@@ -26,6 +27,8 @@ var _hold_tag: IndicatorParts.Tag
 var _hold_bar: IndicatorParts.WorldBar
 var _hold_t := 0.0
 var _hold_target: Station = null
+var _locks: Dictionary = {}      # Station -> Tag ("Buy Second Plate") while closed
+var _pings: Dictionary = {}      # peer id -> {tag, pin, ring, pos, t}
 
 
 func _init(w: World) -> void:
@@ -43,6 +46,7 @@ func _init(w: World) -> void:
 	_hold_bar = IndicatorParts.WorldBar.new()
 	_hold_tag = IndicatorParts.Tag.new(_hold_bar)
 	_root.add_child(_hold_tag)
+	Net.event_received.connect(_on_event)
 
 
 func _process(delta: float) -> void:
@@ -50,6 +54,7 @@ func _process(delta: float) -> void:
 	var me := world.my_chef()
 	if _cam == null or not _cam.is_inside_tree() or Net.phase != Net.Phase.PLAYING or me == null:
 		_root.visible = false
+		_clear_pings()
 		return
 	_root.visible = true
 	_time += delta
@@ -60,6 +65,8 @@ func _process(delta: float) -> void:
 	_update_chips(me, delta)
 	_update_badges(me, delta)
 	_update_pops(delta)
+	_update_locks(delta)
+	_update_pings(delta)
 
 
 # ---------------------------------------------------------------- helpers
@@ -350,3 +357,95 @@ func _update_badges(me: Chef, delta: float) -> void:
 				if nearest.distance_to(ip) < rad:
 					target = 0.15
 		tag.show_at(at, target, delta, s, 5.0)
+
+
+# ---------------------------------------------------------------- closed stations
+
+## Locked plates (and a locked bell whose plate is open) carry a "Buy <upgrade>" pill.
+func _update_locks(delta: float) -> void:
+	for s in world.stations:
+		var st := s as Station
+		var show: bool = st.is_locked() and (st is Plate or (st is Bell and ((st as Bell).plate == null or not (st as Bell).plate.is_locked())))
+		var tag: IndicatorParts.Tag = _locks.get(st)
+		if not show:
+			if tag != null:
+				tag.visible = false
+			continue
+		if tag == null:
+			tag = _add(IndicatorParts.Tag.new(IndicatorParts.pop_pill("Buy %s" % st.unlock_name(), UITheme.MUSTARD, true)))
+			_locks[st] = tag
+		var sp: Variant = _proj(st.global_position + Vector3(0, 3.2 if st is Plate else 2.6, 0))
+		if sp == null:
+			tag.visible = false
+			continue
+		tag.show_at((sp as Vector2) + Vector2(0, -_used(st, 30.0)), 1.0, delta, 1.0, 6.0)
+
+
+# ---------------------------------------------------------------- pings
+
+## "ping" events carry "<peer>:<x>:<z>" (World.host_ping). One live ping per player: a new one replaces it.
+func _on_event(text: String, sfx: String) -> void:
+	if sfx != "ping":
+		return
+	var f := text.split(":")
+	if f.size() != 3:
+		return
+	var id := int(f[0])
+	var pos := Vector3(float(f[1]), 0.0, float(f[2]))
+	var c: Chef = world.chefs.get(id)
+	var color: Color = GameData.PLAYER_COLORS[(c.slot if c != null else 0) % GameData.PLAYER_COLORS.size()]
+	var picked: Variant = c.get("color") if c != null else null   # lobby-picked colour when chefs have one
+	if picked is Color:
+		color = picked
+	_remove_ping(id)
+	var pin := IndicatorParts.PingPin.new(color)
+	var tag := _add(IndicatorParts.Tag.new(pin))
+	tag.bump()
+	var ring := MeshInstance3D.new()
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.mesh = OutlineMesh.player_ring(1.0, 0.16, 0.05, false)
+	ring.set_surface_override_material(0, OutlineMesh.flat_material(UITheme.INK))
+	ring.set_surface_override_material(1, OutlineMesh.flat_material(color.lightened(0.15)))
+	world.add_child(ring)
+	ring.global_position = pos + Vector3(0, 0.07, 0)
+	ring.scale = Vector3(0.01, 1, 0.01)
+	_pings[id] = {"tag": tag, "pin": pin, "ring": ring, "pos": pos, "t": 0.0}
+	if Net.has_arg("input-log"):
+		print("ping: %s sees peer %d ping at %s" % ["host" if world.is_host else "client", id, pos.snapped(Vector3.ONE * 0.01)])
+
+
+func _update_pings(delta: float) -> void:
+	for id in _pings.keys():
+		var e: Dictionary = _pings[id]
+		var t: float = float(e["t"]) + delta
+		e["t"] = t
+		if t >= Tuning.PING_TIME:
+			_remove_ping(id)
+			continue
+		var fade := 1.0 - smoothstep(Tuning.PING_TIME - 0.35, Tuning.PING_TIME, t)
+		var grow := minf(t / 0.18, 1.0)
+		var ring: MeshInstance3D = e["ring"]
+		var r := 1.3 * grow * fade * (1.0 + 0.08 * sin(t * 9.0))
+		ring.scale = Vector3(maxf(r, 0.01), 1, maxf(r, 0.01))
+		var pin: IndicatorParts.PingPin = e["pin"]
+		pin.set_lift(absf(sin(t * 5.5)) * 16.0 * (0.55 + 0.45 * fade))
+		var tag: IndicatorParts.Tag = e["tag"]
+		var sp: Variant = _proj(e["pos"])
+		if sp == null:
+			tag.visible = false
+			continue
+		tag.place((sp as Vector2) + Vector2(0, 6), fade, 1.0)
+
+
+func _remove_ping(id: int) -> void:
+	var e: Dictionary = _pings.get(id, {})
+	if e.is_empty():
+		return
+	(e["tag"] as Node).queue_free()
+	(e["ring"] as Node).queue_free()
+	_pings.erase(id)
+
+
+func _clear_pings() -> void:
+	for id in _pings.keys():
+		_remove_ping(id)

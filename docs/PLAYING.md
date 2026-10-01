@@ -43,7 +43,8 @@ Add `--bot` to either one to have a bot play that chef.
 | look (aim) | mouse cursor | right stick |
 | grab / let go (toggle) | left click or E | A |
 | work (hold): dispense, chop, ring the bell | right click or F | X |
-| punch (needs Boxing Gloves) | Space, Q or middle click | B |
+| punch (needs Boxing Gloves) | Space or Q | B |
+| ping a spot (everyone sees it for 3 s) | middle click | Y |
 | pause menu (Leave, Quit) | Esc | Start |
 | hide the controls help | H | Back |
 
@@ -74,7 +75,9 @@ Recipes: Cheeseburger (bun bottom, cooked patty, cheese, bun top), Garden Salad 
 slices), Double Beef Cheeseburger (shift 2+), Hot Dog (shift 3+). After shift 3 shifts keep getting harder.
 
 Shop (shared team wallet, lasts for the run): Boxing Gloves (punch food across the counter, shove
-friends, knock food out of hands), Sharp Knife (2x chopping), Running Shoes (+20% speed).
+friends, knock food out of hands), Sharp Knife (2x chopping), Running Shoes (+20% speed), Second Plate
+(opens the closed second plate + bell on kitchens that have one; the Diner does), Oven Mitts (food takes
+50% longer to burn), Hot Griddle (griddle and fryer cook 30% faster), Long Tongs (grab from 50% further).
 
 ## What is in this prototype, and what is not
 

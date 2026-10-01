@@ -3,7 +3,10 @@ extends Control
 ## "Chef shop": big team-wallet chip, one card per upgrade (icon, effect, price, Buy / OWNED)
 ## and a footer with what comes next. Same calls as before: Net.buy(id), Net.set_phase(PLAYING).
 
-const COLORS := {"gloves": UITheme.TOMATO, "knife": UITheme.SKY, "shoes": UITheme.LETTUCE}
+const COLORS := {"gloves": UITheme.TOMATO, "knife": UITheme.SKY, "shoes": UITheme.LETTUCE,
+	"second_plate": UITheme.SKY, "oven_mitts": UITheme.TOMATO, "hot_griddle": UITheme.MUSTARD, "tongs": UITheme.LETTUCE}
+## More than this many upgrades: narrower cards so one row still fits 1280 px.
+const WIDE_CARDS_MAX := 4
 
 var _cards: Dictionary = {}     # id -> {card, button, price, chip, badge, state}
 var _wallet_lbl: Label
@@ -43,7 +46,7 @@ func _init() -> void:
 	v.add_child(head)
 
 	var cards := HBoxContainer.new()
-	cards.add_theme_constant_override("separation", 16)
+	cards.add_theme_constant_override("separation", 10 if _compact() else 16)
 	for u in GameData.UPGRADES:
 		cards.add_child(_make_card(u))
 	v.add_child(cards)
@@ -94,17 +97,18 @@ func _make_wallet() -> Control:
 func _make_card(u: Dictionary) -> Control:
 	var id: String = u["id"]
 	var col: Color = COLORS.get(id, UITheme.MUSTARD)
-	var cv := UIKit.card(8)
+	var compact := _compact()
+	var cv := UIKit.card(6 if compact else 8)
 	var card: PanelContainer = cv[0]
 	var v: VBoxContainer = cv[1]
-	card.custom_minimum_size = Vector2(236, 0)
+	card.custom_minimum_size = Vector2(156 if compact else 236, 0)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var icon_wrap := CenterContainer.new()
 	var icon_area := Control.new()
-	icon_area.custom_minimum_size = Vector2(190, 122)
+	icon_area.custom_minimum_size = Vector2(116, 94) if compact else Vector2(190, 122)
 	icon_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon := ShopIcon.new(id, col, 116)
+	var icon := ShopIcon.new(id, col, 88 if compact else 116)
 	icon_area.add_child(icon)
 	icon.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
 	icon.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -121,18 +125,23 @@ func _make_card(u: Dictionary) -> Control:
 	badge.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
 	badge.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	badge.grow_vertical = Control.GROW_DIRECTION_BOTH
-	badge.position.y += 34
+	badge.position.y += 26 if compact else 34
 	badge.rotation = -0.2
 	icon_wrap.add_child(icon_area)
 	v.add_child(icon_wrap)
 
 	var nm := UIKit.heading(str(u["name"]))
 	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if compact:
+		nm.add_theme_font_size_override("font_size", UITheme.S_BODY)
+		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nm.custom_minimum_size = Vector2(116, 52)
+		nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	v.add_child(nm)
 	var desc := UIKit.caption(_short_desc(u))
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.custom_minimum_size = Vector2(190, 62)
+	desc.custom_minimum_size = Vector2(116, 84) if compact else Vector2(190, 62)
 	v.add_child(desc)
 
 	var price_row := CenterContainer.new()
@@ -147,17 +156,26 @@ func _make_card(u: Dictionary) -> Control:
 	price_row.add_child(chip)
 	v.add_child(price_row)
 
-	var btn := UIKit.button("Buy", func() -> void: _on_buy(id), "accent", 170)
+	var btn := UIKit.button("Buy", func() -> void: _on_buy(id), "accent", 110 if compact else 170)
 	v.add_child(btn)
 	var active := UIKit.heading("Active all run")
 	active.add_theme_color_override("font_color", UITheme.LETTUCE.darkened(0.45))
 	active.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if compact:
+		active.add_theme_font_size_override("font_size", UITheme.S_BODY)
+		active.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		active.custom_minimum_size = Vector2(116, 0)
 	active.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	active.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	active.visible = false
 	v.add_child(active)
 	_cards[id] = {"card": card, "button": btn, "price": price, "chip": price_row, "badge": badge, "active": active, "state": ""}
 	return card
+
+
+## Narrow cards when there are more upgrades than fit a 1280 px row at full width.
+static func _compact() -> bool:
+	return GameData.UPGRADES.size() > WIDE_CARDS_MAX
 
 
 ## Shorter effect line for the cards (key hints live in the pause menu and the guide).

@@ -204,3 +204,43 @@ static func pop_pill(text: String, fill: Color, ink_text := true) -> PanelContai
 	p.add_child(_text(text, UITheme.S_BODY, UITheme.INK if ink_text else UITheme.CREAM))
 	return p
 
+
+## Ping marker: a map pin in the player's colour (ink outline, cream dot) pointing down at its bottom
+## centre. The layer bounces it; `fade` 0..1 shrinks the drop shadow as it rises.
+class PingPin extends Control:
+	const W := 34.0
+	const H := 46.0
+	var color := UITheme.SKY
+	var lift := 0.0   # px the pin floats above its point (drawn shadow stays at the point)
+
+	func _init(c: Color) -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		color = c
+		custom_minimum_size = Vector2(W, H + 6)
+
+	func set_lift(px: float) -> void:
+		if not is_equal_approx(px, lift):
+			lift = px
+			queue_redraw()
+
+	func _draw() -> void:
+		var tip := Vector2(W * 0.5, H)
+		# Shadow on the ground under the tip, smaller the higher the pin floats.
+		var k := clampf(1.0 - lift / 30.0, 0.45, 1.0)
+		draw_set_transform(tip + Vector2(0, 2), 0.0, Vector2(1.0, 0.4))
+		draw_circle(Vector2.ZERO, 9.0 * k, Color(UITheme.INK, 0.35))
+		draw_set_transform(Vector2(0, -lift))
+		var r := W * 0.5 - 3.0
+		var c := Vector2(W * 0.5, r + 3.0)
+		var pts := PackedVector2Array()
+		var a0 := deg_to_rad(35.0)
+		for i in 25:   # round head: from lower right, over the top, to lower left
+			var a := PI * 0.5 - a0 - (TAU - 2.0 * a0) * float(i) / 24.0
+			pts.append(c + Vector2(cos(a), sin(a)) * r)
+		pts.append(tip - Vector2(0, 2))
+		draw_colored_polygon(pts, color)
+		var outline := pts.duplicate()
+		outline.append(pts[0])
+		draw_polyline(outline, UITheme.INK, 3.0, true)
+		draw_circle(c, r * 0.42, UITheme.CREAM)
+		draw_arc(c, r * 0.42, 0.0, TAU, 20, UITheme.INK, 2.0, true)

@@ -2,7 +2,7 @@ class_name SnapshotSystem
 extends RefCounted
 ## Owns the replicated state format: build() on the host (30 Hz via Net.send_snapshot), apply() on clients
 ## (creates/frees puppet chefs and items, mirrors stations + shift + orders). Changing it changes the wire format.
-## Reads/writes world.chefs, world.items, world.shift, world.orders, world.plate/board state(). Calls Net.metrics.
+## Reads/writes world.chefs, world.items, world.shift, world.orders, world.plates/bells/board state(). Calls Net.metrics.
 
 var world: World
 
@@ -48,7 +48,13 @@ func build() -> Dictionary:
 
 
 func _meta() -> Dictionary:
-	return {"s": world.shift.to_meta(), "o": world.orders.to_meta(), "p": world.plate.state(), "b": world.board.state(),
+	var ps: Array = []
+	for p in world.plates:
+		ps.append(p.state())
+	var rings := PackedInt32Array()
+	for b in world.bells:
+		rings.append(b.state())
+	return {"s": world.shift.to_meta(), "o": world.orders.to_meta(), "p": ps, "r": rings, "b": world.board.state(),
 		"e": world.events.state()}
 
 
@@ -105,7 +111,12 @@ func apply(d: Dictionary) -> void:
 	var shift := world.shift
 	shift.from_meta(m["s"])
 	world.orders.from_meta(m["o"])
-	world.plate.apply_state(m["p"])
+	var ps: Array = m["p"]
+	for i in mini(ps.size(), world.plates.size()):
+		world.plates[i].apply_state(ps[i])
+	var rings: PackedInt32Array = m["r"]
+	for i in mini(rings.size(), world.bells.size()):
+		world.bells[i].apply_state(rings[i])
 	world.board.apply_state(m["b"])
 	if m.has("e"):
 		world.events.apply_state(m["e"])

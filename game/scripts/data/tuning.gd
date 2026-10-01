@@ -79,6 +79,11 @@ const PAW_EDGE_MARGIN := 1.0       # m a shoved chef always stays inside the cou
 # Upgrades
 const SHOES_MULT := 1.2
 const KNIFE_MULT := 2.0
+const OVEN_MITTS_MULT := 1.5       # burn window (griddle + fryer) x this, on top of the ShiftDef burn_scale
+const HOT_GRIDDLE_MULT := 1.3      # griddle + fryer cook stage runs this much faster
+const TONGS_REACH_MULT := 1.5      # grab reach (Tuning.REACH) x this
+const PING_TIME := 3.0             # s a ping marker stays
+const PING_COOLDOWN := 1.0         # s between pings of one player
 const PUNCH_COOLDOWN := 0.6
 const PUNCH_RANGE := 2.0           # m to the target's footprint edge
 const PUNCH_ITEM_SPEED := 17.0     # m/s for weight 1, divided by sqrt(weight)

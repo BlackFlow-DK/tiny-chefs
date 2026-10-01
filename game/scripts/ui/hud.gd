@@ -206,6 +206,7 @@ func _build_help() -> void:
 	_help_space = _key_row("Space", "Punch")
 	_help_space.visible = false
 	v.add_child(_help_space)
+	v.add_child(_key_row("MMB", "Ping"))
 	v.add_child(_key_row("Esc", "Pause"))
 	v.add_child(_key_row("H", "Hide help"))
 	add_child(_help)
@@ -241,7 +242,7 @@ func _on_event(text: String, sfx: String) -> void:
 		var m := RegEx.create_from_string("\\+(\\d+)").search(text)
 		if m != null:
 			_pay = int(m.get_string(1))
-	if text.is_empty() or sfx == "start" or sfx == "order":
+	if text.is_empty() or sfx == "start" or sfx == "order" or sfx == "ping":
 		return
 	if sfx.begins_with("ev_"):
 		return   # shift events: HudEventBanner shows these
