@@ -31,7 +31,7 @@ func build() -> void:
 	_bubbles.emitting = false
 	_bubbles.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	_bubbles.emission_box_extents = Vector3(half.x - 0.6, 0.02, half.y - 0.6)
-	_bubbles.position = Vector3(0, 0.08, 0)
+	_bubbles.position = Vector3(0, 0.08 + visual_lift(), 0)
 	_bubbles.direction = Vector3.UP
 	_bubbles.spread = 12.0
 	_bubbles.initial_velocity_min = 0.4

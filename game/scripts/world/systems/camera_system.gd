@@ -4,7 +4,7 @@ extends RefCounted
 ## and eases it after the local chef every frame: smoothed focus with look-ahead, wheel / pad
 ## shoulder zoom, a gentle pull-back while carrying. Fixed yaw (looks towards -Z).
 ## Every peer. Reads world.my_chef(), Tuning.CAMERA_*. The HUD and mouse aiming read world.camera.
-## Debug args: --cam-log (jitter stats), --cam-zoom=<0..1> starts at that point between the close and far limits.
+## Debug args: --cam-log (jitter stats), --cam-zoom=<0..1> starts at that point between the close and far limits, --cam-look=<x>,<z> pins the focus there.
 
 var world: World
 var _cam_ready := false
@@ -17,6 +17,7 @@ var _carry := 0.0                  # 0..1 pull-back blend
 var _zoom_v := 0.0
 var _carry_v := 0.0
 var _focus_v := Vector3.ZERO
+var _look_override := Vector2.INF   # --cam-look=<x>,<z>: fixed focus point (screenshots of one spot)
 var _log := OS.get_cmdline_user_args().has("--cam-log")
 var _log_prev := Vector3.ZERO
 var _log_prev_v := Vector3.ZERO
@@ -61,6 +62,10 @@ func _init(w: World) -> void:
 	catcher.target = self
 	camera.add_child(catcher)
 	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--cam-look="):
+			var xz := a.trim_prefix("--cam-look=").split(",")
+			if xz.size() == 2:
+				_look_override = Vector2(xz[0].to_float(), xz[1].to_float())
 		if a.begins_with("--cam-zoom="):
 			var f := clampf(a.trim_prefix("--cam-zoom=").to_float(), 0.0, 1.0)
 			_zoom_want = lerpf(Tuning.CAMERA_DISTANCE_MIN, Tuning.CAMERA_DISTANCE_MAX, f)
@@ -133,6 +138,8 @@ func step(delta: float) -> void:
 	var xmin := cb.position.x + Tuning.CAMERA_EDGE_MARGIN
 	var xmax := maxf(xmin, cb.end.x - Tuning.CAMERA_EDGE_MARGIN)
 	want_focus.x = clampf(want_focus.x, xmin, xmax)
+	if _look_override != Vector2.INF:
+		want_focus = Vector3(_look_override.x, 0, _look_override.y)
 	if _cam_ready:
 		if _focus.distance_to(want_focus) > 30.0:
 			_focus = want_focus

@@ -32,9 +32,20 @@ func build() -> void:
 	pass
 
 
-## Flat stations sit in the counter with the top at y = 0.03 and have no collider.
+## Per station type: metres the sunk model is raised so its lowest visible surface clears the counter
+## plane (y = 0) and stops z-fighting with the counter mesh. The fryer model's steel body tops out at y = 0
+## and its oil sits 0.1 below the rim, so it needs 0.1 (oil at +0.03, rim at +0.13). Items still rest on
+## the counter collider at y = 0 (flat stations have no collider): they sink ~3 cm into the oil.
+const VISUAL_LIFT := {"fryer": 0.1}
+
+
+func visual_lift() -> float:
+	return float(VISUAL_LIFT.get(type, 0.0))
+
+
+## Flat stations sit in the counter with the top at y = 0.03 (+ visual_lift()) and have no collider.
 func add_flat_visual(v: Node3D) -> void:
-	v.position.y = 0.03 - size.y
+	v.position.y = 0.03 - size.y + visual_lift()
 	add_child(v)
 
 
