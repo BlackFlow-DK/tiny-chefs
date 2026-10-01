@@ -141,7 +141,7 @@ func _make_card(u: Dictionary) -> Control:
 	var desc := UIKit.caption(_short_desc(u))
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.custom_minimum_size = Vector2(116, 84) if compact else Vector2(190, 62)
+	desc.custom_minimum_size = Vector2(116, 98) if compact else Vector2(190, 62)
 	v.add_child(desc)
 
 	var price_row := CenterContainer.new()
@@ -182,6 +182,8 @@ static func _compact() -> bool:
 func _short_desc(u: Dictionary) -> String:
 	if u["id"] == "gloves":
 		return "Unlocks punching. Launch food, shove friends."
+	if u["id"] == "second_plate":
+		return "Unlocks the second plate and bell."
 	return str(u["desc"])
 
 
@@ -243,11 +245,23 @@ func update(sm: ShiftManager) -> void:
 		_focus_start()
 	elif focus_lost:
 		_focus_start()
-	var nd := GameData.shift_def(sm.next_index, maxi(1, Net.players.size()))
-	if sm.next_index == sm.index:
-		_next_lbl.text = "Retry shift %d: %s, target %d" % [sm.next_index + 1, nd["name"], nd["target"]]
-	else:
-		_next_lbl.text = "Next: Shift %d: %s, target %d" % [sm.next_index + 1, nd["name"], nd["target"]]
+	_next_lbl.text = _next_text(sm)
+	_start.text = ("Retry mission" if sm.next_index == sm.index else "Start next mission") if Net.settings.mode == "campaign" else "Start next shift"
+
+
+## Footer line: campaign names the next mission and its map, endless / custom the next shift.
+func _next_text(sm: ShiftManager) -> String:
+	var nd := ShiftPlan.build(Net.settings, sm.next_index, maxi(1, Net.players.size()))
+	var retry := sm.next_index == sm.index
+	if Net.settings.mode == "campaign":
+		var map_id := str(nd.get("map", ""))
+		var map_name := str(GameData.MAPS.get(map_id, {}).get("name", map_id.capitalize()))
+		if map_name.begins_with("The "):
+			map_name = map_name.substr(4)
+		return "%s: %s on %s, target %d" % ["Retry mission" if retry else "Next mission", nd["name"], map_name, nd["target"]]
+	if retry:
+		return "Retry shift %d: %s, target %d" % [sm.next_index + 1, nd["name"], nd["target"]]
+	return "Next: Shift %d: %s, target %d" % [sm.next_index + 1, nd["name"], nd["target"]]
 
 
 ## First affordable Buy button, otherwise the host's Start button.

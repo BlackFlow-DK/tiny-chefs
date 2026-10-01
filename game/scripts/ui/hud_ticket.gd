@@ -148,6 +148,11 @@ static func _draw_star(ci: CanvasItem, c: Vector2, r: float) -> void:
 	ci.draw_circle(c + Vector2(-r * 0.2, -r * 0.25), r * 0.14, UITheme.CREAM)
 
 
+## Height of the paper itself (the Control's own size can stay larger after a tall layout pass).
+func body_height() -> float:
+	return _card.size.y + 5.0
+
+
 func _on_card_resized() -> void:
 	size = Vector2(W, _card.size.y + 5)
 	custom_minimum_size = size

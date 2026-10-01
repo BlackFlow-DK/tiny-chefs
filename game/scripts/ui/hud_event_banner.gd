@@ -9,7 +9,7 @@ extends Control
 ##   ev_inspected  a red "INSPECTED" stamp slammed onto the middle of the screen + the result line
 ##   ev_vip_paid   a big gold "VIP DELIGHTED!" celebration with "+N coins" and confetti
 
-const TOP := 128.0
+const TOP := 168.0   # under a full rail of tickets (HudOrderRail.rail_bottom) so it never covers ticket 4
 const RIGHT := 12.0
 
 var world: World = null
@@ -45,6 +45,10 @@ func _on_event(text: String, sfx: String) -> void:
 
 
 func _process(_delta: float) -> void:
+	if _card != null and is_instance_valid(_card):
+		var hud := get_parent() as Hud
+		var rail_bottom := hud.rail_bottom() if hud != null else TOP - 12.0
+		_card.offset_top = maxf(TOP, rail_bottom + 12.0)   # never over the tickets, however tall they are
 	if _count == null or not is_instance_valid(_count):
 		return
 	var left := world.events.inspector_left() if world != null and is_instance_valid(world) and world.events != null else -1.0

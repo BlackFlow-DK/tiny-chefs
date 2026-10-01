@@ -300,6 +300,15 @@ func _mvp_card(st: Dictionary) -> Control:
 	return card
 
 
+## The colour the player picked in the lobby; a player who already left falls back to their slot colour.
+## Player row: [id, name, slot, ...].
+func _player_colour(r: Array) -> Color:
+	var id := int(r[0])
+	if Net.players.has(id):
+		return Net.color_of(id)
+	return UIKit.player_color(int(r[2]))
+
+
 func _col(rows: Array, col: int) -> int:
 	var best := -1
 	var idx := -1
@@ -331,7 +340,7 @@ func _award_row(a: Array, rows: Array) -> HBoxContainer:
 		h.add_child(UIKit.caption("nobody" if int(a[1]) != COL_DROPPED else "clean hands!"))
 		return h
 	var r: Array = rows[i]
-	h.add_child(UIKit.player_badge(str(r[1]), int(r[2])))
+	h.add_child(UIKit.player_badge(str(r[1]), _player_colour(r)))
 	var n := UIKit.number(str(int(r[int(a[1])])))
 	n.custom_minimum_size = Vector2(48, 0)
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -353,7 +362,7 @@ func _run_table(rows: Array) -> GridContainer:
 		l.custom_minimum_size = Vector2(72, 0)
 		g.add_child(l)
 	for r in rows:
-		var b := UIKit.player_badge(str(r[1]), int(r[2]))
+		var b := UIKit.player_badge(str(r[1]), _player_colour(r))
 		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		g.add_child(b)
 		for c in [COL_SERVED, COL_CARRIED, COL_DROPPED, COL_FALLS]:

@@ -45,6 +45,7 @@ var _last_served := 0
 var _last_orders_key := ""
 var _pay := 0
 var _event_banner: HudEventBanner
+var _mods: HudModChips   # difficulty + modifier chips under the coins card
 
 
 func _ready() -> void:
@@ -59,6 +60,8 @@ func _ready() -> void:
 	_rail = HudOrderRail.new()
 	add_child(_rail)
 	_build_stats()
+	_mods = HudModChips.new()
+	add_child(_mods)
 	_build_timer()
 	_build_toasts()
 	_build_prompt()
@@ -95,7 +98,8 @@ func _build_stats() -> void:
 	v.add_theme_constant_override("separation", 6)
 	_stats.add_child(v)
 	_shift_cap = UIKit.caption("")
-	_shift_cap.clip_text = true
+	_shift_cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # "Mission 12: The Grand Opening" wraps instead of clipping
+	_shift_cap.custom_minimum_size = Vector2(1, 0)
 	v.add_child(_shift_cap)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
@@ -270,6 +274,8 @@ func _toast(text: String, kind: String, seconds := 2.6) -> void:
 # ================================================================ per-frame
 
 func _process(_delta: float) -> void:
+	# Results / shop have their own full-screen cards; the HUD behind them only clutters.
+	modulate.a = 1.0 if Net.phase == Net.Phase.PLAYING else 0.0
 	if world == null or not is_instance_valid(world):
 		return
 	_event_banner.world = world
@@ -279,7 +285,10 @@ func _process(_delta: float) -> void:
 	if fresh:
 		_new_shift(key, s)
 
+	# Toasts hang under the tallest ticket (two chip rows are taller than one).
+	_toasts.offset_top = lerpf(_toasts.offset_top, _rail.rail_bottom() + 14.0, 0.25)
 	_update_stats(s)
+	_update_mods(s)
 	_update_timer(s)
 	_update_prompt()
 	if _help_space.visible != s.has_upgrade("gloves"):
@@ -307,7 +316,10 @@ func _new_shift(key: String, s: ShiftManager) -> void:
 
 
 func _update_stats(s: ShiftManager) -> void:
-	_shift_cap.text = "Shift %d: %s" % [s.index + 1, s.shift_name()]
+	if str(s.def.get("mode", "")) == "campaign":
+		_shift_cap.text = "Mission %d: %s" % [int(s.def.get("mission_id", 0)) + 1, s.shift_name()]
+	else:
+		_shift_cap.text = "Shift %d: %s" % [s.index + 1, s.shift_name()]
 	_coins.set_amount(s.coins)
 	var tgt := maxi(s.target(), 1)
 	var frac := clampf(float(s.earned) / float(tgt), 0.0, 1.0)
@@ -324,6 +336,48 @@ func _update_stats(s: ShiftManager) -> void:
 		_celebrate()
 	elif not reached:
 		_target_hit = false
+
+
+## Chips under the coins card (difficulty when not normal + active modifiers).
+func _update_mods(s: ShiftManager) -> void:
+	_mods.sync(s.def)
+	_mods.custom_minimum_size.x = maxf(_stats.size.x, 216.0)
+	_mods.size.x = _mods.custom_minimum_size.x
+	_mods.position = Vector2(CORNER, _stats.position.y + _stats.size.y + 12.0)
+
+
+## Y under the tallest order ticket (event cards and toasts stay below it).
+func rail_bottom() -> float:
+	return _rail.rail_bottom()
+
+
+## Y of the bottom of the left-hand stack (coins card, then the chips); the objectives card sits under it.
+func left_stack_bottom() -> float:
+	if _mods != null and _mods.visible:
+		return _mods.position.y + _mods.size.y
+	return _stats.position.y + _stats.size.y
+
+
+## One line naming the map's hazards ("Watch out: wind gusts"), or "" when it has none. Static so the
+## campaign MissionIntro can show the same line.
+static func hazard_hint(map: Dictionary, def: Dictionary) -> String:
+	var texts: Array[String] = []
+	var events: Array = def.get("events", [])
+	for h in map.get("hazards", []):
+		var id := str(h)
+		if id == "cat_paw":
+			if events.has("cat_paw"):
+				texts.append("a sneaky cat paw")
+		elif id == "wind":
+			texts.append("wind gusts")
+		elif id.contains("lurch"):
+			texts.append("the truck lurches")
+		else:
+			texts.append(id.replace("_", " "))
+	if texts.is_empty():
+		return ""
+	var line := ", ".join(texts)
+	return "Watch out: " + line
 
 
 func _celebrate() -> void:
@@ -468,6 +522,12 @@ func _show_banner(s: ShiftManager) -> void:
 	row.add_child(UIKit.body("Earn"))
 	row.add_child(UIKit.coin_chip(s.target()))
 	v.add_child(row)
+	var hz := hazard_hint(world.map, s.def) if world != null else ""
+	if not hz.is_empty():
+		var hl := UIKit.caption(hz)
+		hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hl.add_theme_color_override("font_color", UITheme.TOMATO_DARK)
+		v.add_child(hl)
 	add_child(p)
 	_banner = p
 	UIKit.pop_in(p, 0.0, 0.3)

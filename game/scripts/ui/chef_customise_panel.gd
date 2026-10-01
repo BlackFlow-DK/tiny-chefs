@@ -11,6 +11,8 @@ const CHIP := Vector2(34, 32)
 const SWATCH := Vector2(30, 30)
 
 var peer_id := 0
+var wide := false   ## set before adding: two rows (colour + hats, then accessories + the name line) for a wide strip
+
 
 var _swatches: Array[Button] = []
 var _hat_chips: Array[Button] = []
@@ -28,7 +30,7 @@ func setup(id: int) -> void:
 
 func _ready() -> void:
 	add_theme_constant_override("separation", 6)
-	size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL if wide else Control.SIZE_SHRINK_CENTER
 	if peer_id == 0:
 		peer_id = Net.my_id()
 	_swatches = []
@@ -39,7 +41,14 @@ func _ready() -> void:
 		b.draw.connect(_draw_swatch.bind(b, i))
 		row.add_child(b)
 		_swatches.append(b)
-	row = _row()
+	if wide:
+		row.alignment = BoxContainer.ALIGNMENT_BEGIN
+		var sp := Control.new()
+		sp.custom_minimum_size = Vector2(10, 0)
+		sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(sp)
+	else:
+		row = _row()
 	for h: Dictionary in GameData.HATS:
 		var id := str(h["id"])
 		var b := _chip_button(CHIP, str(h["label"]))
@@ -57,7 +66,19 @@ func _ready() -> void:
 		_acc_chips.append(b)
 	_label = UIKit.caption("")
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(_label)
+	if wide:
+		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_label.clip_text = true
+		var sp2 := Control.new()
+		sp2.custom_minimum_size = Vector2(6, 0)
+		sp2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(sp2)
+		row.alignment = BoxContainer.ALIGNMENT_BEGIN
+		row.add_child(_label)
+	else:
+		add_child(_label)
 	_warn = UIKit.caption("")
 	_warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_warn.add_theme_color_override("font_color", T.TOMATO_DARK)

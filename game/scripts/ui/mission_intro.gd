@@ -42,6 +42,12 @@ func _init(s: ShiftManager) -> void:
 	var map_lbl := UIKit.caption("Map: %s" % str(m.get("name", map_id.capitalize())))
 	map_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(map_lbl)
+	var hz := Hud.hazard_hint(m, d)
+	if not hz.is_empty():
+		var hl := UIKit.caption(hz)
+		hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hl.add_theme_color_override("font_color", UITheme.TOMATO_DARK)
+		v.add_child(hl)
 	var line := ColorRect.new()
 	line.color = UITheme.PAPER_OFF
 	line.custom_minimum_size = Vector2(0, 3)

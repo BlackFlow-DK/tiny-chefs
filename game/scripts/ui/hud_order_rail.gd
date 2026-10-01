@@ -21,7 +21,10 @@ func _ready() -> void:
 
 ## Y under the tickets, for stacking toasts beneath.
 func rail_bottom() -> float:
-	return TICKET_Y + 138.0
+	var h := 138.0   # a one-row ticket; recipes with 5+ ingredients wrap to a second chip row
+	for t in _tickets:
+		h = maxf(h, t.body_height() + 8.0)
+	return TICKET_Y + h
 
 
 func clear_all() -> void:

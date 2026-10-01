@@ -192,13 +192,14 @@ func _build_pick(parent: Control) -> void:
 	_sec_pick.add_theme_constant_override("separation", 8)
 	parent.add_child(_sec_pick)
 	_sec_pick.add_child(_h("Map"))
-	var maps := HFlowContainer.new()
+	var maps := GridContainer.new()   # 3 per row, each card shares the row width so the blurbs wrap in 3-4 lines
+	maps.columns = 3
 	maps.add_theme_constant_override("h_separation", 12)
 	maps.add_theme_constant_override("v_separation", 14)
 	_sec_pick.add_child(maps)
 	for id in GameData.map_ids():
 		var info := GameData.map(str(id))
-		var b := LobbyChoice.new(Vector2(166, 214))
+		var b := LobbyChoice.new(Vector2(0, 236))
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 4)
 		var pv := LobbyIcon.new("map", Vector2(0, 84), str(id))
@@ -209,6 +210,7 @@ func _build_pick(parent: Control) -> void:
 		b.track_label(bl, UITheme.INK_SOFT)
 		v.add_child(bl)
 		b.set_body(v, 10)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(_on_map.bind(str(id)))
 		maps.add_child(b)
 		_map_btns[str(id)] = b

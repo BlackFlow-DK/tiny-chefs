@@ -4,6 +4,7 @@ extends Control
 
 const CFG_PATH := "user://menu.cfg"
 const JOIN_TIMEOUT := 9.0
+const VERSION := "v0.2"
 
 var name_edit: LineEdit
 var ip_edit: LineEdit
@@ -13,6 +14,8 @@ var status_label: Label
 var _host_btn: Button
 var _join_btn: Button
 var _quit_btn: Button
+var _how_btn: Button
+var _how: HowToPlay
 var _join_row: Control
 var _card: PanelContainer
 var _timeout: SceneTreeTimer = null
@@ -24,6 +27,9 @@ func _ready() -> void:
 	add_child(MenuDiorama.new())
 	_build_column()
 	_build_hints()
+	_build_version()
+	_how = HowToPlay.new()
+	add_child(_how)
 	_load_config()
 	visibility_changed.connect(_on_visible)
 	_on_visible.call_deferred()
@@ -123,6 +129,11 @@ func _build_column() -> void:
 
 	var qrow := HBoxContainer.new()
 	qrow.alignment = BoxContainer.ALIGNMENT_CENTER
+	qrow.add_theme_constant_override("separation", UITheme.GAP)
+	_how_btn = UIKit.button("How to play", func() -> void: _how.open(), "secondary", 150)
+	_how_btn.custom_minimum_size = Vector2(150, 40)
+	_how_btn.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
+	qrow.add_child(_how_btn)
 	_quit_btn = UIKit.button("Quit", func() -> void: get_tree().quit(), "secondary", 96)
 	_quit_btn.custom_minimum_size = Vector2(96, 40)
 	_quit_btn.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
@@ -152,6 +163,18 @@ func _build_hints() -> void:
 	strip.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	strip.position.y -= 20
 	UIKit.pop_in(strip, 0.3)
+
+
+## Small version caption in the bottom-right corner.
+func _build_version() -> void:
+	var l := UIKit.caption(VERSION, "world")
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(l)
+	l.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
+	l.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	l.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	l.position.x -= 16
+	l.position.y -= 10
 
 
 func _on_visible() -> void:

@@ -19,8 +19,12 @@ var _wait: Label
 var _leave: Button
 var _copy_tween: Tween = null
 var _primary_ip := ""
+var _slot_refs: Array = [{}, {}, {}, {}]   # per slot: {id, stage, dot} so a colour pick restyles the card in place
+var _custom_card: PanelContainer           # strip under the grid: the local player's colour / hat / accessory pick
+var _custom_panel: Control = null
+var _custom_id := -1
 
-const CELL := Vector2(188, 196)
+const CELL := Vector2(188, 160)
 const CUSTOMISE_PANEL := "res://scripts/ui/chef_customise_panel.gd"
 
 
@@ -32,8 +36,8 @@ func _ready() -> void:
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, 48)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
 	add_child(margin)
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 24)
@@ -42,7 +46,7 @@ func _ready() -> void:
 
 	# ---- left: title, address, chef cards
 	var left := VBoxContainer.new()
-	left.add_theme_constant_override("separation", 12)
+	left.add_theme_constant_override("separation", 10)
 	left.custom_minimum_size = Vector2(CELL.x * 2 + 14, 0)
 	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cols.add_child(left)
@@ -60,7 +64,7 @@ func _ready() -> void:
 	_slots_grid.add_theme_constant_override("h_separation", 14)
 	_slots_grid.add_theme_constant_override("v_separation", 14)
 	var sg_pad := MarginContainer.new()  # room for the hard shadows and focus rings
-	sg_pad.add_theme_constant_override("margin_bottom", 10)
+	sg_pad.add_theme_constant_override("margin_bottom", 8)
 	sg_pad.add_theme_constant_override("margin_right", 6)
 	slot_scroll.add_child(sg_pad)
 	sg_pad.add_child(_slots_grid)
@@ -70,10 +74,11 @@ func _ready() -> void:
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_slots_grid.add_child(holder)
 		_slot_nodes.append(holder)
+	_build_customise_strip(left)
 
 	# ---- right: settings card, buttons, summary
 	var right := VBoxContainer.new()
-	right.add_theme_constant_override("separation", 12)
+	right.add_theme_constant_override("separation", 22)   # air between the settings card and Leave / Start
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cols.add_child(right)
@@ -105,6 +110,7 @@ func _ready() -> void:
 
 	Net.settings_changed.connect(_refresh_summary)
 	Net.players_changed.connect(refresh)
+	Net.looks_changed.connect(_recolour)
 	visibility_changed.connect(_on_visible)
 	refresh()
 
@@ -123,7 +129,7 @@ func _build_address(col: VBoxContainer) -> void:
 	_addr_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_addr_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_addr_label)
-	_copy_btn = UIKit.button("Copy", _on_copy, "accent", 100)
+	_copy_btn = UIKit.button("Copy", _on_copy, "accent", 130)
 	_copy_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_copy_btn)
 	_addr_more = UIKit.caption("", "dark")
@@ -148,12 +154,16 @@ func _on_copy() -> void:
 		return
 	DisplayServer.clipboard_set(_primary_ip)
 	_copy_btn.text = "Copied!"
+	_copy_btn.theme_type_variation = "GoButton"   # green for a moment: it worked
 	UIKit.punch(_copy_btn)
+	UIKit.toast(self, "Address copied: %s" % _primary_ip, "success", 1.6)
 	if _copy_tween != null:
 		_copy_tween.kill()
 	_copy_tween = create_tween()
 	_copy_tween.tween_interval(1.6)
-	_copy_tween.tween_callback(func() -> void: _copy_btn.text = "Copy")
+	_copy_tween.tween_callback(func() -> void:
+		_copy_btn.text = "Copy"
+		_copy_btn.theme_type_variation = "AccentButton")
 
 
 func refresh() -> void:
@@ -161,6 +171,7 @@ func refresh() -> void:
 		return
 	_refresh_address()
 	_refresh_slots()
+	_refresh_customise()
 	_start.visible = Net.is_host
 	_wait.visible = not Net.is_host
 	_refresh_summary()
@@ -215,31 +226,27 @@ func _refresh_slots() -> void:
 			key += ":me" if mine else ""
 		if key == _slot_keys[i] and _slot_nodes[i].get_child_count() > 0:
 			continue
-		var was_empty: bool = _slot_keys[i] == ""
 		_slot_keys[i] = key
 		var holder: Control = _slot_nodes[i]
 		for c in holder.get_children():
 			c.queue_free()
+		_slot_refs[i] = {}
 		var card := _make_slot(i, id)
 		holder.add_child(card)
 		UI.full_rect(card)
-		holder.custom_minimum_size.y = CELL.y
-		if card.has_meta("fit"):
-			_fit_holder(holder, card)
 		UIKit.pop_in(card, i * 0.05, 0.2)
-		if id != null and not was_empty:
-			pass
+	_recolour()
 
 
 func _make_slot(i: int, id: Variant) -> Control:
-	var col := UIKit.player_color(i)
+	var slot_col := UIKit.player_color(i)
 	if id == null:
 		var pv := UIKit.card(8, true)
 		var p: PanelContainer = pv[0]
 		var v: VBoxContainer = pv[1]
 		_tighten(p, true)
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
-		var d := UIKit.dot(col.darkened(0.25), 44)
+		var d := UIKit.dot(slot_col.darkened(0.25), 44)
 		d.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		v.add_child(d)
 		var l := UIKit.body("Waiting for a chef...", "dark")
@@ -250,25 +257,26 @@ func _make_slot(i: int, id: Variant) -> Control:
 		tw.tween_property(v, "modulate:a", 0.45, 0.9).set_trans(Tween.TRANS_SINE)
 		tw.tween_property(v, "modulate:a", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
 		return p
-	var pv := UIKit.card(8)
+	var col := Net.color_of(int(id))   # the colour this player picked (default: their join slot)
+	var pv := UIKit.card(6)
 	var p: PanelContainer = pv[0]
 	var v: VBoxContainer = pv[1]
 	_tighten(p, false)
 	var stage := PanelContainer.new()
 	stage.add_theme_stylebox_override("panel", UITheme.box(col, UITheme.INK, 12, 3))
-	stage.custom_minimum_size = Vector2(0, 104)
+	stage.custom_minimum_size = Vector2(0, 82)
 	stage.size_flags_horizontal = Control.SIZE_FILL
 	if Models.has_model("chef"):
-		var cv := LobbyChefView.new(Color.WHITE.lerp(col, 1.0), Vector2i(100, 100))
+		var cv := LobbyChefView.new(col, Vector2i(76, 76), int(id))   # follows the player's colour, hat, accessory
 		cv.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		stage.add_child(cv)
 	else:
-		var d := UIKit.dot(col, 70)
+		var d := UIKit.dot(col, 60)
 		d.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		stage.add_child(d)
 	v.add_child(stage)
-	var badge := UIKit.player_badge(Net.name_of(id), i)
+	var badge := UIKit.player_badge(Net.name_of(id), col)
 	badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(badge)
 	var tag := "Host" if id == 1 else "Chef"
@@ -277,18 +285,24 @@ func _make_slot(i: int, id: Variant) -> Control:
 	var c := UIKit.caption(tag)
 	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(c)
-	if id == Net.my_id():
-		var cz := _customise_slot(int(id))
-		v.add_child(cz)
-		p.set_meta("fit", true)  # the customise panel makes this card taller than a plain one
+	var dot_node: Control = badge.get_child(0).get_child(0)
+	_slot_refs[i] = {"id": int(id), "stage": stage, "dot": dot_node}
 	return p
 
 
-## Grow a cell to its card once the content has been laid out (customise panel under the local chef).
-func _fit_holder(holder: Control, card: Control) -> void:
-	await get_tree().process_frame
-	if is_instance_valid(holder) and is_instance_valid(card):
-		holder.custom_minimum_size.y = maxf(CELL.y, card.get_combined_minimum_size().y)
+## Restyle each card's stage and badge dot with the player's current colour (a pick, or a roster sync).
+func _recolour() -> void:
+	for i in 4:
+		var r: Dictionary = _slot_refs[i]
+		if r.is_empty() or not Net.players.has(int(r["id"])):
+			continue
+		var col := Net.color_of(int(r["id"]))
+		var stage: Control = r["stage"]
+		var dot_node: Control = r["dot"]
+		if is_instance_valid(stage):
+			stage.add_theme_stylebox_override("panel", UITheme.box(col, UITheme.INK, 12, 3))
+		if is_instance_valid(dot_node):
+			dot_node.add_theme_stylebox_override("panel", UITheme.box(col, UITheme.INK, 10, 3))
 
 
 ## Smaller card padding than the theme default so four chefs fit beside the settings.
@@ -298,18 +312,54 @@ func _tighten(p: PanelContainer, dark: bool) -> void:
 		sb = UITheme.box(UITheme.INK, UITheme.INK_LIGHT, UITheme.R_CARD, UITheme.B_CARD, UITheme.SHADOW, 0, Color(0, 0, 0, 0.45))
 	else:
 		sb = UITheme.box(UITheme.CREAM, UITheme.INK, UITheme.R_CARD, UITheme.B_CARD, UITheme.SHADOW)
-	sb.set_content_margin_all(12)
+	sb.set_content_margin_all(10)
 	p.add_theme_stylebox_override("panel", sb)
 
 
-## Slot for the chef customisation panel (another agent's ui/chef_customise_panel.gd, Control with
-## setup(peer_id)). Until that file exists this is a 0-height placeholder.
+# ---------------------------------------------------------------- customise strip (local player)
+
+## A cream strip under the 2x2 grid holding the customise panel, so the chef cards stay a fixed size.
+func _build_customise_strip(col: VBoxContainer) -> void:
+	_custom_card = PanelContainer.new()
+	var sb := UITheme.box(UITheme.CREAM, UITheme.INK, UITheme.R_CARD, UITheme.B_CARD, 5)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 10
+	_custom_card.add_theme_stylebox_override("panel", sb)
+	_custom_card.visible = false
+	_custom_card.size_flags_vertical = Control.SIZE_SHRINK_END
+	col.add_child(_custom_card)
+
+
+## Create the panel once my roster entry exists; re-point it if my id changes (new session).
+func _refresh_customise() -> void:
+	var me := Net.my_id()
+	var present := Net.players.has(me)
+	_custom_card.visible = present
+	if not present:
+		return
+	if _custom_panel != null and is_instance_valid(_custom_panel):
+		if _custom_id != me:
+			_custom_id = me
+			_custom_panel.call("setup", me)
+		return
+	_custom_id = me
+	_custom_panel = _customise_slot(me)
+	_custom_card.add_child(_custom_panel)
+	UIKit.pop_in(_custom_card, 0.15, 0.2)
+
+
+## The chef customisation panel (ui/chef_customise_panel.gd, Control with setup(peer_id)), laid out wide
+## for the strip. Until that file exists this is a 0-height placeholder.
 func _customise_slot(peer_id: int) -> Control:
 	if ResourceLoader.exists(CUSTOMISE_PANEL):
 		var scr: Variant = load(CUSTOMISE_PANEL)
 		if scr is GDScript and (scr as GDScript).can_instantiate():
 			var n: Variant = (scr as GDScript).new()
 			if n is Control:
+				if "wide" in n:
+					n.set("wide", true)
 				if (n as Control).has_method("setup"):
 					(n as Control).call("setup", peer_id)
 				return n

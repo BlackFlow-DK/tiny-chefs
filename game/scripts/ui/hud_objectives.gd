@@ -78,7 +78,7 @@ func _process(_delta: float) -> void:
 		_show_intro(s)
 		_train = Training.new() if Training.active(w) else null
 		_train_step = -1
-	_update_card(s)
+	_update_card(s, hud)
 	_update_training(w)
 
 
@@ -89,7 +89,7 @@ func _show_intro(s: ShiftManager) -> void:
 	add_child(_intro)
 
 
-func _update_card(s: ShiftManager) -> void:
+func _update_card(s: ShiftManager, hud: Hud) -> void:
 	var objs := s.objectives
 	if objs.is_empty():
 		_card.visible = false
@@ -115,7 +115,7 @@ func _update_card(s: ShiftManager) -> void:
 		if row.set_entry(objs[i]) and int(objs[i][4]) != ObjectiveSystem.PENDING:
 			UIKit.punch(row.mark, 0.4, 0.3)
 	_card.custom_minimum_size.x = maxf(_anchor.size.x, 216.0)
-	_card.position = _anchor.position + Vector2(0, _anchor.size.y + 10)
+	_card.position = Vector2(_anchor.position.x, hud.left_stack_bottom() + 10.0)
 
 
 func _update_training(w: World) -> void:
