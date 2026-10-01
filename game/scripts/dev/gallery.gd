@@ -2,7 +2,7 @@ extends Node3D
 ## Dev gallery: lays out every generated model in a labelled grid for visual review.
 ## Env vars (the screenshot tool cannot pass extra args):
 ##   GALLERY_PAGE  1 ingredients, 2 stations, 3 dispensers, 4 scenery, 5 characters,
-##                 6 scenery: appliances and books, 7 scenery: small items, 8 scale scene (default 1)
+##                 6 scenery: appliances and books, 7 scenery: small items, 8 scale scene, 9 stations 2 + new dispensers (default 1)
 ##   GALLERY_VIEW  "top" (steep, like the game camera), "angle" (default "top"),
 ##                 "close" (low, near, for detail review) or "game" (45 deg down, 25 m away)
 ##   GALLERY_MODELS comma separated model names: show just those in one row (detail review)
@@ -27,6 +27,9 @@ const PAGES: Dictionary = {
 		"coffee_mug", "oil_bottle", "dish_sponge", "spice_jar_a", "spice_jar_b", "spice_jar_c"]},
 	8: {"cols": 3, "names": [
 		"chef", "toaster", "coffee_mug", "spice_jar_a", "salt_shaker", "oil_bottle"]},
+	9: {"cols": 4, "names": [
+		"fryer", "soda_fountain", "dispenser_bacon", "dispenser_eggs",
+		"dispenser_onions", "dispenser_pickles", "dispenser_potatoes", "dispenser_chicken"]},
 }
 
 var _page: int = 1
