@@ -1,96 +1,149 @@
-# Tiny Chefs: how to play (prototype)
+# Tiny Chefs: how to play
 
-Co-op kitchen chaos for 1 to 4 players on separate PCs. You are a 1 m tall chef on a giant
-kitchen counter. The food is bigger than you are: heavy food moves faster when more chefs carry it.
+Tiny Chefs is a co-op kitchen game for 1 to 4 players on a local network. You are a tiny chef on a giant
+kitchen counter, and the food is bigger than you are. Heavy food is slow to carry alone, so you carry it together. Cook, stack, ring the bell, and keep the orders from expiring.
 
-## Start
+## Download
 
-- Built game: `build\windows\godot-game.exe` (single file). Rebuild it with
-  `powershell -NoProfile -ExecutionPolicy Bypass -File tools\export-windows.ps1`.
-- From source: `godot --path game` (Godot 4.7.2).
+1. Open the **Releases** page of the repo (https://github.com/BlackFlow-DK/tiny-chefs/releases) and download the exe.
+   It is a single file, no installer.
+2. Windows may warn that the app is unrecognised. Click **More info**, then **Run anyway**.
 
-Title screen: type your name, then **Host a kitchen** (solo or LAN), or type the host's IP and **Join**.
-Solo is just hosting with nobody else. In the lobby the host presses **Start the shift**.
+## Host and join on a LAN
 
-## LAN
-
-- The host's lobby lists its LAN IPv4 address(es). The most likely one (192.168.x.x) is listed first;
-  172.x addresses are usually virtual adapters (WSL, Hyper-V, VPN).
-- Game traffic: **UDP port 7777** on the host. The first time you host, Windows Firewall may ask
-  whether to allow the game: allow it on **private** networks. If friends cannot connect, check
-  that prompt/rule (Windows Security > Firewall > Allow an app) and that everyone is on the same network.
-- Up to 4 chefs. People can join or leave in the middle of a shift. A leaving chef drops what it carried.
-  If the host leaves, everyone returns to the title screen.
-
-## Try it alone with two windows
-
-Start the exe twice. Window 1: Host. Window 2: keep IP `127.0.0.1` and Join. Only the focused window
-reads the keyboard, mouse and gamepad, so click a window to control that chef.
-Shortcut from a terminal:
-
-```
-build\windows\godot-game.exe -- --host --name=Me
-build\windows\godot-game.exe -- --join=127.0.0.1 --name=Friend
-```
-
-Add `--bot` to either one to have a bot play that chef.
+- One player picks **Host a kitchen**. The lobby shows the host's LAN IP address (the likeliest one,
+  usually 192.168.x.x, is listed first; 172.x addresses are often virtual adapters).
+- Everyone else types that IP on the title screen and clicks **Join**.
+- Game traffic uses **UDP port 7777** on the host. The first time you host, Windows Firewall asks if the
+  game may talk to the network: allow it on **private** networks.
+- If a school or work network blocks it, share a phone hotspot or use Tailscale and join with the host's
+  Tailscale IP.
+- Up to 4 chefs. You can join or leave mid-shift (a leaving chef drops what it carried). If the host
+  leaves, everyone returns to the title screen. Solo is just hosting alone.
 
 ## Controls
 
 | action | keyboard / mouse | gamepad |
 |---|---|---|
 | move | WASD or arrows | left stick |
-| look (aim) | mouse cursor | right stick |
-| grab / let go (toggle) | left click or E | A |
-| work (hold): dispense, chop, ring the bell | right click or F | X |
+| aim | mouse cursor | right stick |
+| grab / let go | left click or E | A |
+| work (hold) | right click or F | X |
 | punch (needs Boxing Gloves) | Space or Q | B |
 | ping a spot (everyone sees it for 3 s) | middle click | Y |
-| pause menu (Leave, Quit) | Esc | Start |
+| pause menu | Esc | Start |
 | hide the controls help | H | Back |
 
-Your chef looks at the mouse cursor (or where the right stick points) while its hands are free, so
-punches go that way; without aim it faces where it walks. Clicks on menu buttons never reach the game.
-The yellow ring shows the food you would grab, the blue ring the station you would work, and the
-bottom line says what a click / E / F will do.
+Your chef faces the mouse cursor while its hands are free. The yellow ring shows the food you would grab,
+the blue ring the station you would work, and the bottom line says what a click will do.
 
 ## How a shift works
 
-- Orders appear at the top: dish, ingredients (coloured shapes plus text) and a patience bar.
-  An expired order costs coins. At most 4 are open.
-- Dispensers (back row): stand next to one and hold F to get its food.
-- Griddle: drop raw patties / sausages on it. About 8 s to cooked (green bar), then about 10 s to burnt
-  (the bar turns red). Drag them off in time.
-- Cutting board: drop a tomato on it and hold F next to the board. More chefs chop faster. You get 3 slices.
-- Plate: drop finished food on it and it stacks up (any order). Raw, burnt or whole food bounces off.
-- Bell (next to the plate): press F to serve. A plate that matches an open order pays its price plus a
-  bonus for time left. A wrong plate is cleared with a small penalty.
-- Trash drain: drag food onto it to delete it. Fall off the counter and you respawn after 2 s.
-- Carrying: grab food with E. Heavy food (patty, sausage: weight 3; buns, tomato: weight 2) is slow alone.
-  Several chefs can hold the same item; it moves in the AVERAGE direction of their inputs, so pulling in
-  opposite directions gets you nowhere.
-- Shift end: results (served, failed, coins vs target), then the shop, then the host starts the next
-  shift. Missed target: the same shift is retried.
+Orders appear at the top: the dish, its ingredients and a patience bar. An order that runs out of patience
+costs coins. Build the dish on a **plate**, then press work at the **bell** next to it. A correct plate pays
+its price plus a bonus for patience left; a wrong plate is cleared with a small penalty. When the clock runs
+out you see the results, then the shop (unless the host turned it off), then the next shift. Miss the coin
+target and you retry the shift.
 
-Recipes: Cheeseburger (bun bottom, cooked patty, cheese, bun top), Garden Salad (2 lettuce, 2 tomato
-slices), Double Beef Cheeseburger (shift 2+), Hot Dog (shift 3+). After shift 3 shifts keep getting harder.
+## Stations
 
-Shop (shared team wallet, lasts for the run): Boxing Gloves (punch food across the counter, shove
-friends, knock food out of hands), Sharp Knife (2x chopping), Running Shoes (+20% speed), Second Plate
-(opens the closed second plate + bell on kitchens that have one; the Diner does), Oven Mitts (food takes
-50% longer to burn), Hot Griddle (griddle and fryer cook 30% faster), Long Tongs (grab from 50% further).
+- **Dispensers**: stand next to one and hold work to get raw food (patties, buns, cheese, lettuce, tomatoes,
+  sausages, hot dog buns, bacon, eggs, onions, pickles, potatoes, chicken).
+- **Griddle**: drop patties, sausages, bacon or eggs on it. They cook (green bar), then burn (red bar)
+  if you leave them. Pull them off in time.
+- **Fryer**: chicken, cut potatoes and onion slices go in. Same cook-then-burn rhythm.
+- **Cutting board**: drop a tomato, onion or potato and hold work. More chefs chop faster.
+- **Soda fountain**: hold work to fill a cup.
+- **Plate**: drop finished food on it; it stacks in any order. Raw, burnt or uncut food bounces off.
+- **Bell**: work it to serve the nearest plate.
+- **Trash drain**: drag food onto it to throw it away.
+- Fall off the counter and you respawn after a couple of seconds.
 
-## What is in this prototype, and what is not
+## The dishes
 
-In: everything above, LAN co-op 1 to 4 players, bots, procedural sound blips.
-Not yet: real art (coloured placeholder shapes are used until the .glb models are merged: they swap in
-automatically), a second plate, music, settings, client-side prediction (fine on a LAN, laggy over the internet).
+| dish | what goes on the plate |
+|---|---|
+| Cheeseburger | bun bottom, cooked patty, cheese, bun top |
+| Double Beef Cheeseburger | bun bottom, 2 cooked patties, 2 cheese, bun top |
+| Bacon Cheeseburger | bun bottom, cooked patty, cheese, cooked bacon, bun top |
+| Breakfast Burger | bun bottom, cooked patty, fried egg, cooked bacon, bun top |
+| Crispy Chicken Burger | bun bottom, crispy chicken, lettuce, bun top |
+| Pickle Burger | bun bottom, cooked patty, cheese, 2 pickles, bun top |
+| The Works | bun bottom, 2 cooked patties, cheese, cooked bacon, onion slice, tomato slice, lettuce, bun top |
+| Garden Salad | 2 lettuce, 2 tomato slices |
+| Chicken Salad | 2 lettuce, crispy chicken, tomato slice |
+| Hot Dog | hot dog bun, cooked sausage |
+| Loaded Hot Dog | hot dog bun, cooked sausage, onion slice |
+| Fries | fries (potato: chop, then fryer) |
+| Onion Rings | onion rings (onion: chop into slices, then fryer) |
+| Burger Meal | cheeseburger plus fries plus soda |
+| Hot Dog Meal | hot dog plus fries plus soda |
 
-## Automation (for agents)
+## Carrying together
 
-User args after `--`: `--host`, `--join=<ip>`, `--name=<x>`, `--autostart` (host starts once `--players=<n>`
-have joined, default 1, and auto-advances results/shop), `--bot`, `--bot-log`, `--bind=<ip>`,
-`--shift-seconds=<s>`, `--upgrades=gloves,knife,shoes`, `--test-report=<json>`, `--quit-after=<s>`,
-`--quit-after-shift`. Screenshots: `--shot=<seconds>@<png>`. Keys: `--key=<start>@<key>@<hold seconds>`.
-Mouse: `--mouse=<start>@<x>,<y>` (window pixels), `--click=<start>@<left|right|middle>@<hold seconds>`
-(at the last `--mouse` spot). `--input-log` prints counted presses and every chef's aim/facing (host).
-Test: `tools\test-multiplayer.ps1` (host + client bots) and `tools\test-multiplayer.ps1 -Solo`.
+Every item has a weight (cheese, lettuce and slices 1; buns and whole tomatoes 2; patties, sausages and
+chicken 3). Alone you carry heavy food slowly; more chefs holding the same item make it faster. A shared item
+moves in the average of everyone's direction, so pulling opposite ways gets you nowhere. Boxing Gloves let you
+punch food across the counter or shove friends.
+
+## Game modes
+
+The host chooses in the lobby.
+
+- **Campaign**: 12 missions on the diner, picnic and islands (and the food truck, see below). Each mission
+  has a coin target and up to two bonus goals (no burnt food, no expired orders, serve N of a dish, earn N
+  coins). Reach the target for 1 star, each bonus goal adds one. Progress is saved on your PC.
+- **Endless**: shifts keep getting harder, on the map, difficulty and modifiers the host picks.
+- **Custom**: the host sets shift length, dishes offered, target, order speed and patience, and which events
+  can happen.
+
+Host settings: **map**; **difficulty** (Easy, Normal, Hard, Chaos: they change order speed, patience, targets
+and how fast food burns); **modifiers** (Rush Hour, Heavy Hands, Slippery Floor, Mystery Orders, No Shop,
+Lights Out); **events** (below).
+
+## Maps and hazards
+
+- **The Diner**: the classic kitchen island, everything within a few steps. Hazard: the cat paw.
+- **The Picnic**: a picnic table in the park. Hazards: gusts of wind that blow loose light food away
+  (carried food is safe), and the cat paw.
+- **Twin Islands**: two islands joined by one narrow plank over the sink. Haul raw food across and cook on the
+  far side. Falling into the gap is the usual fall.
+- **The Food Truck**: coming soon. Campaign missions 4 to 6 are set there.
+
+## Upgrades
+
+Bought in the shop between shifts with the team's shared coins, and they last for the run.
+
+- Boxing Gloves (60): punch food and friends.
+- Sharp Knife (50): chopping twice as fast.
+- Running Shoes (80): +20% move and carry speed.
+- Second Plate (90): opens a second plate and bell on kitchens that have one.
+- Oven Mitts (70): food takes 50% longer to burn.
+- Hot Griddle (90): griddle and fryer cook 30% faster.
+- Long Tongs (60): grab food from 50% further away.
+
+## Events
+
+- **VIP**: a gold ticket worth triple, but with less patience.
+- **Health inspector**: a warning banner, then every burnt item left on the counter costs coins.
+- **Cat paw**: a giant paw sweeps across a lane and knocks loose food aside. It is telegraphed first.
+
+## Customise your chef
+
+In the lobby pick a colour, a hat (Toque, Beanie, Paper hat, Bandana) and an accessory (None, Glasses,
+Moustache).
+
+## Stats
+
+The results screen shows served, failed and coins, plus MVP cards: Top server (rang the bell), Pack mule
+(carried the most), Team player (carried together) and Butterfingers (dropped the most).
+
+## Tips for a first playtest
+
+- Start with the Campaign: mission 1 Training is slow and forgiving.
+- Split jobs: one on the griddle, one on the plate and bell, the rest fetching.
+- Aim with the mouse before you grab. Ping with middle click to say "this one".
+- Put patties on the griddle first, they take longest.
+- Do not leave food on the griddle while you talk. The inspector is watching.
+- Try the two-window test alone: start the exe twice, host in one, join `127.0.0.1` in the other.
+  Only the focused window reads your input.
