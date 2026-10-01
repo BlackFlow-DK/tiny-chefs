@@ -1,12 +1,21 @@
 class_name MenuDiorama
 extends SubViewportContainer
-## Living backdrop for menu/lobby: the real kitchen counter (built by Kitchen, read-only) with a few
-## chefs, stations and a burger stack, seen by a slowly drifting shallow-focus camera + vignette.
+## Living backdrop for menu/lobby: the selected map's kitchen (Net.settings.map, built by Kitchen,
+## read-only; rebuilt when the setting changes) with a few chefs, stations and a burger stack, seen by
+## a slowly drifting shallow-focus camera + vignette. A MapDef may frame it with an optional
+## "menu": {"focus": Vector3, "plate": Vector3, "height": float (camera above the focus)}; the diner
+## framing is the default.
 ## Rendering pauses while hidden.
 
-var focus := Vector3(4.4, 1.0, 5.0)
+const DEFAULT_FOCUS := Vector3(4.4, 1.0, 5.0)
+const DEFAULT_PLATE := Vector3(12.5, 0, 2.5)
+
+var focus := DEFAULT_FOCUS
+var height := 2.0
 var _vp: SubViewport
 var _cam: Camera3D
+var _root: Node3D
+var _map_id := ""
 var _chefs: Array = []
 var _t := 0.0
 var _seed := 0.0
@@ -22,10 +31,8 @@ func _ready() -> void:
 	_vp.handle_input_locally = false
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_vp)
-	var root := Node3D.new()
-	_vp.add_child(root)
-	Kitchen.build(root, GameData.map("diner"))
-	_build_set(root)
+	_rebuild()
+	Net.settings_changed.connect(_rebuild)
 	_cam = Camera3D.new()
 	_cam.fov = 42.0
 	var attr := CameraAttributesPractical.new()
@@ -63,31 +70,51 @@ func _on_vis() -> void:
 	set_process(is_visible_in_tree())
 
 
-func _build_set(root: Node3D) -> void:
+## (Re)builds the kitchen set for the selected map; a no-op while the map is unchanged.
+func _rebuild() -> void:
+	var id := str(Net.settings.map) if Net.settings != null else "diner"
+	if id == _map_id and _root != null:
+		return
+	_map_id = id
+	if _root != null:
+		_root.queue_free()
+	_chefs.clear()
+	var map := GameData.map(id)
+	var menu: Dictionary = map.get("menu", {})
+	focus = menu.get("focus", DEFAULT_FOCUS)
+	height = float(menu.get("height", 2.0))
+	_root = Node3D.new()
+	_vp.add_child(_root)
+	Kitchen.build(_root, map)
+	_build_set(_root, map, menu.get("plate", DEFAULT_PLATE))
+
+
+func _build_set(root: Node3D, map: Dictionary, plate_pos: Vector3) -> void:
 	# Stations from the game data (visuals only, no colliders).
-	for s in GameData.map("diner")["stations"]:
-		if float(s["pos"].z) > 6.0:
+	for s in map["stations"]:
+		if float(s["pos"].z) > focus.z + 1.0:
 			continue  # would sit between the camera and the chefs
 		var n := Models.load_model(str(s["model"]))
 		if n == null:
 			continue
 		n.position = s["pos"]
+		n.rotation.y = deg_to_rad(float(s.get("yaw", 0.0)))
 		root.add_child(n)
 	# Burger stack on the plate.
 	var plate := Models.load_model("plate")
 	if plate != null:
-		plate.position = Vector3(12.5, 0, 2.5)
+		plate.position = plate_pos
 		root.add_child(plate)
 	var y := 0.4
 	for item in ["bun_bottom", "patty_cooked", "cheese_slice", "lettuce_leaf", "bun_top"]:
 		var it := Models.load_model(item)
 		if it == null:
 			continue
-		it.position = Vector3(12.5, y, 2.5)
+		it.position = plate_pos + Vector3(0, y, 0)
 		root.add_child(it)
 		y += _height(it)
-	# Chefs in the four player colours, mid-shift.
-	var spots := [Vector3(2.6, 0, 5.0), Vector3(4.4, 0, 3.6), Vector3(6.2, 0, 5.2), Vector3(4.2, 0, 6.6)]
+	# Chefs in the four player colours, mid-shift, around the focus.
+	var spots := [Vector3(-1.8, 0, 0.0), Vector3(0.0, 0, -1.4), Vector3(1.8, 0, 0.2), Vector3(-0.2, 0, 1.6)]
 	var yaws := [-0.5, 0.0, 0.45, -0.15]
 	for i in 4:
 		var c := Models.load_model("chef")
@@ -95,7 +122,7 @@ func _build_set(root: Node3D) -> void:
 			continue
 		LobbyChefView.tint(c, GameData.PLAYER_COLORS[i])
 		var holder := Node3D.new()
-		holder.position = spots[i]
+		holder.position = Vector3(focus.x, 0, focus.z) + spots[i]
 		holder.rotation.y = yaws[i]
 		holder.add_child(c)
 		root.add_child(holder)
@@ -119,7 +146,7 @@ func _process(delta: float) -> void:
 func _place_camera() -> void:
 	var a := sin(_t * 0.16 + _seed) * 0.32
 	var r := 6.8
-	var pos := focus + Vector3(sin(a) * r, 2.0 + sin(_t * 0.23) * 0.35, cos(a) * r)
+	var pos := focus + Vector3(sin(a) * r, height + sin(_t * 0.23) * 0.35, cos(a) * r)
 	_cam.position = pos
 	_cam.look_at(focus, Vector3.UP)
 	_cam.h_offset = -1.9

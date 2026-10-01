@@ -151,6 +151,7 @@ const MAPS := {
 		"spawn_points": [Vector3(-9, 0, 2), Vector3(-15, 0, 2), Vector3(-8, 0, 0), Vector3(-15, 0, 6)],
 		"hazards": [],
 	},
+	"twin_islands": preload("res://scripts/data/maps/map_twin_islands.gd").DEF,
 }
 
 ## Player colours in join order: blue, red, green, yellow.
