@@ -19,6 +19,8 @@ var _wings: Array = []
 var _ants: Array = []
 var _ant_path: Curve3D
 var _leaves: Array = []    # [node, phase, speed, height, lane]
+var _cheap := false
+var _acc := 0.0
 
 
 func _ready() -> void:
@@ -42,6 +44,7 @@ func _ready() -> void:
 		add_child(lf)
 		_leaves.append([lf, rng.randf(), rng.randf_range(2.2, 3.6), rng.randf_range(2.0, 14.0), rng.randf_range(-1.0, 1.0),
 			Vector3(rng.randf_range(-1, 1), 1.0, rng.randf_range(-1, 1)).normalized()])
+	set_cheap(_cheap)
 	_update(0.0)
 
 
@@ -75,8 +78,20 @@ func _build_ant_path() -> void:
 	_ant_path.bake_interval = 0.25
 
 
+## Quality "cheap" mode (QualityApply): no drifting leaves, bee and ants move at 30 Hz.
+func set_cheap(on: bool) -> void:
+	_cheap = on
+	for l in _leaves:
+		(l[0] as Node3D).visible = not on
+
+
 func _process(delta: float) -> void:
 	_t += delta
+	if _cheap:
+		_acc += delta
+		if _acc < 1.0 / 30.0:
+			return
+		_acc = 0.0
 	_update(delta)
 
 
@@ -106,6 +121,8 @@ func _update(_delta: float) -> void:
 		if dir.length() > 0.001:
 			var up := Vector3.UP if absf(dir.normalized().y) < 0.8 else Vector3(0, 0, 1)
 			a.look_at(a.global_position + dir, up, true)
+	if _cheap:
+		return
 	# Leaves: drift along the breeze over a wide band, tumbling, and loop around.
 	var span := 140.0
 	var side := Vector3(-BREEZE.z, 0, BREEZE.x).normalized()

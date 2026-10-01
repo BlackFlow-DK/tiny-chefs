@@ -192,7 +192,9 @@ func try_buy(id: String) -> void:
 # ================================================================ tick
 
 func _physics_process(dt: float) -> void:
+	var t := Prof.t0()
 	_input_sys.collect(dt)
+	Prof.add(&"tick.input+bot", t)
 	if is_host:
 		var mine: PlayerInput = inputs.get(my_id)
 		if mine != null:
@@ -200,7 +202,12 @@ func _physics_process(dt: float) -> void:
 		_simulate(dt)
 		_tick += 1
 		if _tick % Tuning.SNAPSHOT_EVERY == 0:
-			Net.send_snapshot(_snapshot_sys.build())
+			t = Prof.t0()
+			var snap := _snapshot_sys.build()
+			Prof.add(&"snapshot.build", t)
+			t = Prof.t0()
+			Net.send_snapshot(snap)
+			Prof.add(&"snapshot.send", t)
 	else:
 		Net.send_input(local_input)
 	Net.metric_max("max_chefs_seen", chefs.size())
@@ -210,6 +217,7 @@ func _physics_process(dt: float) -> void:
 func _simulate(dt: float) -> void:
 	var playing := Net.phase == Net.Phase.PLAYING
 	var mult := Tuning.SHOES_MULT if shift.has_upgrade("shoes") else 1.0
+	var t := Prof.t0()
 	for id in chefs.keys():
 		var c: Chef = chefs[id]
 		var inp: PlayerInput = inputs.get(id, _idle)
@@ -222,13 +230,21 @@ func _simulate(dt: float) -> void:
 			_handle_actions(c, inp)
 		c.work_held = playing and inp.work
 		c.host_move(dt, inp if playing else _idle, mult)
+	Prof.add(&"tick.chefs", t)
+	t = Prof.t0()
 	_carry_sys.move_carried(dt, mult, playing)
+	Prof.add(&"tick.carry", t)
+	t = Prof.t0()
 	_bounds_sys.drop_over_edge()
 	_plate_sys.tick(dt)
+	Prof.add(&"tick.bounds+plates", t)
+	t = Prof.t0()
 	for s in stations:
 		if not playing and s is Griddle:
 			continue   # griddle + fryer freeze between shifts: nothing burns during results/shop
 		s.host_update(dt)
+	Prof.add(&"tick.stations", t)
+	t = Prof.t0()
 	events.tick(dt, playing)
 	_hazard_sys.host_tick(dt, playing)
 	_bounds_sys.remove_fallen()
@@ -237,6 +253,7 @@ func _simulate(dt: float) -> void:
 	_toast_cooldown -= dt
 	_objective_sys.tick(playing)
 	_shift_sys.tick(dt, playing)
+	Prof.add(&"tick.events+mods+shift", t)
 
 
 ## Edge-triggered presses (sequence numbers survive packet loss) routed to their system.
@@ -406,11 +423,13 @@ func toast(msg: String, sfx: String) -> void:
 # ================================================================ presentation (every peer)
 
 func _process(delta: float) -> void:
+	var t := Prof.t0()
 	_camera_sys.update(delta)
 	_mod_sys.update(delta)
 	_hint_sys.update()
 	events.process(delta)
 	_hazard_sys.client_tick(delta)
+	Prof.add(&"world.process(hints,mods,events)", t)
 
 
 func _on_event(_text: String, sfx: String) -> void:

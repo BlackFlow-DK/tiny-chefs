@@ -35,7 +35,9 @@ class _Driver extends Node:
 		process_priority = 100
 
 	func _process(delta: float) -> void:
+		var t := Prof.t0()
 		target.step(delta)
+		Prof.add(&"camera", t)
 
 	func _unhandled_input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton

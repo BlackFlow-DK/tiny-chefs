@@ -179,6 +179,12 @@ func set_cooking(on: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	var t := Prof.t0()
+	_frame(delta)
+	Prof.add(&"item.process", t)
+
+
+func _frame(delta: float) -> void:
 	if puppet and _has_target:
 		var t := 1.0 - exp(-Tuning.PUPPET_SMOOTH * delta)
 		global_position = global_position.lerp(_target_pos, t)

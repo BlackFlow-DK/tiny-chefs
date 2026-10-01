@@ -30,13 +30,11 @@ static func build(root: Node3D) -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.0
 	env.tonemap_white = 6.0
-	env.ssao_enabled = true
 	env.ssao_radius = 1.4
 	env.ssao_intensity = 1.8
 	env.ssao_power = 1.5
 	env.ssao_detail = 0.7
 	env.ssao_light_affect = 0.15
-	env.ssil_enabled = true
 	env.ssil_radius = 6.0
 	env.ssil_intensity = 0.8
 	env.glow_enabled = true
@@ -102,9 +100,13 @@ static func build(root: Node3D) -> void:
 	root.add_child(fill)
 
 
-## Agent A/B switch: --env-off=ssil,ssao,glow,fog,dof
+## Effects to leave off: agent A/B switch --env-off=ssil,ssao,glow,fog,dof, plus SSAO and SSIL under the Mobile
+## renderer (it has neither; enabling them only prints warnings). The builders set ssao/ssil only from this.
 static func _debug_off() -> PackedStringArray:
+	var off := PackedStringArray()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--env-off="):
-			return arg.trim_prefix("--env-off=").split(",")
-	return PackedStringArray()
+			off = arg.trim_prefix("--env-off=").split(",")
+	if Quality.is_mobile_renderer():
+		off.append_array(["ssao", "ssil"])
+	return off

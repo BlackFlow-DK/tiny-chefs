@@ -8,6 +8,7 @@ var _leave_row: Control
 var _quit_row: Control
 var _confirm_row: Control
 var _stay: Button
+var _settings: SettingsView
 
 
 func _ready() -> void:
@@ -26,6 +27,7 @@ func _ready() -> void:
 
 	_resume = UIKit.button("Resume", func() -> void: close(), "primary", 0)
 	v.add_child(_resume)
+	v.add_child(UIKit.button("Settings", func() -> void: _settings.open(), "secondary", 0))
 
 	v.add_child(controls_strip())
 
@@ -57,6 +59,8 @@ func _ready() -> void:
 	leave_holder.add_child(_confirm_row)
 	v.add_child(leave_holder)
 	add_child(UI.centred(_card))
+	_settings = SettingsView.new()
+	add_child(_settings)
 	visible = false
 
 
@@ -83,6 +87,7 @@ func open() -> void:
 
 func close() -> void:
 	visible = false
+	_settings.close()
 	if Net.world != null:
 		Net.world.input_blocked = false
 

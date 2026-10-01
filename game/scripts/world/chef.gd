@@ -339,6 +339,12 @@ func set_target(pos: Vector3, yaw: float) -> void:
 
 
 func _process(delta: float) -> void:
+	var t := Prof.t0()
+	_frame(delta)
+	Prof.add(&"chef.process", t)
+
+
+func _frame(delta: float) -> void:
 	if puppet and _has_target:
 		var t := 1.0 - exp(-Tuning.PUPPET_SMOOTH * delta)
 		global_position = global_position.lerp(_target_pos, t)

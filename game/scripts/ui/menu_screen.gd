@@ -1,6 +1,6 @@
 class_name MenuScreen
 extends Control
-## Title screen: living kitchen backdrop, name, Host, Join (IP), Quit. Remembers name + IP.
+## Title screen: living kitchen backdrop, name, Host, Join (IP), How to play, Settings, Quit. Remembers name + IP.
 
 const CFG_PATH := "user://menu.cfg"
 const JOIN_TIMEOUT := 9.0
@@ -16,6 +16,8 @@ var _join_btn: Button
 var _quit_btn: Button
 var _how_btn: Button
 var _how: HowToPlay
+var _settings_btn: Button
+var _settings: SettingsView
 var _join_row: Control
 var _card: PanelContainer
 var _timeout: SceneTreeTimer = null
@@ -30,6 +32,8 @@ func _ready() -> void:
 	_build_version()
 	_how = HowToPlay.new()
 	add_child(_how)
+	_settings = SettingsView.new()
+	add_child(_settings)
 	_load_config()
 	visibility_changed.connect(_on_visible)
 	_on_visible.call_deferred()
@@ -134,6 +138,10 @@ func _build_column() -> void:
 	_how_btn.custom_minimum_size = Vector2(150, 40)
 	_how_btn.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
 	qrow.add_child(_how_btn)
+	_settings_btn = UIKit.button("Settings", func() -> void: _settings.open(), "secondary", 120)
+	_settings_btn.custom_minimum_size = Vector2(120, 40)
+	_settings_btn.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
+	qrow.add_child(_settings_btn)
 	_quit_btn = UIKit.button("Quit", func() -> void: get_tree().quit(), "secondary", 96)
 	_quit_btn.custom_minimum_size = Vector2(96, 40)
 	_quit_btn.add_theme_font_size_override("font_size", UITheme.S_CAPTION)

@@ -65,13 +65,11 @@ static func look(root: Node3D) -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.02
 	env.tonemap_white = 6.0
-	env.ssao_enabled = true
 	env.ssao_radius = 1.4
 	env.ssao_intensity = 1.5
 	env.ssao_power = 1.5
 	env.ssao_detail = 0.7
 	env.ssao_light_affect = 0.1
-	env.ssil_enabled = true
 	env.ssil_radius = 5.0
 	env.ssil_intensity = 0.6
 	env.glow_enabled = true

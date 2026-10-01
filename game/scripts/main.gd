@@ -13,6 +13,11 @@ var _autostarted := false
 
 
 func _ready() -> void:
+	Quality.load_settings()
+	if Quality.relaunch_if_needed():   # "Lightweight renderer" saved on: restart under the Mobile renderer
+		get_tree().quit()
+		return
+	QualityApply.display(get_tree())
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var root := Control.new()
@@ -30,11 +35,18 @@ func _ready() -> void:
 	root.add_child(lobby)
 	pause = PauseMenu.new()
 	root.add_child(pause)
+	add_child(FpsCounter.new())
+	if Quality.needs_probe():
+		add_child(QualityApply.Probe.new())   # Auto, first launch on this GPU: 2 s frame-time check
 	Net.phase_changed.connect(_on_phase)
 	Net.session_ended.connect(func(reason: String) -> void: menu.set_status(reason))
 	Net.players_changed.connect(_check_autostart)
 	_on_phase(Net.phase)
 	_handle_args()
+	if Net.has_arg("bench"):
+		add_child(Bench.new())
+	if Net.has_arg("profile"):
+		add_child(Prof.new())
 
 
 func _handle_args() -> void:

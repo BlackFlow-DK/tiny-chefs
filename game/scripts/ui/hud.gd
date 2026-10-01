@@ -275,6 +275,12 @@ func _toast(text: String, kind: String, seconds := 2.6) -> void:
 # ================================================================ per-frame
 
 func _process(_delta: float) -> void:
+	var t := Prof.t0()
+	_frame(_delta)
+	Prof.add(&"hud", t)
+
+
+func _frame(_delta: float) -> void:
 	# Results / shop have their own full-screen cards; the HUD behind them only clutters.
 	modulate.a = 1.0 if Net.phase == Net.Phase.PLAYING else 0.0
 	if world == null or not is_instance_valid(world):

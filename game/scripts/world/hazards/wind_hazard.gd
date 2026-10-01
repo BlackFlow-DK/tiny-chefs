@@ -42,6 +42,8 @@ func setup(w: World) -> void:
 	_log = Net.has_arg("wind-log")
 	_next = Net.arg_float("wind-at", _rng.randf_range(INTERVAL.x, INTERVAL.y))
 	Net.event_received.connect(_on_event)
+	_build_fx()
+	_build_ui()
 
 
 # ================================================================ host
@@ -169,33 +171,39 @@ func client_tick(dt: float) -> void:
 		_fx_t = -1.0
 
 
+## The pooled gust leaves + streaks (hidden). Built at setup, not at the first gust: building them (and
+## compiling the streak shader) mid-shift froze the picnic for ~80 ms on the first gust.
+func _build_fx() -> void:
+	_fx_root = Node3D.new()
+	_fx_root.name = "GustLeaves"
+	world.add_child(_fx_root)
+	for i in LEAVES:
+		var leaf := Models.load_model("leaf")
+		if leaf == null:
+			leaf = Models.primitive("box", Vector3(1.5, 0.2, 2.5), Color(0.45, 0.62, 0.22))
+		_no_shadow(leaf)
+		leaf.visible = false
+		_fx_root.add_child(leaf)
+		_fx.append({"node": leaf, "streak": false})
+	var q := QuadMesh.new()
+	q.size = Vector2(1.0, 1.0)
+	q.orientation = PlaneMesh.FACE_Y
+	var sm := ShaderMaterial.new()
+	sm.shader = Shader.new()
+	sm.shader.code = STREAK_SHADER
+	for i in STREAKS:
+		var mi := MeshInstance3D.new()
+		mi.mesh = q
+		mi.material_override = sm
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visible = false
+		_fx_root.add_child(mi)
+		_fx.append({"node": mi, "streak": true})
+
+
 func _spawn_leaves() -> void:
 	if _fx_root == null:
-		_fx_root = Node3D.new()
-		_fx_root.name = "GustLeaves"
-		world.add_child(_fx_root)
-		for i in LEAVES:
-			var leaf := Models.load_model("leaf")
-			if leaf == null:
-				leaf = Models.primitive("box", Vector3(1.5, 0.2, 2.5), Color(0.45, 0.62, 0.22))
-			_no_shadow(leaf)
-			leaf.visible = false
-			_fx_root.add_child(leaf)
-			_fx.append({"node": leaf, "streak": false})
-		var q := QuadMesh.new()
-		q.size = Vector2(1.0, 1.0)
-		q.orientation = PlaneMesh.FACE_Y
-		var sm := ShaderMaterial.new()
-		sm.shader = Shader.new()
-		sm.shader.code = STREAK_SHADER
-		for i in STREAKS:
-			var mi := MeshInstance3D.new()
-			mi.mesh = q
-			mi.material_override = sm
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			mi.visible = false
-			_fx_root.add_child(mi)
-			_fx.append({"node": mi, "streak": true})
+		_build_fx()
 	# Stream across what the camera sees: start upwind of the view centre, fly through it.
 	var centre := _view_centre()
 	var side := Vector3(-_fx_blow.z, 0.0, _fx_blow.x)
@@ -250,19 +258,24 @@ static func _no_shadow(n: Node) -> void:
 		_no_shadow(c)
 
 
+## The toast layer (built at setup with the effects: UI.theme() builds a whole Theme).
+func _build_ui() -> void:
+	_ui = CanvasLayer.new()
+	_ui.name = "GustToast"
+	_ui.layer = 2
+	world.add_child(_ui)
+	var holder := Control.new()
+	holder.name = "Holder"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.theme = UI.theme()
+	_ui.add_child(holder)
+
+
 ## Arrow toast (a dark chip like the HUD's toasts, with an arrow pointing downwind instead of the dot).
 func _show_toast(text: String, blow: Vector3) -> void:
 	if _ui == null:
-		_ui = CanvasLayer.new()
-		_ui.name = "GustToast"
-		_ui.layer = 2
-		world.add_child(_ui)
-		var holder := Control.new()
-		holder.name = "Holder"
-		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		holder.theme = UI.theme()
-		_ui.add_child(holder)
+		_build_ui()
 	var host: Control = _ui.get_node("Holder")
 	for c in host.get_children():
 		c.queue_free()

@@ -5,7 +5,7 @@ extends SubViewportContainer
 ## a slowly drifting shallow-focus camera + vignette. A MapDef frames it with optional "menu_view"
 ## {"focus": Vector3, "yaw": degrees, "lift": m} and/or "menu" {"focus": Vector3, "plate": Vector3,
 ## "height": m (camera above the focus)} (merged; "menu" wins on "focus"); the diner framing is the default.
-## Rendering pauses while hidden.
+## Rendering pauses while hidden. Quality (apply_quality): render scale, frame rate, MSAA, depth of field.
 
 const DEFAULT_FOCUS := Vector3(4.4, 1.0, 5.0)
 const DEFAULT_PLATE := Vector3(12.5, 0, 2.5)
@@ -22,6 +22,9 @@ var _t := 0.0
 var _seed := 0.0
 var _root: Node3D
 var _map_id := ""
+var _attr: CameraAttributesPractical
+var _fps := 0          # quality: render this many frames per second (0 = every frame)
+var _since := 0.0
 
 
 func _ready() -> void:
@@ -43,6 +46,7 @@ func _ready() -> void:
 	attr.dof_blur_far_distance = 11.0
 	attr.dof_blur_far_transition = 12.0
 	attr.dof_blur_amount = 0.12
+	_attr = attr
 	_cam.attributes = attr
 	_vp.add_child(_cam)
 	_cam.current = true
@@ -64,7 +68,8 @@ void fragment() {
 	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(v)
 	visibility_changed.connect(_on_vis)
-	_on_vis()
+	add_to_group(QualityApply.LISTENER_GROUP)
+	apply_quality()
 
 
 ## The set for the selected map (Net.settings.map; the menu's own settings before hosting).
@@ -93,9 +98,24 @@ func _on_settings_changed() -> void:
 	_build_world()
 
 
+## Quality preset: the backdrop's render scale, frame rate, MSAA and shallow focus (Low: half scale, 30 fps,
+## no blur).
+func apply_quality() -> void:
+	var p := Quality.preset()
+	var s := float(p["diorama_scale"])
+	_vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if s < 0.999 and QualityApply.fsr_available() else Viewport.SCALING_3D_MODE_BILINEAR
+	_vp.scaling_3d_scale = s
+	_vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if bool(p["fxaa"]) else Viewport.SCREEN_SPACE_AA_DISABLED
+	_vp.msaa_3d = Viewport.MSAA_DISABLED if int(p["msaa"]) == Viewport.MSAA_DISABLED else Viewport.MSAA_2X
+	_cam.attributes = _attr if bool(p["diorama_dof"]) else null
+	_fps = int(p["diorama_fps"])
+	_on_vis()
+
+
 func _on_vis() -> void:
 	if _vp != null:
-		_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if is_visible_in_tree() else SubViewport.UPDATE_DISABLED
+		var mode := SubViewport.UPDATE_ALWAYS if _fps <= 0 else SubViewport.UPDATE_ONCE
+		_vp.render_target_update_mode = mode if is_visible_in_tree() else SubViewport.UPDATE_DISABLED
 	set_process(is_visible_in_tree())
 
 
@@ -160,6 +180,11 @@ static func _height(n: Node3D) -> float:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if _fps > 0:
+		_since += delta
+		if _since >= 1.0 / _fps:
+			_since = fmod(_since, 1.0 / _fps)
+			_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	_place_camera()
 	for i in _chefs.size():
 		var h: Node3D = _chefs[i]

@@ -79,6 +79,7 @@ static func build(root: Node3D, map: Dictionary) -> void:
 
 	if root is World and EnvDebug.wanted():
 		root.add_child(EnvDebug.new())
+	QualityApply.scene(root)   # graphics preset (High leaves the look above untouched)
 
 
 ## Look of surface i: MapDef "surface_styles" (optional, parallel to "surfaces"): "counter" (default:

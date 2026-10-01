@@ -50,6 +50,12 @@ func _init(w: World) -> void:
 
 
 func _process(delta: float) -> void:
+	var t := Prof.t0()
+	_frame(delta)
+	Prof.add(&"indicators", t)
+
+
+func _frame(delta: float) -> void:
 	_cam = world.camera
 	var me := world.my_chef()
 	if _cam == null or not _cam.is_inside_tree() or Net.phase != Net.Phase.PLAYING or me == null:
