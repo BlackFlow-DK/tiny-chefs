@@ -95,6 +95,8 @@ func update(dt: float, inp: PlayerInput) -> void:
 			_do_chop(me, inp, dt)
 		"bell":
 			_do_bell(me, inp, dt)
+		"scrape":
+			_do_scrape(me, inp, dt)
 		"wait":
 			_walk_to(me, _job["pos"], inp, dt, null)
 
@@ -164,6 +166,8 @@ func _track_progress(me: Chef, dt: float) -> void:
 		d = _flat(_job["spot"] - me.global_position).length()
 	elif t == "bell":
 		d = (_job["bell"] as Bell).footprint_distance(me.global_position)
+	elif t == "scrape":
+		d = (_job["plate"] as Plate).footprint_distance(me.global_position)
 	if d < _prog_best - 0.5:
 		_prog_best = d
 		_prog_t = 0.0
@@ -359,6 +363,26 @@ func _do_bell(me: Chef, inp: PlayerInput, dt: float) -> void:
 	var side := from.normalized() if from.length() > 0.1 else Vector3(0, 0, 1)
 	var spot := nav.clamp_in(b.global_position + side * (maxf(b.half.x, b.half.y) + 0.8), 0.6)
 	_walk_to(me, spot, inp, dt, null)
+
+
+## Hold work beside the plate (a spot where that means scraping it) until it is empty.
+func _do_scrape(me: Chef, inp: PlayerInput, dt: float) -> void:
+	var p: Plate = _job["plate"]
+	if p.stack.is_empty() or p.stack != _job["stack"] or _job_time > 12.0:
+		_end("scraped" if p.stack.is_empty() else "plate changed")
+		_pause = 0.15   # release work
+		return
+	if not _job.has("spot"):
+		_job["spot"] = planner.work_spot(p, me, true)
+	if _work_timer > 0.0 or world.scrape_target(me.global_position) == p:
+		inp.work = true
+		if _work_timer == 0.0 and _log:
+			print("%s: scrape plate %s %s (%s)" % [_tag, p.def.get("label", ""), str(p.stack), _job.get("why", "")])
+		_work_timer += dt
+		if _work_timer > Tuning.SCRAPE_HOLD + 1.0:
+			_work_timer = 0.0   # no luck (moved off?): walk back and hold again
+		return
+	_walk_to(me, _job["spot"], inp, dt, null)
 
 
 func _let_go(inp: PlayerInput) -> void:

@@ -15,8 +15,13 @@ extends RefCounted
 ##   punches  each punch thrown
 ##   coins    a served dish's pay is split evenly between the bell-ringer and the chefs who carried
 ##            its items onto the plate (remainder to the bell-ringer)
+##   tidy     the bell-ringer of a dish served in tidy stack order (Plate.tidy)
+##   messy    the bell-ringer of a dish served untidy (paid Tuning.MESSY_PAY)
+##   scraped  items the chef scraped off a plate into the bin (waste)
+## New counters go at the end: player rows are read by column index (ResultsView).
 
-const COUNTERS := ["served", "carried", "assists", "burnt", "dropped", "falls", "punches", "coins"]
+const COUNTERS := ["served", "carried", "assists", "burnt", "dropped", "falls", "punches", "coins",
+	"tidy", "messy", "scraped"]
 
 var world: World
 var shift_stats: Dictionary = {}   # peer id -> {counter: int}
@@ -118,10 +123,16 @@ func on_plate_cleared(plate: Object) -> void:
 	_plated.erase(plate.get_instance_id())
 
 
-## The bell rang on a matching `plate` worth `pay` coins.
-func on_serve(ringer: Chef, pay: int, plate: Object) -> void:
+## Chef c scraped n items off a plate.
+func on_scraped(c: Chef, n: int) -> void:
+	_add(c.peer_id, "scraped", n)
+
+
+## The bell rang on a matching `plate` worth `pay` coins (tidy: in stack order, else paid as messy).
+func on_serve(ringer: Chef, pay: int, plate: Object, tidy := true) -> void:
 	var rid := ringer.peer_id
 	_add(rid, "served")
+	_add(rid, "tidy" if tidy else "messy")
 	var who: Array = [rid]
 	for id in _plated.get(plate.get_instance_id(), []):
 		if not who.has(id):

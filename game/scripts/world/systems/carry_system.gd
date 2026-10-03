@@ -38,11 +38,32 @@ func _init(w: World) -> void:
 	_spawn_spec = Net.arg_str("carry-spawn", "")
 
 
-## Every peer: the food chef c would grab now. Shared by the host grab, the hint ring and bots.
+## Every peer: the food chef c would grab now (null when the press takes a plate's top item instead, see
+## grab_choice). Shared by the host grab, the hint ring and bots.
+func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
+	return grab_choice(c, inp) as Item
+
+
+## Every peer: what a grab press by chef c takes: an Item (loose or carried food), a Plate (its top item
+## comes off, World.plate_take_candidate) or null. A plate wins only when it is the aimed thing: with aim,
+## the aim point is nearer it than any loose food (same score scale); without aim, no food is in reach.
+## Loose food picking (_loose_candidate) is unchanged by plates.
+func grab_choice(c: Chef, inp: PlayerInput) -> Object:
+	var pick := _loose_candidate(c, inp)
+	var take: Array = world.plate_take_candidate(c, inp)
+	if not take.is_empty():
+		if inp.has_aim and float(take[1]) < float(pick[1]):
+			return take[0]
+		if not inp.has_aim and pick[0] == null:
+			return take[0]
+	return pick[0]
+
+
+## [item, aim score (INF when not picked by aim)].
 ## With aim: the item in reach under (or within GRAB_AIM_RADIUS of) the cursor, nearest to it wins.
 ## Otherwise the nearest in reach, preferring items in front (towards the cursor with aim, else
 ## the way the chef faces): one right behind needs to be GRAB_FRONT_BIAS nearer to win.
-func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
+func _loose_candidate(c: Chef, inp: PlayerInput) -> Array:
 	var p := c.global_position
 	var reach := grab_reach()
 	var fwd := Vector3(sin(c.rotation.y), 0.0, cos(c.rotation.y))
@@ -73,7 +94,7 @@ func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
 		if s < bs:
 			best = it
 			bs = s
-	return by_aim if by_aim != null else best
+	return [by_aim, ba] if by_aim != null else [best, INF]
 
 
 ## Every peer: how far (m, chef centre to food footprint) a chef can grab: Tuning.REACH x (1 + tongs value).
@@ -99,11 +120,16 @@ func on_grab_pressed(c: Chef) -> void:
 
 
 func _try_grab(c: Chef) -> void:
-	var best := grab_candidate(c, world.input_of(c.peer_id))
+	var choice := grab_choice(c, world.input_of(c.peer_id))
+	var best: Item = null
+	if choice is Plate:
+		best = world.take_from_plate(c, choice as Plate)   # its top item, now loose food; carried as any other
+	else:
+		best = choice as Item
 	if best == null:
 		return
 	var reach_used: float = best.footprint_distance(c.global_position)
-	if reach_used > Tuning.REACH:
+	if reach_used > Tuning.REACH and not (choice is Plate):
 		print("upgrades: tongs grab %s at %.2fm (base reach %.2f, now %.2f)" % [best.kind, reach_used, Tuning.REACH, grab_reach()])
 	best.attach(c)
 	c.holding = best

@@ -54,7 +54,10 @@ target and you retry the shift.
 - **Fryer**: chicken, cut potatoes and onion slices go in. Same cook-then-burn rhythm.
 - **Cutting board**: drop a tomato, onion or potato and hold work. More chefs chop faster.
 - **Soda fountain**: hold work to fill a cup.
-- **Plate**: drop finished food on it; it stacks in any order. Raw, burnt or uncut food bounces off.
+- **Plate**: drop finished food on it. Raw, burnt or uncut food bounces off. Stack it tidily: the bun (or the
+  dish's first item) first and the bun top last; a messy dish still counts but pays 15% less, and a yellow
+  "Wrong order" sign warns you early. Aim at the plate and grab to take the top item back off; hold work on
+  it (away from the bell) to scrape the whole plate into the bin.
 - **Bell**: work it to serve the nearest plate.
 - **Trash drain**: drag food onto it to throw it away.
 - Fall off the counter and you respawn after a couple of seconds.

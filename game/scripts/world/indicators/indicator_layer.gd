@@ -3,7 +3,8 @@ extends CanvasLayer
 ## Screen-space projection of every in-world indicator (crisp text at any zoom): station markers that fade
 ## when the local chef is close, target prompt chips, cook/chop/dispense bars with DONE!/BURNT pops,
 ## crew pips on heavy carried food, name badges over remote chefs, "Buy <upgrade>" pills over closed
-## stations, and pings (a bouncing pin + ground ring in the player's colour, from "ping" Net events).
+## stations, pings (a bouncing pin + ground ring in the player's colour, from "ping" Net events), the
+## plate rules (stack order warning pill, "Tidy!" pop + sparkle, scrape puff, scrape hold bar).
 ## Sits under the HUD (layer -1) and runs with process_priority 200: after the camera driver (100), so
 ## the projected points use this frame's camera and do not lag or jitter.
 ## Reads world.camera, chefs, items, stations, grab_target, work_target, shift, local_input. Every peer.
@@ -29,6 +30,7 @@ var _hold_t := 0.0
 var _hold_target: Station = null
 var _locks: Dictionary = {}      # Station -> Tag ("Buy Second Plate") while closed
 var _pings: Dictionary = {}      # peer id -> {tag, pin, ring, pos, t}
+var _warns: Dictionary = {}      # Plate -> {tag, text} stack order warning
 
 
 func _init(w: World) -> void:
@@ -72,6 +74,7 @@ func _frame(delta: float) -> void:
 	_update_badges(me, delta)
 	_update_pops(delta)
 	_update_locks(delta)
+	_update_warnings(delta)
 	_update_pings(delta)
 
 
@@ -244,11 +247,11 @@ func _update_pops(delta: float) -> void:
 		tag.place((sp as Vector2) + Vector2(0, -rise), a, 1.0 + 0.1 * sin(minf(t / 0.3, 1.0) * PI))
 
 
-# ---------------------------------------------------------------- dispenser hold bar (local estimate)
+# ---------------------------------------------------------------- dispenser / scrape hold bar (local estimate)
 
 func _update_hold(me: Chef, delta: float) -> void:
 	var tgt: Station = world.work_target
-	var ok: bool = tgt is Dispenser and world.local_input.work and me.held_id < 0 and not world.input_blocked
+	var ok: bool = (tgt is Dispenser or tgt is Plate) and world.local_input.work and me.held_id < 0 and not world.input_blocked
 	if not ok:
 		_hold_t = 0.0
 		_hold_target = null
@@ -258,19 +261,29 @@ func _update_hold(me: Chef, delta: float) -> void:
 		_hold_target = tgt
 		_hold_t = 0.0
 	_hold_t += delta
-	var f := _hold_t / (tgt as Dispenser).hold_time()
-	var sp: Variant = _proj(_station_anchor(tgt))
+	var scrape := tgt is Plate
+	var f := _hold_t / (Tuning.SCRAPE_HOLD if scrape else (tgt as Dispenser).hold_time())
+	var sp: Variant = _proj(_plate_anchor(tgt as Plate) if scrape else _station_anchor(tgt))
 	if f >= 1.05 or sp == null:
 		_hold_tag.visible = false
 		return
-	_hold_bar.set_state(minf(f, 1.0), UITheme.SKY)
+	_hold_bar.set_state(minf(f, 1.0), UITheme.TOMATO if scrape else UITheme.SKY)
 	_hold_tag.place((sp as Vector2) + Vector2(0, -8 - _used(tgt, 19.0)), 1.0)
 
 
 # ---------------------------------------------------------------- target prompt chips
 
+## Over a plate's stack: the far edge of the top item's top (the plate's marker spot when empty).
+func _plate_anchor(p: Plate) -> Vector3:
+	if p.stack.is_empty():
+		return _station_anchor(p)
+	var sz: Vector3 = GameData.ITEMS[p.stack[-1]]["size"]
+	return p.top_position() + Vector3(0, sz.y, -sz.z * 0.5)
+
+
 func _update_chips(me: Chef, delta: float) -> void:
 	var g: Item = world.grab_target
+	var gp: Plate = world.grab_plate
 	var w: Station = world.work_target
 	var want: Array = [null, null]     # [signature, pairs, world pos, stack key, crew]
 	var grab_pair := ["LMB", "Grab"]
@@ -285,14 +298,25 @@ func _update_chips(me: Chef, delta: float) -> void:
 				work_pair = ["RMB", "Hold"]
 			"soda":
 				work_pair = ["RMB", "Pour"]
-	if g != null and not work_pair.is_empty() and w.contains_xz(g.global_position):
+			"plate":
+				work_pair = ["RMB", "Scrape"]
+	if gp != null:
+		# Taking the top item off a plate (and scraping it, when holding work there would).
+		var take_pairs: Array = [["LMB", "Take"]]
+		if w == gp:
+			take_pairs.append(work_pair)
+		var top_w: int = int(GameData.ITEMS[gp.stack[-1]]["weight"]) + ModifierSystem.weight_bonus()
+		want[0] = {"pairs": take_pairs, "pos": _plate_anchor(gp), "key": gp, "crew": top_w}
+		if w != null and w != gp and not work_pair.is_empty():
+			want[1] = {"pairs": [work_pair], "pos": _plate_anchor(w as Plate) if w is Plate else _station_anchor(w), "key": w, "crew": 0}
+	elif g != null and not work_pair.is_empty() and w.contains_xz(g.global_position):
 		want[0] = {"pairs": [grab_pair, work_pair], "pos": _item_anchor(g), "key": g.item_id, "crew": g.weight()}
 	else:
 		if g != null:
 			want[0] = {"pairs": [grab_pair], "pos": _item_anchor(g), "key": g.item_id, "crew": g.weight()}
 		if not work_pair.is_empty():
 			var key: Variant = w
-			var pos := _station_anchor(w)
+			var pos := _plate_anchor(w as Plate) if w is Plate else _station_anchor(w)
 			if w is CuttingBoard and (w as CuttingBoard).has_tomato:
 				for it: Item in world.items.values():
 					if is_instance_valid(it) and not it.removed and it.def.has("chops_to") and w.contains_xz(it.global_position):
@@ -387,10 +411,58 @@ func _update_locks(delta: float) -> void:
 		tag.show_at((sp as Vector2) + Vector2(0, -_used(st, 30.0)), 1.0, delta, 1.0, 6.0)
 
 
+# ---------------------------------------------------------------- plate rules
+
+## A gentle pill over a plate whose stack can still become an open order, but none of them tidily
+## (Plate.order_warning). Every peer, from the replicated stack and orders.
+func _update_warnings(delta: float) -> void:
+	for p: Plate in world.plates:
+		var text := "" if p.is_locked() else p.order_warning(world.orders.orders)
+		var e: Dictionary = _warns.get(p, {})
+		if not e.is_empty() and e["text"] != text and not text.is_empty():
+			(e["tag"] as Node).queue_free()
+			e = {}
+		if e.is_empty():
+			if text.is_empty():
+				continue
+			var tag := _add(IndicatorParts.Tag.new(IndicatorParts.pop_pill(text, UITheme.MUSTARD, true)))
+			tag.bump()
+			e = {"tag": tag, "text": text}
+			_warns[p] = e
+			if Net.has_arg("input-log") or Net.has_arg("plate-log"):
+				print("plate: %s sees warning on plate %d: %s (stack %s)" % ["host" if world.is_host else "client",
+					world.plates.find(p) + 1, text, str(p.stack)])
+		var wtag: IndicatorParts.Tag = e["tag"]
+		var sp: Variant = _proj(_plate_anchor(p))
+		if sp == null:
+			wtag.visible = false
+			continue
+		var want := 0.0 if text.is_empty() else 1.0
+		wtag.show_at((sp as Vector2) + Vector2(0, -float(_used(p, 30.0)) - 40.0), want, delta, 1.0, 6.0)
+
+
+## "tidy" / "scrape" events carry the plate index (PlateSystem): "Tidy!" pop + sparkle, or a puff.
+func _plate_event(text: String, sfx: String) -> void:
+	var i := int(text)
+	if not text.is_valid_int() or i < 0 or i >= world.plates.size():
+		return
+	var p: Plate = world.plates[i]
+	if sfx == "tidy":
+		_pop("Tidy!", UITheme.LETTUCE, true, p.global_position + Vector3(0, 2.4, -p.half.y * 0.4), -1)
+		p.burst("sparkle")
+	else:
+		p.burst("puff")
+	if Net.has_arg("input-log") or Net.has_arg("plate-log"):
+		print("plate: %s sees %s on plate %d" % ["host" if world.is_host else "client", sfx, i + 1])
+
+
 # ---------------------------------------------------------------- pings
 
 ## "ping" events carry "<peer>:<x>:<z>" (World.host_ping). One live ping per player: a new one replaces it.
 func _on_event(text: String, sfx: String) -> void:
+	if sfx == "tidy" or sfx == "scrape":
+		_plate_event(text, sfx)
+		return
 	if sfx != "ping":
 		return
 	var f := text.split(":")

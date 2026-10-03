@@ -284,12 +284,15 @@ const AWARDS := [
 	["Pack mule", 4, "mule", UITheme.SKY, "carried the most"],
 	["Team player", 5, "team", UITheme.LETTUCE, "carried together"],
 	["Butterfingers", COL_DROPPED, "butter", UITheme.TOMATO, "it slipped, honest"],
+	["Tidiest plate", COL_TIDY, "server", UITheme.LETTUCE, "tidy serves"],
 ]
-## Player row: [id, name, slot, served, carried, assists, burnt, dropped, falls, punches, coins].
+## Player row: [id, name, slot, served, carried, assists, burnt, dropped, falls, punches, coins, tidy, messy,
+## scraped] (StatsSystem.COUNTERS).
 const COL_SERVED := 3
 const COL_CARRIED := 4
 const COL_DROPPED := 7
 const COL_FALLS := 8
+const COL_TIDY := 11
 
 
 func _mvp_card(st: Dictionary) -> Control:

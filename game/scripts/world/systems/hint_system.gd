@@ -25,6 +25,7 @@ func _init(w: World) -> void:
 
 func update() -> void:
 	world.grab_target = null
+	world.grab_plate = null
 	world.work_target = null
 	world.hint_text = ""
 	_t += world.get_process_delta_time()
@@ -34,6 +35,7 @@ func update() -> void:
 		_work_ring.hide_ring()
 		return
 	var grab_target: Item = null
+	var grab_plate: Plate = null
 	var work_target: Station = null
 	var bell := world.bell_near(me.global_position)   # nearest bell in reach (any of world.bells)
 	var board := world.board
@@ -46,22 +48,40 @@ func update() -> void:
 			t += "   (heavy: %d/%d chefs for full speed)" % [held.carrier_count, held.weight()]
 		parts.append(t)
 	else:
-		grab_target = world.grab_candidate(me, world.local_input)  # the exact item a grab press takes
+		var choice := world.grab_choice(me, world.local_input)  # the exact thing a grab press takes
+		grab_target = choice as Item
+		grab_plate = choice as Plate
 		if bell != null and not bell.is_locked():
 			work_target = bell
 		else:
 			for s in world.dispensers:
 				if s.footprint_distance(p) <= Tuning.REACH:
 					work_target = s
-			if work_target == null and board.has_tomato and board.footprint_distance(p) <= Tuning.REACH + 0.3:
+			if work_target == null and board != null and board.has_tomato and board.footprint_distance(p) <= Tuning.REACH + 0.3:
 				work_target = board
+			if work_target == null:
+				work_target = world.scrape_target(p)   # hold work: scrape that plate
 	if world.shift.has_upgrade("gloves"):
 		parts.append("Q: punch")
 	world.grab_target = grab_target
+	world.grab_plate = grab_plate
 	world.work_target = work_target
 	world.hint_text = "     ".join(parts)
 	var color: Color = me.color
-	if grab_target != null:
+	if grab_plate != null:
+		# Outline the top item of the stack (drawn unturned, centred on the plate) at its base.
+		var top: Dictionary = GameData.ITEMS[grab_plate.stack[-1]]
+		var tsz: Vector3 = top["size"]
+		var tm := 0.3
+		var at := grab_plate.top_position()
+		if str(top["shape"]) == "box" or str(top["shape"]) == "capsule_x":
+			var thx := tsz.x * 0.5 + tm
+			var thz := tsz.z * 0.5 + tm
+			_grab_ring.show_at(at, thx, thz, 0.0, minf(0.7, minf(thx, thz)), color, _t)
+		else:
+			var tr := maxf(tsz.x, tsz.z) * 0.5 + tm
+			_grab_ring.show_at(at, tr, tr, 0.0, tr, color, _t)
+	elif grab_target != null:
 		var shape := str(grab_target.def["shape"])
 		var m := 0.3
 		var yaw := grab_target.global_transform.basis.get_euler().y

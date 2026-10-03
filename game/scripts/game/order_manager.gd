@@ -68,15 +68,18 @@ static func patience_mult_for(shift: ShiftManager) -> float:
 	return 1.0 + shift.upgrade_value("friendly_service", 0.0)
 
 
-## Coins for serving order o now: price + bonus scaled by patience left, x VIP_PAY_MULT for a VIP,
-## x (1 + tip_jar value) and x `extra` (combo_bell, PlateSystem.combo_mult) when shift is given.
-static func pay_for(o: Dictionary, shift: ShiftManager = null, extra := 1.0) -> int:
+## Coins for serving order o now: price + bonus scaled by patience left, then in this order:
+## x Tuning.MESSY_PAY for an untidy plate (tidy = false), x (1 + tip_jar value) and x `extra`
+## (combo_bell, PlateSystem.combo_mult) when shift is given, x VIP_PAY_MULT for a VIP.
+static func pay_for(o: Dictionary, shift: ShiftManager = null, extra := 1.0, tidy := true) -> int:
 	var r: Dictionary = GameData.RECIPES[int(o["r"])]
 	var frac := clampf(float(o["left"]) / float(o["patience"]), 0.0, 1.0)
-	var mult := Tuning.VIP_PAY_MULT if bool(o.get("vip", false)) else 1.0
+	var mult := 1.0 if tidy else Tuning.MESSY_PAY
 	if shift != null:
-		mult *= 1.0 + shift.upgrade_value("tip_jar", 0.0)
-	return int(round((float(r["price"]) + round(float(r["bonus"]) * frac)) * mult * extra))
+		mult *= (1.0 + shift.upgrade_value("tip_jar", 0.0)) * extra
+	if bool(o.get("vip", false)):
+		mult *= Tuning.VIP_PAY_MULT
+	return int(round((float(r["price"]) + round(float(r["bonus"]) * frac)) * mult))
 
 
 ## Coins lost when order o expires (VIPs cost VIP_EXPIRE_MULT times as much), x (1 - insurance value)

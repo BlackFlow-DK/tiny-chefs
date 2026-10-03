@@ -1,8 +1,11 @@
 class_name Plate
 extends Station
-## Finished food dropped on the plate snaps onto a visible stack (any order).
-## Raw, burnt or whole food bounces off. A map may have several plates (World.plates); one with an
-## "upgrade" in its def is closed (lid + sign, everything bounces off) until that upgrade is owned.
+## Finished food dropped on the plate snaps onto a visible stack (any order; serving an untidy one pays
+## Tuning.MESSY_PAY, see tidy()). Raw, burnt or whole food bounces off. A map may have several plates
+## (World.plates); one with an "upgrade" in its def is closed (lid + sign, everything bounces off) until
+## that upgrade is owned. PlateSystem takes the top item back off (grab) and scrapes it (hold work).
+
+const BASES := ["bun_bottom", "hotdog_bun"]   # a recipe holding one of these must start with it
 
 var stack: Array = []  # item kinds, bottom first
 var _stack_root: Node3D
@@ -73,6 +76,139 @@ func clear_stack() -> void:
 	_refresh()
 
 
+## Host: pop the top kind off the stack ("" when empty). PlateSystem spawns it as loose food.
+func take_top() -> String:
+	if stack.is_empty():
+		return ""
+	var k: String = stack.pop_back()
+	_refresh()
+	return k
+
+
+# ---------------------------------------------------------------- stack order (every peer)
+
+## The item a recipe's stack must start with: its bun when it has one, else its first item.
+static func base_kind(items: Array) -> String:
+	for b in BASES:
+		if items.has(b):
+			return b
+	return str(items[0]) if not items.is_empty() else ""
+
+
+## True when stack (bottom first, a sub-multiset of items) is tidy for a recipe with these items: the
+## base first, and a bun_top only on top of every item the recipe lists before it (items after it, like
+## a meal's fries and soda, and inner items are free).
+static func tidy(st: Array, items: Array) -> bool:
+	if st.is_empty() or items.is_empty():
+		return true
+	if str(st[0]) != base_kind(items):
+		return false
+	var ti := items.find("bun_top")
+	var si := st.find("bun_top")
+	if ti >= 0 and si >= 0:
+		var below := st.slice(0, si)
+		for k in items.slice(0, ti):
+			var j := below.find(k)
+			if j < 0:
+				return false
+			below.remove_at(j)
+	return true
+
+
+## True when stack is a sub-multiset of items (more food could still make it that recipe).
+static func fits(st: Array, items: Array) -> bool:
+	var w := items.duplicate()
+	for k in st:
+		var j := w.find(k)
+		if j < 0:
+			return false
+		w.remove_at(j)
+	return true
+
+
+func is_tidy_so_far(recipe: Dictionary) -> bool:
+	return Plate.tidy(stack, recipe["items"])
+
+
+## Every peer: a gentle warning ("" when none) when the stack could still become one of the open
+## orders, but none of them tidily. orders: OrderManager.orders.
+func order_warning(orders: Array) -> String:
+	if stack.is_empty():
+		return ""
+	var why := ""
+	for o in orders:
+		var items: Array = GameData.RECIPES[int(o["r"])]["items"]
+		if not Plate.fits(stack, items):
+			continue
+		if Plate.tidy(stack, items):
+			return ""
+		if why.is_empty():
+			var base := Plate.base_kind(items)
+			if str(stack[0]) != base:
+				var label := "bun" if BASES.has(base) else str(GameData.ITEMS[base]["label"]).to_lower()
+				why = "Wrong order: %s first!" % label
+			else:
+				why = "Wrong order: bun top goes last!"
+	return why
+
+
+## Height above the plate node of the base of stack item i, as drawn by _refresh().
+func item_base_y(i: int) -> float:
+	var y := 0.05
+	for j in mini(i, stack.size()):
+		y += (GameData.ITEMS[stack[j]]["size"] as Vector3).y * 0.9
+	return y
+
+
+## World position of the top item's base centre (the plate centre when empty).
+func top_position() -> Vector3:
+	return global_position + Vector3(0, item_base_y(stack.size() - 1) if not stack.is_empty() else 0.05, 0)
+
+
+# ---------------------------------------------------------------- effects (every peer)
+
+## A one-shot burst over the plate: "sparkle" (tidy serve) or "puff" (scraped).
+func burst(kind: String) -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.9
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = half.x * 0.5
+	p.direction = Vector3.UP
+	p.spread = 70.0
+	var m := SphereMesh.new()
+	if kind == "sparkle":
+		p.amount = 22
+		p.lifetime = 0.8
+		p.initial_velocity_min = 3.0
+		p.initial_velocity_max = 6.0
+		p.gravity = Vector3(0, -4.0, 0)
+		p.scale_amount_min = 0.5
+		p.scale_amount_max = 1.0
+		m.radius = 0.12
+		m.height = 0.24
+		m.material = Models.mat(UITheme.MUSTARD.lightened(0.35), true)
+	else:
+		p.amount = 18
+		p.lifetime = 0.6
+		p.initial_velocity_min = 1.5
+		p.initial_velocity_max = 3.5
+		p.gravity = Vector3(0, 1.5, 0)
+		p.damping_min = 2.0
+		p.damping_max = 3.0
+		p.scale_amount_min = 0.8
+		p.scale_amount_max = 1.6
+		m.radius = 0.22
+		m.height = 0.44
+		m.material = Models.mat(Color(0.93, 0.9, 0.86), false)
+	p.mesh = m
+	p.position = Vector3(0, 0.6, 0)
+	add_child(p)
+	p.emitting = true
+	get_tree().create_timer(p.lifetime + 0.5).timeout.connect(p.queue_free)
+
+
 func state() -> Variant:
 	var a := PackedInt32Array()
 	for k in stack:
@@ -85,6 +221,8 @@ func apply_state(s: Variant) -> void:
 		var st: Array = []
 		for i in s:
 			st.append(GameData.ITEM_KINDS[i])
+		if st != stack and Net.has_arg("plate-log"):
+			print("plate: client sees plate %d stack %s" % [world.plates.find(self) + 1, str(st)])
 		stack = st
 		_refresh()
 

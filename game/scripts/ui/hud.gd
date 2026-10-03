@@ -248,8 +248,8 @@ func _on_event(text: String, sfx: String) -> void:
 		var m := RegEx.create_from_string("\\+(\\d+)").search(text)
 		if m != null:
 			_pay = int(m.get_string(1))
-	if text.is_empty() or sfx == "start" or sfx == "order" or sfx == "ping":
-		return
+	if text.is_empty() or sfx == "start" or sfx == "order" or sfx == "ping" or sfx == "tidy" or sfx == "scrape":
+		return   # tidy/scrape carry a plate index: IndicatorLayer pops them over the plate
 	if sfx.begins_with("ev_"):
 		return   # shift events: HudEventBanner shows these
 	var kind := "info"
@@ -258,7 +258,7 @@ func _on_event(text: String, sfx: String) -> void:
 			kind = "success"
 		"fail":
 			kind = "error"
-		"buzz":
+		"buzz", "messy":
 			kind = "warn"
 	_toast(text, kind)
 
