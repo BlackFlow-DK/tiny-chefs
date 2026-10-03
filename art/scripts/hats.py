@@ -96,9 +96,9 @@ def hat_paper():
     paper = M("HatPaper", "#f8f7f2", 0.92)
     fold = M("HatPaperFold", "#d4d0c4", 0.95)
     sh = Shell(rx=0.258, ryf=0.236, ryb=0.287, rz=0.242, zf=0.055, zb=-0.03)
-    bandH = 0.055
+    bandH = 0.06
     NP = 14
-    crest = 0.19
+    crest = 0.21
     Lf, Lb = 0.215, 0.235
 
     def ring_pt(th, top):
@@ -119,8 +119,10 @@ def hat_paper():
         r = ring_pt(th, True)
         s = sh.blend(th)
         L = Lb + (Lf - Lb) * s
-        ridge = V((0.0, -math.cos(th) * L, crest))
-        w = v ** 0.75
+        c = math.cos(th)
+        # rounded fold: the ridge is an arch (high mid, low ends) so the front/back are soft, not horns
+        ridge = V((0.0, -c * L * 0.9, crest * (1.0 - 0.5 * c * c)))
+        w = v ** 0.8
         q = r + (ridge - r) * w
         q.x += 0.0045 * math.sin(NP * th) * math.sin(PI * v) * (1 - v)
         q.z += 0.004 * math.cos(NP * th) * math.sin(PI * v)

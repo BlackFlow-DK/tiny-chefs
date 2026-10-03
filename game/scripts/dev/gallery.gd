@@ -128,6 +128,10 @@ func _aabb_of(root: Node3D) -> AABB:
 
 
 func _build_stage(width: float, depth: float, hmax: float) -> void:
+	if OS.get_environment("GALLERY_ENV") == "game":  # the real game lighting + sky reflections
+		EnvLook.build(self)
+		_build_ground_and_camera(width, depth, hmax)
+		return
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.32, 0.36, 0.42)
@@ -144,7 +148,10 @@ func _build_stage(width: float, depth: float, hmax: float) -> void:
 	sun.shadow_enabled = true
 	sun.light_energy = 0.9
 	add_child(sun)
+	_build_ground_and_camera(width, depth, hmax)
 
+
+func _build_ground_and_camera(width: float, depth: float, hmax: float) -> void:
 	var ground := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(width * 1.6 + 4.0, depth * 1.6 + 4.0)

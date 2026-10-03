@@ -34,7 +34,7 @@ def bars(mat, x0, y, z, widths, h=0.12, gap=0.09, depth=0.05):
 # ---------------------------------------------------------------------------
 # bacon
 # ---------------------------------------------------------------------------
-def bacon_strip(mats, L=3.6, w=0.55, seed=0, curl=0.0, amp=0.1, th=0.07, nu=16, nv=6):
+def bacon_strip(mats, L=3.6, w=0.55, seed=0, curl=0.0, amp=0.1, th=0.07, nu=16, nv=6, band=None):
     """Wavy bacon strip, base at the origin running along +X, bands of lean/fat (mats[0], mats[1])."""
     bm = bmesh.new()
     top, bot = {}, {}
@@ -48,12 +48,12 @@ def bacon_strip(mats, L=3.6, w=0.55, seed=0, curl=0.0, amp=0.1, th=0.07, nu=16, 
             z = amp * math.sin(u * 2 * PI * 1.35 + seed) * (0.5 + abs(v)) + curl * L * u * u
             top[(i, j)] = bm.verts.new((x, y, z + th))
             bot[(i, j)] = bm.verts.new((x, y, z))
-    band = [0, 1, 0, 0, 1, 0]
+    band = band or [0, 1, 0, 0, 1, 0]
     for i in range(nu):
         for j in range(nv):
             f = bm.faces.new((top[(i, j)], top[(i + 1, j)], top[(i + 1, j + 1)], top[(i, j + 1)]))
             f.material_index = band[j]
-            bm.faces.new((bot[(i, j)], bot[(i, j + 1)], bot[(i + 1, j + 1)], bot[(i + 1, j)])).material_index = 0
+            bm.faces.new((bot[(i, j)], bot[(i, j + 1)], bot[(i + 1, j + 1)], bot[(i + 1, j)])).material_index = band[j]
     for i in range(nu):
         bm.faces.new((top[(i, 0)], bot[(i, 0)], bot[(i + 1, 0)], top[(i + 1, 0)])).material_index = 0
         bm.faces.new((top[(i, nv)], top[(i + 1, nv)], bot[(i + 1, nv)], bot[(i, nv)])).material_index = 0

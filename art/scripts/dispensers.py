@@ -244,33 +244,34 @@ def dispenser_lettuce():
         parts.append(rbox(slot, (0.5, 0.05, 0.5), (x, D / 2 + 0.005, 0.55), r=0.02, seg=1))
     for sx in (-1, 1):
         parts.append(rbox(slot, (0.05, 1.4, 0.4), (sx * (W / 2 + 0.005), 0, 0.72), r=0.02, seg=1))
-    # head
-    greens = [(M("LettuceDark", "#3e9a2c", 0.65), M("LettuceRibD", "#b5df7a", 0.65)),
-              (M("LettuceMid", "#58c23c", 0.65), M("LettuceRibM", "#c9ec8a", 0.65)),
-              (M("LettuceIn", "#8ed85a", 0.65), M("LettuceRibI", "#dcf5a3", 0.65)),
-              (M("LettuceCore", "#b6ea77", 0.65), M("LettuceRibC", "#eefbc0", 0.65))]
-    pale = M("LettucePale", "#e6f5b0", 0.65)
+    # head: loose, frilly leaf-lettuce rosette with pale wide ribs and open ruffled tips
+    greens = [(M("LettuceDark", "#4fae35", 0.65), M("LettuceRibD", "#e6f7b4", 0.65)),
+              (M("LettuceMid", "#6ccb45", 0.65), M("LettuceRibM", "#eefac4", 0.65)),
+              (M("LettuceIn", "#93de60", 0.65), M("LettuceRibI", "#f3fcd2", 0.65)),
+              (M("LettuceCore", "#bdee80", 0.65), M("LettuceRibC", "#f8fde0", 0.65))]
+    pale = M("LettucePale", "#eef8c0", 0.65)
     rng = random.Random(9)
-    rings_def = [  # count, length, width, alpha, base radius, base z, cup, ruffle, curl
-        (9, 2.5, 2.3, 44, 0.65, 1.05, 0.5, 0.22, 0.20),
-        (8, 2.6, 2.2, 55, 0.6, 1.5, 0.55, 0.30, 0.25),
-        (7, 2.4, 2.0, 68, 0.5, 2.0, 0.6, 0.26, 0.30),
-        (6, 2.0, 1.7, 80, 0.4, 2.5, 0.6, 0.20, 0.35),
-        (5, 1.3, 1.3, 88, 0.2, 3.05, 0.5, 0.10, 0.50)]
-    parts.append(soft_ball(M("LettuceHeart", "#c8ef85", 0.65), (1.0, 1.0, 1.3), (0, -0.25, 3.2), seg=12, rings=8, lump=0.15))
-    for ri, (cnt, ln, wd, alpha, r0, z0, cup, ruf, curl) in enumerate(rings_def):
+    rings_def = [  # count, length, width, alpha, base radius, base z, cup, ruffle, curl, freq
+        (7, 2.6, 2.2, 32, 0.55, 1.1, 0.30, 0.26, 0.10, 4.2),
+        (6, 2.6, 2.1, 46, 0.5, 1.5, 0.35, 0.28, 0.12, 4.6),
+        (5, 2.4, 1.9, 60, 0.4, 1.95, 0.40, 0.26, 0.18, 5.0),
+        (4, 2.0, 1.6, 72, 0.3, 2.4, 0.45, 0.22, 0.25, 5.4),
+        (3, 1.4, 1.2, 82, 0.15, 2.8, 0.45, 0.15, 0.35, 5.4)]
+    parts.append(soft_ball(M("LettuceHeart", "#d3f294", 0.65), (0.55, 0.55, 0.8), (0, -0.25, 3.1), seg=10, rings=6, lump=0.15))
+    for ri, (cnt, ln, wd, alpha, r0, z0, cup, ruf, curl, fq) in enumerate(rings_def):
         gi = min(ri, 3)
         for i in range(cnt):
-            a = 2 * PI * i / cnt + ri * 0.55 + rng.uniform(-0.1, 0.1)
+            a = 2 * PI * i / cnt + ri * 0.7 + rng.uniform(-0.12, 0.12)
             lf = leaf([greens[gi][0], pale, greens[gi][1]], ln * rng.uniform(0.92, 1.08), wd * rng.uniform(0.9, 1.05),
-                      cup=cup, ruffle=ruf * 0.6, seed=i + ri * 9, rib=True, nu=10, nv=8, curl=curl)
-            put(lf, rot=(0, -D2R(alpha + rng.uniform(-4, 4)), 0))
+                      cup=cup, ruffle=ruf, seed=i + ri * 9, rib=True, nu=16, nv=12, curl=curl, freq=fq, rib_w=0.2,
+                      base_pale=0.18)
+            put(lf, rot=(0, -D2R(alpha + rng.uniform(-5, 5)), 0))
             put(lf, move=(r0 * math.cos(a), r0 * math.sin(a) - 0.25, z0), rot=(0, 0, a))
             parts.append(lf)
     # loose leaves draped over the front lip
     for x, ang, ln in ((1.5, -68, 1.9), (-1.5, -112, 1.8)):
-        lf = leaf([greens[2][0], pale, greens[2][1]], ln, 2.3, cup=0.2, ruffle=0.3, seed=x, rib=True, nu=10, nv=8,
-                  base_pale=0.12)
+        lf = leaf([greens[2][0], pale, greens[2][1]], ln, 2.3, cup=0.2, ruffle=0.3, seed=x, rib=True, nu=16, nv=12,
+                  base_pale=0.12, freq=5.0, rib_w=0.2)
         put(lf, rot=(0, D2R(12), 0))
         put(lf, move=(x, -D / 2 + 0.7, H + 0.05), rot=(0, 0, D2R(ang)))
         parts.append(lf)
@@ -422,7 +423,7 @@ def dispenser_sausages():
 # HOT DOG BUNS: clear bag with bread clip, buns in rows, front open, one bun sliding out
 # ---------------------------------------------------------------------------
 def dispenser_hotdog_buns():
-    film = M("BagFilm", "#dcefff", 0.1, alpha=0.16)
+    film = M("BagFilm", "#dcefff", 0.1, alpha=0.3)
     rim = M("BagRimFilm", "#f4faff", 0.3, alpha=0.55)
     blue = M("ClipBlue", "#2f6fd6", 0.5)
     red = M("BagRed", "#d9302a", 0.6)
@@ -431,31 +432,30 @@ def dispenser_hotdog_buns():
     dark = M("InkDark", "#2b1d12", 0.9)
     parts = []
     # bag lofted along local Z (back -> front), then turned so local Z runs to world -Y
-    L = 4.2
-    hw, hh = 2.85, 1.75
+    L = 1.9
+    hw, hh = 2.75, 1.75
+    cuff = M("BagCuff", "#f6f1e2", 0.7)
     tsecs = [(0.0, 0.3, 0.3, 0.0, 2.3), (0.4, 0.55, 0.55, 0.0, 2.15), (0.9, 1.6, 1.3, 0.0, 1.9),
-             (1.4, 2.6, 1.65, 0.0, hh), (1.9, hw, hh, 0.0, hh), (2.4, hw, 0.6, 0.0, 0.6),
-             (L, hw * 0.94, 0.42, 0.0, 0.42)]
+             (1.4, 2.6, 1.65, 0.0, hh), (L, hw, hh, 0.0, hh)]
     bag = loft(film, tsecs, n=40, e=2.8, cap_start=True, wob=crinkle_fn(0.02, 1.0, 5))
-    # rim of the open front
-    pts = [(x * 0.94, y + 0.42, L) for x, y in superellipse(48, hw, 0.42, 2.8)]
-    rimo = sweep(rim, pts, 0.07, verts=6, closed=True)
+    # open mouth: the bag is rolled down into a thick opaque cuff
+    rimo = ring_tube(cuff, (hw, hh, 0, hh), 0.2, L, n=48, e=2.8, verts=8)
+    rim2 = ring_tube(cuff, (hw * 0.97, hh * 0.97, 0, hh), 0.17, L - 0.3, n=48, e=2.8, verts=8)
     # neck twist + bread clip at the back
     neck = sweep(film, [(0, 2.3, 0.0), (0, 2.3, -0.25)], [0.3, 0.2], verts=10)
     clip = rbox(blue, (1.15, 0.5, 0.16), (0, 2.3, -0.08), r=0.06, seg=2)
     clip_slot = rbox(M("ClipSlot", "#173a80", 0.6), (0.5, 0.2, 0.18), (0, 2.3, -0.1), r=0.03, seg=1)
     clip_t1 = rbox(blue, (0.2, 0.5, 0.4), (0.45, 2.3, -0.32), r=0.04, seg=1)
-    seams = [ring_tube(rim, (2.62, 1.66, 0, 1.66), 0.06, 1.4, n=48, e=2.8, verts=6),
-             ring_tube(rim, (2.85, 1.75, 0, 1.75), 0.06, 1.9, n=48, e=2.8, verts=6)]
-    grp = [bag, rimo, neck, clip, clip_slot, clip_t1] + seams
+    seams = [ring_tube(rim, (2.62, 1.66, 0, 1.66), 0.06, 1.4, n=48, e=2.8, verts=6)]
+    grp = [bag, rimo, rim2, neck, clip, clip_slot, clip_t1] + seams
     # world placement: local z -> -y ; local y -> +z
     put(grp, rot=(PI / 2, 0, 0))
     parts += grp
     # printed stripe and logo on top of the bag
-    parts.append(rbox(blue, (4.6, 1.0, 0.06), (0, -1.9, 3.5), r=0.02, seg=1))
-    parts.append(disc(red, 0.5, 0.07, (-1.6, -1.9, 3.5), facing="up"))
-    parts.append(soft_ball(fp.m("Bun"), (0.3, 0.15, 0.2), (-1.6, -1.9, 3.53), seg=10, rings=6))
-    parts += [rbox(cream, (1.6, 0.6, 0.07), (0.6, -1.9, 3.51), r=0.02, seg=1)]
+    parts.append(rbox(blue, (4.6, 1.0, 0.06), (0, -1.0, 3.5), r=0.02, seg=1))
+    parts.append(disc(red, 0.5, 0.07, (-1.6, -1.0, 3.5), facing="up"))
+    parts.append(soft_ball(fp.m("Bun"), (0.3, 0.15, 0.2), (-1.6, -1.0, 3.53), seg=10, rings=6))
+    parts += [rbox(cream, (1.6, 0.6, 0.07), (0.6, -1.0, 3.51), r=0.02, seg=1)]
     # buns: layer 1 (3 rows), layer 2 (2 rows), one sliding out of the front
     s = 0.86
     for t in (1.95, 3.3):

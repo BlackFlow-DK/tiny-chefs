@@ -32,8 +32,8 @@ def dispenser_bacon():
     card = M("BaconCard", "#b3261e", 0.6)
     card_l = M("BaconCardCream", "#fff1d6", 0.7)
     pad = M("BaconPad", "#f3e6d0", 0.9)
-    lean = M("BaconLean", "#c8382c", 0.55)
-    fat = M("BaconFat", "#f7e4c4", 0.6)
+    lean = M("BaconLean", "#e5545c", 0.5)
+    fat = M("BaconFat", "#fff5ec", 0.5)
     yellow = M("StickerYellow", "#ffd21f", 0.6)
     red = M("LabelRed", "#d9302a", 0.6)
     dark = M("InkDark", "#2b1d12", 0.9)
@@ -43,31 +43,29 @@ def dispenser_bacon():
     # sleeve/tray with a pad and a base layer of bacon
     parts.append(rbox(sleeve, (4.7, 3.6, 0.7), (0, cy, 0.35), r=0.14, seg=3))
     parts.append(rbox(pad, (4.3, 3.2, 0.06), (0, cy, 0.72), r=0.03, seg=1))
-    rng = random.Random(5)
-    for k in range(5):
-        s = bacon_strip([lean, fat], L=4.2, w=0.68, seed=k * 1.3, amp=0.06, nu=16)
-        put(s, move=(-2.1, cy - 1.36 + k * 0.68, 0.74 + (k % 2) * 0.02))
-        parts.append(s)
+    band = [0, 0, 1, 0, 0, 1, 0, 0]
+    for k in range(3):  # base layer of wide rashers
+        sb = bacon_strip([lean, fat], L=4.2, w=1.1, seed=k * 1.3, amp=0.06, nu=16, nv=8, th=0.1, band=band)
+        put(sb, move=(-2.1, cy - 1.1 + k * 1.1, 0.74 + (k % 2) * 0.02))
+        parts.append(sb)
     # front label on the sleeve
     parts.append(rbox(card_l, (2.7, 0.06, 0.46), (-0.7, cy - 1.83, 0.36), r=0.03, seg=1))
     parts.append(rbox(red, (2.7, 0.07, 0.12), (-0.7, cy - 1.84, 0.56), r=0.02, seg=1))
     parts += bars(dark, -1.95, cy - 1.86, 0.32, (0.7, 0.45, 0.6, 0.35), h=0.1, gap=0.1)
     parts += sticker(yellow, red, (1.45, cy - 1.84, 0.36), 0.25)
     parts += barcode(dark, card_l, (2.0, cy - 1.84, 0.36), w=0.6, h=0.3, seed=2)
-    # peeled film: sealed flat over the front, flap lifted and crinkled
-    f1 = rbox(film, (4.5, 1.1, 0.04), (0, cy - 1.1, 0.88), r=0.02, seg=1)
-    f2 = rbox(film, (4.5, 1.3, 0.04), (0, cy - 0.15, 0.96), rot=(D2R(28), 0, 0), r=0.02, seg=1)
-    f3 = rbox(film, (4.5, 0.9, 0.04), (0, cy + 0.4, 1.27), rot=(D2R(-18), 0, 0), r=0.02, seg=1)
-    parts += [f1, f2, f3]
-    # fan of strips leaving the pack
+    # film peeled open and rolled back behind the strips
+    f3 = rbox(film, (4.5, 0.9, 0.04), (0, cy + 1.2, 1.5), rot=(D2R(-40), 0, 0), r=0.02, seg=1)
+    parts.append(f3)
+    # big rashers fanned out of the open pack, leaning towards the camera
     pivot = (0.0, cy + 0.9, 0.95)
-    spread = [-58, -36, -12, 12, 36, 58]
-    pitch = [44, 54, 62, 62, 54, 44]
+    spread = [-44, -27, -9, 9, 27, 44]
+    pitch = [14, 20, 26, 26, 20, 14]
     for k, (sp, pt) in enumerate(zip(spread, pitch)):
-        s = bacon_strip([lean, fat], L=3.1, w=0.78, seed=k * 2.1, amp=0.1, curl=-0.05, nu=18)
-        put(s, rot=(0, -D2R(pt), D2R(-90 + sp)))
-        put(s, move=(pivot[0], pivot[1], pivot[2] + k * 0.03))
-        parts.append(s)
+        sb = bacon_strip([lean, fat], L=3.6, w=1.1, seed=k * 2.1, amp=0.12, curl=-0.03, nu=20, nv=8, th=0.11, band=band)
+        put(sb, rot=(0, -D2R(pt), D2R(-90 + sp)))
+        put(sb, move=(pivot[0], pivot[1], pivot[2] + 0.1 + k * 0.05))
+        parts.append(sb)
     # header card behind, with a bacon picture
     tilt = D2R(-7)
     cyc, ch = 1.95, 3.4
@@ -146,7 +144,7 @@ def dispenser_onions():
     skin = M("OnionSkin", "#8c2a68", 0.45)
     tip = M("OnionTip", "#d6b98b", 0.9)
     root = M("OnionRoot", "#e8dcc4", 0.9)
-    chrome = M("ClipChrome", "#d7dde2", 0.25, 0.7)
+    chrome = M("ClipChrome", "#f0f5f8", 0.12, 0.95)
     cream = M("BagCream", "#fff0c9", 0.8)
     red = M("LabelRed", "#d9302a", 0.6)
     yellow = M("StickerYellow", "#ffd21f", 0.6)

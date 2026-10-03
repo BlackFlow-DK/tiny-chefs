@@ -27,14 +27,14 @@ def fryer():
     brushed = M("FryerBrushed", "#d3d9de", 0.45, 0.55)
     well = M("FryerWell", "#2a2523", 0.5, 0.5)
     floor = M("FryerFloor", "#4a2608", 0.8)
-    oil = artlib.material("FryerOil", "#f2a616", 0.12, 0.0, emission="#d87a00", emission_strength=0.5, alpha=0.5)
-    oil_hi = artlib.material("FryerOilShine", "#ffd65a", 0.1, 0.0, alpha=0.75)
+    oil = artlib.material("FryerOil", "#e8921a", 0.08, 0.0, emission="#c46a00", emission_strength=0.8, alpha=0.9)
+    oil_hi = artlib.material("FryerOilShine", "#fff0a0", 0.05, 0.0, emission="#ffd060", emission_strength=1.0, alpha=0.85)
     bubble = artlib.material("FryerBubble", "#fff0a8", 0.2, 0.0, alpha=0.85)
-    wire = M("FryerWire", "#dfe5ea", 0.25, 0.7)
+    wire = M("FryerWire", "#7d8892", 0.3, 0.85)
     grip = M("FryerGrip", "#c4281c", 0.5)
     grip_d = M("FryerGripDark", "#2a1412", 0.6)
     panel = M("FryerPanel", "#1f2227", 0.5, 0.3)
-    chrome = M("FryerChrome", "#e8edf0", 0.15, 0.6)
+    chrome = M("FryerChrome", "#f0f5f8", 0.12, 0.95)
     knob = M("FryerKnob", "#15161a", 0.35, 0.2)
     white = M("FryerMark", "#f4f4ef", 0.5)
     red = M("FryerTick", "#ff4a30", 0.5)
@@ -72,13 +72,13 @@ def fryer():
         for yy in (y0, y1):
             a.box(wire, (bw + 0.08, 0.08, zr1 - zr0), (bx, yy, (zr0 + zr1) / 2))
         for k in range(1, 7):
-            a.box(wire, (0.04, y1 - y0, 0.035), (bx - bw / 2 + k * bw / 7, (y0 + y1) / 2, 0.36))
+            a.box(wire, (0.06, y1 - y0, 0.05), (bx - bw / 2 + k * bw / 7, (y0 + y1) / 2, 0.425))
         for k in range(1, 12):
-            a.box(wire, (bw, 0.04, 0.035), (bx, y0 + k * (y1 - y0) / 12, 0.355))
+            a.box(wire, (bw, 0.06, 0.05), (bx, y0 + k * (y1 - y0) / 12, 0.42))
         for sx in (-0.45, 0.45):
-            a.box(wire, (0.07, 0.6, 0.07), (bx + sx, y1 + 0.28, T - 0.13))
-        a.box(grip_d, (1.1, 0.12, 0.12), (bx, y1 + 0.6, T - 0.12), bevel=0.02)
-        a.box(grip, (0.75, 0.42, 0.14), (bx, y1 + 0.66, T - 0.1), bevel=0.04, seg=2)
+            a.box(wire, (0.1, 0.62, 0.1), (bx + sx, y1 + 0.28, T - 0.13))
+        a.box(grip_d, (1.1, 0.14, 0.14), (bx, y1 + 0.6, T - 0.12), bevel=0.02)
+        a.box(grip, (0.85, 0.46, 0.16), (bx, y1 + 0.66, T - 0.1), bevel=0.04, seg=2)
     for dx in (-1.025, 1.025):
         a.box(steel, (0.12, WY - 0.3, 0.12), (dx, WCY, T - 0.07), bevel=0.02)
 
@@ -121,7 +121,7 @@ def soda_fountain():
     teal = M("SodaTeal", "#2fb6ae", 0.42, 0.05)
     teal_d = M("SodaTealDark", "#1f8a84", 0.5, 0.05)
     cream = M("SodaCream", "#f6eed8", 0.5)
-    chrome = M("SodaChrome", "#e3e8ec", 0.14, 0.75)
+    chrome = M("SodaChrome", "#f0f5f8", 0.12, 0.95)
     steel = M("SodaSteel", "#a9b2ba", 0.3, 0.7)
     dark = M("SodaDark", "#1b1d22", 0.6, 0.3)
     red = M("SodaRed", "#d8322a", 0.4)

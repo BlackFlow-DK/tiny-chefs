@@ -14,7 +14,7 @@ from scenery_parts import (M, ball, bezier, box, cyl, fillet, lathe, prism_xz, r
 
 
 def toaster():
-    chrome = M("ToasterChrome", "#cdd5db", 0.22, 0.5)
+    chrome = M("ToasterChrome", "#eef3f6", 0.12, 0.95)
     shine = M("ToasterShine", "#ffffff", 0.1, 0.1)
     rim = M("ToasterRim", "#8d979f", 0.3, 0.5)
     black = M("ToasterBlack", "#1f2125", 0.45)
@@ -133,7 +133,7 @@ def paper_towel_roll():
     print_blue = M("TowelPrint", "#86bde6", 0.85)
     board = M("TowelCore", "#b98a55", 0.9)
     wood = M("TowelWood", "#7a4b2a", 0.6)
-    chrome = M("TowelChrome", "#d3dae0", 0.22, 0.5)
+    chrome = M("TowelChrome", "#eef3f6", 0.12, 0.95)
     dark = M("TowelDark", "#3b3f45", 0.5)
     parts = []
     parts.append(lathe(wood, fillet([(0, 0), (1.9, 0), (2.0, 0.08), (2.0, 0.35), (1.75, 0.55), (0, 0.55)], r=0.14, n=3, radii={1: 0.03}), verts=40))
