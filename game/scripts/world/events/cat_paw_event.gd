@@ -92,7 +92,7 @@ func host_tick(_dt: float, t: float) -> void:
 		world.detach_all(it)
 		var w := sqrt(float(it.weight()))
 		var out := _across_axis() * _side(rel)
-		it.linear_velocity = dir * (Tuning.PAW_ITEM_SPEED / w) + out * 3.0 + Vector3.UP * (Tuning.PAW_ITEM_UP / w)
+		it.launch(dir * (Tuning.PAW_ITEM_SPEED / w) + out * 3.0 + Vector3.UP * (Tuning.PAW_ITEM_UP / w))
 		it.angular_velocity = Vector3(_rng.randf_range(-3, 3), _rng.randf_range(-10, 10), _rng.randf_range(-3, 3))
 		it.refuse_cooldown = 0.5
 		world.events.note_paw_hit(it)

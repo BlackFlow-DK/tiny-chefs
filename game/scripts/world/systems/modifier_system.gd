@@ -139,9 +139,12 @@ func host_tick(dt: float) -> void:
 			_carry_pos[id] = it.global_position
 		elif _carry_pos.has(id):
 			# Let go this tick: the food keeps sliding the way it was carried.
-			var v: Vector3 = _carry_vel.get(id, Vector3.ZERO)
-			v.y = 0.0
-			it.linear_velocity = v * SLIP_DROP_KEEP
+			# A toss (CarrySystem) already gave it the carrier's velocity / sqrt(weight) and a pop: keep the pop,
+			# and the faster of the two horizontal speeds.
+			var v: Vector3 = _carry_vel.get(id, Vector3.ZERO) * SLIP_DROP_KEEP
+			var cur := it.linear_velocity
+			if Vector2(v.x, v.z).length() > Vector2(cur.x, cur.z).length():
+				it.linear_velocity = Vector3(v.x, cur.y, v.z)
 			if Net.has_arg("carry-log"):
 				print("modifiers: slippery drop %d keeps carry velocity %.2f m/s" % [id, it.linear_velocity.length()])
 			_carry_pos.erase(id)

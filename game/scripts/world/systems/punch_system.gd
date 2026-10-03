@@ -62,7 +62,7 @@ func _punch(c: Chef) -> void:
 		world.detach_all(it)
 		world.item_launched(it)   # slippery: no "keeps its carry velocity" on top of the punch
 		var w := sqrt(float(it.weight()))
-		it.linear_velocity = (fwd * (Tuning.PUNCH_ITEM_SPEED / w) + Vector3.UP * (Tuning.PUNCH_ITEM_UP / w)) * power
+		it.launch((fwd * (Tuning.PUNCH_ITEM_SPEED / w) + Vector3.UP * (Tuning.PUNCH_ITEM_UP / w)) * power)   # an egg splats
 		it.angular_velocity = Vector3(0, 8.0, 0)
 		it.refuse_cooldown = 0.3
 		if Net.has_arg("carry-log") or power > 1.0:

@@ -171,7 +171,7 @@ func refuse_from_plate(it: Item, p: Station, msg := "") -> void:
 	dir.y = 0.0
 	if dir.length() < 0.1:
 		dir = Vector3(0, 0, 1)
-	it.linear_velocity = dir.normalized() * 9.0 + Vector3.UP * 5.0
+	it.launch(dir.normalized() * 9.0 + Vector3.UP * 5.0, false)   # bounces, but a refused egg does not splat
 	it.refuse_cooldown = 1.2
 	var k := str(it.kind)
 	if msg.is_empty():

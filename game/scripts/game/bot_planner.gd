@@ -61,9 +61,10 @@ static func key_of(type: String) -> String:
 	return str(GameData.TRANSFORM_KEYS.get(type, ""))
 
 
-## Burnt (or otherwise useless) food: not servable and nothing turns it into anything.
+## Burnt (or otherwise useless) food: not servable and nothing turns it into anything ("junk": egg_splat).
 static func is_junk(k: String) -> bool:
-	return not bool(GameData.ITEMS[k]["plate"]) and GameData.transform_station(k) == ""
+	return bool(GameData.ITEMS[k].get("junk", false)) or \
+		(not bool(GameData.ITEMS[k]["plate"]) and GameData.transform_station(k) == "")
 
 
 ## True when kind k lying on its own transform station is finished: the next change is the burn stage.

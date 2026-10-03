@@ -4,7 +4,13 @@ extends RefCounted
 ## (creates/frees puppet chefs and items, mirrors stations + shift + orders). Changing it changes the wire format.
 ## Reads/writes world.chefs, world.items, world.shift, world.orders, world.plates/bells/board state(). Calls Net.metrics.
 
+## Items: ii = [id, packed state (_pack_item), tumble (pack_quat)] and fi = [x, y, z, yaw] per item.
+const ITEM_INTS := 3
+const ITEM_FLOATS := 4
+
 var world: World
+var _snap_log := Net.has_arg("snap-log")
+var _snap_n := 0
 
 
 func _init(w: World) -> void:
@@ -31,20 +37,55 @@ func build() -> Dictionary:
 		if it.removed:
 			continue
 		ii.append(id)
-		ii.append(GameData.kind_index(it.kind))
-		ii.append(it.carrier_count)
-		ii.append(it.bar_kind | (16 if it.cooking else 0))
+		ii.append(_pack_item(it))
+		ii.append(pack_quat(it.tumble))
 		var p := it.global_position
-		var q := it.global_transform.basis.get_rotation_quaternion()
 		fi.append(p.x)
 		fi.append(p.y)
 		fi.append(p.z)
-		fi.append(q.x)
-		fi.append(q.y)
-		fi.append(q.z)
-		fi.append(q.w)
-		fi.append(it.bar)
-	return {"c": ci, "cf": cf, "i": ii, "if": fi, "m": _meta()}
+		fi.append(it.global_transform.basis.get_euler().y)   # loose food never tilts (Item locks x/z)
+	var d := {"c": ci, "cf": cf, "i": ii, "if": fi, "m": _meta()}
+	_log_size(d)
+	return d
+
+
+## --snap-log: every ~2 s print the encoded snapshot size (var_to_bytes, about what the RPC carries).
+func _log_size(d: Dictionary) -> void:
+	if not _snap_log:
+		return
+	_snap_n += 1
+	if _snap_n % 60 != 0:
+		return
+	var n := (d["i"] as PackedInt32Array).size()
+	print("snapshot: %d bytes (items part %d bytes) with %d chefs, %d items" % [var_to_bytes(d).size(),
+		var_to_bytes({"i": d["i"], "if": d["if"]}).size(), world.chefs.size(), n / ITEM_INTS])
+
+
+## One int per item: kind (8 bits) | carriers << 8 (4) | bar kind << 12 (4) | cooking << 16 | landing
+## counter << 17 (3) | landing power << 20 (3) | bar 0..255 << 23 (8).
+static func _pack_item(it: Item) -> int:
+	var bar := clampi(roundi(clampf(it.bar, 0.0, 1.0) * 255.0), 0, 255)
+	return (GameData.kind_index(it.kind) & 255) | ((it.carrier_count & 15) << 8) | ((it.bar_kind & 15) << 12) \
+		| ((1 if it.cooking else 0) << 16) | ((it.land_seq & 7) << 17) | ((it.land_power & 7) << 20) | (bar << 23)
+
+
+## A unit quaternion in one int: 4 x 8 bits (component * 127 + 128).
+static func pack_quat(q: Quaternion) -> int:
+	if q.w < 0.0:
+		q = -q
+	var out := 0
+	var c := [q.x, q.y, q.z, q.w]
+	for i in 4:
+		out |= (clampi(roundi(float(c[i]) * 127.0) + 128, 0, 255)) << (8 * i)
+	return out
+
+
+static func unpack_quat(v: int) -> Quaternion:
+	var c: Array[float] = []
+	for i in 4:
+		c.append(float(((v >> (8 * i)) & 255) - 128) / 127.0)
+	var q := Quaternion(c[0], c[1], c[2], c[3])
+	return q.normalized() if q.length_squared() > 0.0001 else Quaternion.IDENTITY
 
 
 func _meta() -> Dictionary:
@@ -85,11 +126,12 @@ func apply(d: Dictionary) -> void:
 	var ii: PackedInt32Array = d["i"]
 	var fi: PackedFloat32Array = d["if"]
 	seen = {}
-	for k in range(0, ii.size(), 4):
+	for k in range(0, ii.size(), ITEM_INTS):
 		var id := ii[k]
-		var j := (k / 4) * 8
+		var j := (k / ITEM_INTS) * ITEM_FLOATS
 		seen[id] = true
-		var kind: String = GameData.ITEM_KINDS[ii[k + 1]]
+		var pk := ii[k + 1]
+		var kind: String = GameData.ITEM_KINDS[pk & 255]
 		var it: Item = items.get(id)
 		if it == null:
 			it = Item.new()
@@ -98,11 +140,13 @@ func apply(d: Dictionary) -> void:
 			items[id] = it
 		else:
 			it.set_kind(kind)
-		it.carrier_count = ii[k + 2]
-		it.bar_kind = ii[k + 3] & 15
-		it.set_cooking((ii[k + 3] & 16) != 0)
-		it.bar = fi[j + 7]
-		it.set_target(Vector3(fi[j], fi[j + 1], fi[j + 2]), Quaternion(fi[j + 3], fi[j + 4], fi[j + 5], fi[j + 6]).normalized())
+		it.carrier_count = (pk >> 8) & 15
+		it.bar_kind = (pk >> 12) & 15
+		it.set_cooking(((pk >> 16) & 1) != 0)
+		it.bar = float((pk >> 23) & 255) / 255.0
+		it.apply_land((pk >> 17) & 7, (pk >> 20) & 7)
+		it.set_tumble(unpack_quat(ii[k + 2]))
+		it.set_target(Vector3(fi[j], fi[j + 1], fi[j + 2]), Quaternion(Vector3.UP, fi[j + 3]))
 	for id in items.keys():
 		if not seen.has(id):
 			items[id].queue_free()

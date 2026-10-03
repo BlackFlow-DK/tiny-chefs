@@ -44,6 +44,9 @@ const ITEMS := {
 	"chicken_cooked": {"label": "Crispy chicken", "size": Vector3(3.0, 0.7, 3.0), "shape": "cyl", "color": Color(0.8, 0.5, 0.18), "weight": 3, "plate": true, "fries_to": "chicken_burnt"},
 	"chicken_burnt": {"label": "Burnt chicken", "size": Vector3(3.0, 0.7, 3.0), "shape": "cyl", "color": Color(0.2, 0.13, 0.08), "weight": 3, "plate": false},
 	"soda_cup": {"label": "Soda", "size": Vector3(2.2, 3.0, 2.2), "shape": "cyl", "color": Color(0.88, 0.18, 0.24), "weight": 1, "plate": true},
+	# Food physics (docs/design/polish-2.md section 2): a tossed/punched egg that lands hard. Waste: "junk" means
+	# recipes and bots never want it (bots trash it).
+	"egg_splat": {"label": "Splat egg", "size": Vector3(2.4, 0.1, 2.4), "shape": "cyl", "color": Color(0.99, 0.97, 0.9), "weight": 1, "plate": false, "junk": true},
 }
 
 ## Fixed index order for network snapshots. Append only.
@@ -53,6 +56,7 @@ const ITEM_KINDS := [
 	"bacon_raw", "bacon_cooked", "bacon_burnt", "egg", "fried_egg", "egg_burnt",
 	"onion", "onion_slice", "onion_rings", "onion_rings_burnt", "pickle_slice",
 	"potato", "fries_raw", "fries", "fries_burnt", "chicken_raw", "chicken_cooked", "chicken_burnt", "soda_cup",
+	"egg_splat",
 ]
 
 ## Counter tops are the map's "surfaces" (see MAPS), all at y = 0. The camera looks towards -Z.
