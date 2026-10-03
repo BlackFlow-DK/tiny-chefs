@@ -105,10 +105,11 @@ def back_wings():
     white = M("WingWhite", "#fffaf0", 0.7)
     cream = M("WingCream", "#f0e6cf", 0.75)
     P = []
-    yb = by(0, 0.62, 0.02)
+    yb = by(0, 0.62, 0.05)
     for s in (-1, 1):
-        root = V(s * 0.06, yb, 0.595)
-        P.append(ellip(white, root + V(s * 0.03, 0.012, 0.0), (0.05, 0.03, 0.05), nu=8, nv=5, name="WingRoot"))
+        root = V(s * 0.115, yb, 0.6)
+        P.append(ellip(white, root + V(s * 0.02, 0.012, 0.0), (0.075, 0.04, 0.062), nu=10, nv=6, name="WingRoot"))
+        P.append(ellip(cream, V(s * 0.05, yb - 0.004, 0.6), (0.06, 0.03, 0.045), nu=8, nv=5, name="WingMount"))
         rows = [(cream, 0.24, [-22, -6, 10, 26, 42, 58]), (white, 0.28, [-14, 2, 18, 34, 50, 64]), (white, 0.19, [-5, 15, 35, 55])]
         for row, (mat, L, angles) in enumerate(rows):
             for a in angles:
@@ -263,43 +264,51 @@ def back_balloon():
 
 # ------------------------------------------------------------------ sword (giant spatula)
 def back_sword():
+    """Giant spatula worn like a sword: handle above the +x shoulder, flipper hanging behind the -x hip, leather
+    sling over the chest. Everything lies on the jacket back (x/z map, y from the jacket surface) so hands never reach it."""
     blade = M("SpatulaBlade", "#dfe4ec", 0.3, metallic=0.75)
     slot = M("SpatulaSlot", "#343843", 0.5, metallic=0.5)
     wood = M("SpatulaHandle", "#b5651d", 0.6)
     ring = M("SpatulaRing", "#d9c27a", 0.35, metallic=0.5)
-    strap = M("SpatulaSling", "#2f6fd0", 0.75)
-    loopm = M("SpatulaLoop", "#5a3d22", 0.8)
+    strap = M("SpatulaSling", "#5a3d22", 0.8)
     P = []
-    t = math.radians(52)
-    g = V(math.sin(t), 0, math.cos(t))
-    sd = V(math.cos(t), 0, -math.sin(t))
-    n = V(0, 1, 0)
-    y0 = by(0, 0.45, 0.012)
-    s0 = V(-0.17, y0, 0.27)
-    bl, bw = 0.32, 0.25
+    H = (0.17, 0.87)
+    T = (-0.16, 0.25)
+    L = math.hypot(T[0] - H[0], T[1] - H[1])
+    dx, dz = (T[0] - H[0]) / L, (T[1] - H[1]) / L
+    px, pz = -dz, dx  # across the blade
+
+    def surf(a, w, off):
+        x = H[0] + (T[0] - H[0]) * a + w * px
+        z = H[1] + (T[1] - H[1]) * a + w * pz
+        p = jpt(x, min(z, 0.7), off, back=True)
+        return V(x, p.y + (0.0 if z <= 0.7 else 0.02 * (z - 0.7) / 0.17), z)
+
+    A0, A1 = 0.52, 1.0  # flipper span along the axis
+    bw = 0.092
 
     def f(u, v):
-        w = bw * 0.5 * (1 - 0.08 * v)
-        k = (2 * u - 1)
-        corner = 1.0 - 0.28 * max(0.0, (0.1 - v * bl) / 0.1) ** 2
-        return s0 + g * (bl * v) + sd * (w * k * corner) + n * (0.012 + 0.006 * (1 - k * k))
-    P.append(sheet(blade, f, 6, 6, 0.014, name="Blade", flip=False))
-    for i in range(4):
-        x = (i - 1.5) * 0.04
-        for j in range(2):
-            c = s0 + sd * x + n * 0.022
-            P.append(rbox(slot, c + g * (0.17 + 0.07 * j), (0.016, 0.006, 0.06), rot=(0, -t, 0), sq=3.5, nu=6, nv=3, name="Slot"))
-    a = s0 + g * bl + n * 0.012
-    b = a + g * 0.1
-    h = b + g * 0.3
-    P.append(tube(blade, [a, b], 0.014, samples=4, seg=6, name="Shank"))
-    P.append(tube(wood, [b, (b + h) / 2, h], 0.022, samples=8, seg=7, name="Handle"))
-    P.append(cyl(ring, b - g * 0.01, b + g * 0.03, 0.028, seg=10, name="Ferrule"))
-    P.append(ellip(wood, h + g * 0.012, (0.03, 0.03, 0.03), nu=8, nv=5, name="Knob"))
-    P.append(loop_ribbon(strap, -62, 0.19, 0.5, 0.05, off=0.03, nu=44, name="Sling"))
-    lp = s0 + g * 0.14 + n * 0.014
-    pts = [lp + sd * 0.115 * math.cos(2 * PI * i / 12) + n * 0.03 * math.sin(2 * PI * i / 12) for i in range(12)]
-    P.append(tube(loopm, pts, 0.01, seg=5, closed=True, name="Holster"))
+        a = A0 + (A1 - A0) * v
+        k = 2 * u - 1
+        w = bw * (0.82 + 0.18 * v ** 0.7) * k
+        # rounded tip corners
+        corner = 1.0 - 0.3 * max(0.0, (v - 0.85) / 0.15) ** 2
+        return surf(a, w * corner, 0.034 + 0.008 * (1 - k * k))
+    P.append(sheet(blade, f, 8, 8, 0.012, name="Blade", flip=False))
+    # slots
+    for i in range(-2, 3):
+        wc = i * 0.034
+        P.append(sheet(slot, lambda u, v, wc=wc: surf(0.7 + 0.24 * v, wc + (u - 0.5) * 0.016, 0.0445), 1, 6, 0.004,
+                       name="Slot", flip=False))
+    # neck + handle
+    neck = [surf(0.54, 0, 0.034), surf(0.49, 0, 0.04), surf(0.44, 0, 0.044)]
+    P.append(tube(blade, neck, 0.011, samples=6, seg=6, name="Shank"))
+    pts = [surf(0.44, 0, 0.046), surf(0.3, 0, 0.05), surf(0.15, 0, 0.066), surf(0.0, 0, 0.078)]
+    P.append(tube(wood, pts, 0.021, samples=12, seg=8, name="Handle"))
+    P.append(cyl(ring, surf(0.45, 0, 0.045), surf(0.41, 0, 0.047), 0.027, seg=10, name="Ferrule"))
+    P.append(ellip(wood, surf(-0.005, 0, 0.078), (0.03, 0.03, 0.03), nu=8, nv=5, name="Knob"))
+    # leather sling across the chest (thin, over the jacket)
+    P.append(loop_ribbon(strap, -62, 0.19, 0.5, 0.032, off=0.022, nu=44, name="Sling", thick=0.008))
     return P
 
 

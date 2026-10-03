@@ -167,16 +167,24 @@ def beard_soul_patch():
 
 def beard_walrus():
     hair = M("BeardHair", HAIR, 0.75)
+    dark = M("BeardHairDark", "#46291a", 0.75)
     P = []
     for s in (-1, 1):
-        spec = [(0.012, 0.795, 0.058), (0.06, 0.786, 0.068), (0.11, 0.768, 0.064), (0.15, 0.742, 0.05)]
-        pts = [head_xz(s * x, z, o)[0] for x, z, o in spec]
-        pts.append(V((s * 0.18, -0.2, 0.7)))
-        pts.append(V((s * 0.175, -0.225, 0.64)))
-        P.append(tube(hair, pts, lambda t: 0.014 + 0.046 * math.sin(PI * min(1.0, 0.35 + 0.9 * (1 - t))) ** 0.7,
-                      samples=34, seg=8, name="Walrus"))
-    c, n = head_xz(0.0, 0.782, 0.05)
-    P.append(ellip(hair, c, (0.09, 0.045, 0.055), n=n, nu=14, nv=8, name="Mass"))
+        # thick moustache: from under the nose, over the mouth, drooping to just past the chin sides
+        spine = [head_xz(s * 0.012, 0.803, 0.05)[0], head_xz(s * 0.06, 0.789, 0.062)[0],
+                 head_xz(s * 0.11, 0.766, 0.062)[0], head_az(s * 0.58, 0.765, 0.056)[0],
+                 head_az(s * 0.74, 0.755, 0.05)[0], head_az(s * 0.84, 0.745, 0.04)[0]]
+        P.append(tube(hair, spine, lambda t: 0.012 + 0.05 * math.sin(PI * min(1.0, 0.3 + 0.95 * (1 - t))) ** 0.8,
+                      samples=34, seg=9, name="Walrus"))
+        # sculpted strands: tapered locks along the droop, poking out past the end
+        for k, (dz, dth, oo) in enumerate(((0.0, 0.0, 0.082), (-0.012, 0.1, 0.07), (0.012, -0.08, 0.066))):
+            st = [head_xz(s * 0.07, 0.784 + dz, oo)[0], head_xz(s * 0.12, 0.76 + dz, oo)[0],
+                  head_az(s * (0.64 + dth), 0.756 + dz, oo - 0.006)[0], head_az(s * (0.78 + dth), 0.744 + dz, oo - 0.016)[0],
+                  head_az(s * (0.86 + dth), 0.73 + dz, oo - 0.024)[0]]
+            P.append(tube(dark if k == 1 else hair, st, lambda t: 0.0065 * (1 - t) ** 0.6 + 0.002, samples=18, seg=6,
+                          name="Strand"))
+    c, n = head_xz(0.0, 0.795, 0.045)
+    P.append(ellip(hair, c, (0.085, 0.04, 0.045), n=n, nu=14, nv=8, name="Mass"))
     return to_anchor(P, BEARD_RAW)
 
 
