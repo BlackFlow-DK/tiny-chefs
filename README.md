@@ -12,6 +12,30 @@ the cat paw, the wind and the health inspector.
 
 ![The cat paw sweeps the counter](docs/images/cat-paw.png)
 
+![Carrying a heavy patty, with a new order ticket](docs/images/carry.png)
+
+![The upgrade shop](docs/images/shop.png)
+
+![The Wardrobe](docs/images/wardrobe.png)
+
+## What is in it
+
+- **Co-op kitchen chaos**: 1 to 4 chefs on a LAN, host-authoritative, campaign (12 missions), endless and
+  custom modes, four difficulties and six modifiers.
+- **Plate rules**: stack the base first and the bun top last or the dish pays 15% less; take the top item
+  back off a plate, or hold work to scrape the whole plate into the bin.
+- **Food physics**: toss food while moving, round food rolls, loose food piles up, drops bounce and squash,
+  and a thrown egg splats.
+- **Upgrade tree**: five categories and 16 tiered lines (up to five levels each) bought in a shop with tabs,
+  level pips and Recommended tags.
+- **Wardrobe**: 65 cosmetics (hats, beards, face gear, outfits, back items and body shapes) bought with
+  tokens you earn from shifts and keep on your own PC.
+- **New chef animation**: a procedural rig with swinging arms, a walk cycle, lean and strain when carrying,
+  chopping, bell slaps, and celebration and slump reactions.
+- **Order tickets**: ingredient pictures in stack order with "1st" and "last" tags, counts and ticks for what
+  is on the plate.
+- **Hazards and events**: the cat paw, picnic wind, VIP orders and the health inspector.
+
 ## Play it
 
 Download the single exe from the [Releases](https://github.com/BlackFlow-DK/tiny-chefs/releases) page
