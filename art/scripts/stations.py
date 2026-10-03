@@ -38,7 +38,7 @@ def griddle():
     frame = M("GriddleFrame", "#b6bec6", 0.32, 0.5)
     fin = M("GriddleFin", "#cfd6dc", 0.28, 0.5)
     panel = M("GriddlePanel", "#23262d", 0.5, 0.3)
-    chrome = M("GriddleChrome", "#e6ebef", 0.15, 0.5)
+    chrome = M("GriddleChrome", "#f0f5f8", 0.12, 0.95)
     knob = M("GriddleKnob", "#121316", 0.35, 0.2)
     white = M("GriddleMark", "#f2f2ee", 0.5)
     glow = M("GriddleGlow", "#ff6a10", 0.5, emis="#ff4a00", strength=2.6)
@@ -254,7 +254,7 @@ def trash_drain():
     rib_m = M("DrainRibMid", "#767d86", 0.36, 0.5)
     rib_i = M("DrainRibInner", "#4d535b", 0.4, 0.5)
     plug = M("DrainPlug", "#0b0d11", 0.5, 0.3)
-    chrome = M("DrainChrome", "#e2e7eb", 0.18, 0.5)
+    chrome = M("DrainChrome", "#f0f5f8", 0.12, 0.95)
     slot = M("DrainSlot", "#1a1c20", 0.5)
     a = Acc()
     prof = [(0, 0), (2.0, 0), (2.0, T - 0.03), (1.97, T - 0.01), (1.9, T), (1.66, T), (1.61, T - 0.012),

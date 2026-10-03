@@ -178,7 +178,8 @@ def utensil_pot():
 
 
 def sink_tap():
-    chrome = M("TapChrome", "#d7dfe6", 0.22, 0.5)
+    chrome = M("TapChrome", "#f0f5f8", 0.1, 1.0)
+    band = M("TapBand", "#566069", 0.2, 1.0)
     shine = M("TapShine", "#ffffff", 0.1, 0.1)
     dark = M("TapDark", "#22262b", 0.6)
     blue = M("TapBlue", "#2a6fd6", 0.35)
@@ -209,6 +210,9 @@ def sink_tap():
     dp = [(0, -0.5), (0.18, -0.4), (0.32, -0.12), (0.34, 0.08), (0.22, 0.3), (0.1, 0.55), (0, 0.78)]
     parts.append(lathe(water, dp, verts=12, loc=(tip.x, tip.y, tip.z - 2.75)))
     # highlight bands
+    # dark reflection band on the shadow side (reads as polished metal under any light)
+    parts.append(rod(band, (0.52, -0.5, 4.4), (0.52, -0.42, 8.0), 0.09, verts=6))
+    parts.append(rod(band, (0.5, -0.45, 1.7), (0.5, -0.45, 3.2), 0.07, verts=6))
     parts.append(rod(shine, (-0.42, -0.6, 1.9), (-0.42, -0.6, 3.1), 0.06, verts=6))
     parts.append(rod(shine, (-0.42, -0.6, 4.6), (-0.42, -0.5, 7.9), 0.07, verts=6))
     # (top-of-arch highlight follows the arch, offset towards the light)

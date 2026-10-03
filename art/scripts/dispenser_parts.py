@@ -206,7 +206,7 @@ def sausage(mat, p0, p1, r, bend=0.0, verts=10, bulge=0.06):
 
 
 def leaf(mats, length, width, cup=0.5, ruffle=0.15, seed=0, thick=0.0, nu=9, nv=7, rib=None, base_pale=0.28,
-         curl=0.0):
+         curl=0.0, freq=3.4, rib_w=0.16):
     """Ruffled leaf growing along +X from its base, cupped up (+Z). mats = [green, pale, rib?]"""
     bm = bmesh.new()
     top = {}
@@ -218,7 +218,7 @@ def leaf(mats, length, width, cup=0.5, ruffle=0.15, seed=0, thick=0.0, nu=9, nv=
             x = u * length
             y = v * hw
             z = cup * (v * hw) ** 2 / (width / 2) + curl * length * u * u
-            z += ruffle * width * 0.5 * (abs(v) ** 2.2) * min(1.0, u * 3.0) * math.sin(3.4 * math.pi * u + seed * 2.1 + 1.6 * v)
+            z += ruffle * width * 0.5 * (abs(v) ** 2.2) * min(1.0, u * 3.0) * math.sin(freq * math.pi * u + seed * 2.1 + 1.6 * v)
             y += 0.03 * width * abs(v) * math.sin(4.5 * u + seed)
             top[(i, j)] = bm.verts.new((x, y, z))
     for i in range(nu):
@@ -227,7 +227,7 @@ def leaf(mats, length, width, cup=0.5, ruffle=0.15, seed=0, thick=0.0, nu=9, nv=
             u = (i + 0.5) / nu
             v = -1 + 2 * (j + 0.5) / nv
             slot = 0
-            if rib is not None and abs(v) < 0.16 and u < 0.9:
+            if rib is not None and abs(v) < rib_w and u < 0.9:
                 slot = 2
             elif u < base_pale:
                 slot = 1

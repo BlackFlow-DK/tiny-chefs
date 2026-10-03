@@ -24,11 +24,12 @@ PAL = {
     # eggs
     "EggShell": ("#f1e3c8", 0.45), "EggSpeck": ("#bf9a6a", 0.6),
     "EggWhite": ("#fdfdf6", 0.3), "EggYolk": ("#ffb000", 0.12), "EggShine": ("#fff3c4", 0.2),
-    "EggBurntWhite": ("#4a2f1b", 0.85), "EggBurntEdge": ("#8c4c18", 0.8),
-    "EggBurntYolk": ("#1c120c", 0.9),
+    "EggBurntWhite": ("#a8742f", 0.8), "EggBurntEdge": ("#4a2410", 0.85), "EggBurntBlack": ("#140b07", 0.95),
+    "EggBurntYolk": ("#2a1a10", 0.85), "EggBurntYolkHi": ("#5a4636", 0.5),
     # onion
-    "OnionSkin": ("#c88a3c", 0.55), "OnionSkinDark": ("#b27632", 0.6), "OnionNeck": ("#e0bf7c", 0.7),
-    "OnionRoot": ("#efe3bf", 0.8),
+    "OnionSkin": ("#dba046", 0.5), "OnionSkinDark": ("#c98a35", 0.55), "OnionSkinMid": ("#d29640", 0.5),
+    "OnionNeck": ("#e9cd8a", 0.7), "OnionSprout": ("#b9c971", 0.6), "OnionFlake": ("#f0c473", 0.5),
+    "OnionRoot": ("#f4ead0", 0.8), "OnionPlate": ("#7a5326", 0.9),
     "OnionPale": ("#f4ead2", 0.4), "OnionPurple": ("#b75aa6", 0.4), "OnionLilac": ("#e2c4dc", 0.4),
     "Batter": ("#eaa62c", 0.6), "BatterDark": ("#c2741a", 0.7), "BatterBurnt": ("#241912", 0.95),
     "BatterBurntLight": ("#4a3424", 0.95),
@@ -36,14 +37,16 @@ PAL = {
     "PickleSkin": ("#46892a", 0.4), "PickleDark": ("#2d6a1c", 0.5), "PickleFlesh": ("#b6d466", 0.4),
     "PickleCore": ("#e9f2b8", 0.4), "PickleSeed": ("#fffbe0", 0.4),
     # potato / fries
-    "Potato": ("#b5824d", 0.85), "PotatoDark": ("#6d4424", 0.9), "PotatoEye": ("#51301a", 0.9),
-    "FryRaw": ("#efe79a", 0.5), "FryRawEdge": ("#c9b755", 0.6),
+    "Potato": ("#b5824d", 0.85), "FryBasket": ("#a9b2bb", 0.28), "FryBasketHandle": ("#23252b", 0.6),
+    "FryRawSkin": ("#d3b36a", 0.6), "FryRawPale": ("#fbf6cf", 0.45), "PotatoDark": ("#6d4424", 0.9), "PotatoEye": ("#51301a", 0.9),
+    "FryRaw": ("#f5ecb2", 0.45), "FryRawEdge": ("#e6d98a", 0.5),
     "Fry": ("#f6c531", 0.5), "FryTip": ("#d9921c", 0.6), "FryBurnt": ("#2b190c", 0.9),
     "FryBurntTip": ("#0f0905", 0.95),
     "Carton": ("#dc2d2d", 0.6), "CartonDark": ("#a51d1d", 0.7), "Logo": ("#ffd91a", 0.5),
     "LogoRing": ("#ffffff", 0.5), "CartonBurnt": ("#7c1b1b", 0.8),
     # chicken
-    "ChickenRaw": ("#f0a39d", 0.22), "ChickenRawLump": ("#f7bdb6", 0.22), "ChickenFat": ("#fff0e4", 0.3),
+    "ChickenRaw": ("#f4b3ab", 0.1), "ChickenRawLump": ("#f9c9c1", 0.08), "ChickenFat": ("#fff6ec", 0.2),
+    "ChickenRawDeep": ("#e48f8a", 0.15), "ChickenGloss": ("#ffe3dd", 0.05),
     "Crust": ("#d08a28", 0.75), "CrustDark": ("#9c5214", 0.8), "CrustLight": ("#ecb446", 0.7),
     "ChickenBurnt": ("#1a1411", 0.95), "ChickenBurntLump": ("#35291f", 0.95),
     "Ash2": ("#8a847c", 1.0), "Ember2": ("#d04a10", 0.6),
@@ -234,21 +237,25 @@ def fried_egg(kind, o=(0, 0, 0)):
     R = 1.5
     burnt = kind == "burnt"
     prof = [(0, 0), (R, 0), (R, 0.06), (R * 0.96, 0.12), (R * 0.65, 0.15), (0, 0.15)]
-    body = lathe(m("EggBurntWhite" if burnt else "EggWhite"), prof, verts=20, loc=o)
-    roughen(body, (lambda a: 1 + 0.55 * (_egg_f(a) - 1)) if burnt else _egg_f)
+    body = lathe(m("EggBurntWhite" if burnt else "EggWhite"), prof, verts=24 if burnt else 20, loc=o)
+    roughen(body, _egg_f)
     parts = [body]
     if burnt:
         rng = random.Random(3)
-        for i in range(22):  # crisp lacy brown edge blisters
-            a = 2 * math.pi * i / 22 + rng.uniform(-0.1, 0.1)
-            rr = R * (1 + 0.55 * (_egg_f(a) - 1)) * rng.uniform(0.84, 0.97)
-            parts.append(ball(m("EggBurntEdge"), (0.23, 0.17, 0.08), _add(o, rr * math.cos(a), rr * math.sin(a), 0.13),
-                              rot=(0, 0, a), seg=6, rings=3))
-        parts.append(ball(m("EggBurntYolk"), (0.6, 0.55, 0.14), _add(o, 0.15, -0.05, 0.14), seg=10, rings=4))
-        for i in range(4):
-            parts.append(ball(m("EggBurntEdge"), (0.12, 0.08, 0.05),
-                              _add(o, 0.15 + 0.3 * math.cos(i * 1.7), -0.05 + 0.27 * math.sin(i * 1.7), 0.27),
-                              seg=5, rings=3))
+        n = 34
+        for i in range(n):  # lacy blackened frill: overlapping crisp flakes along the rim, tangent to it
+            a = 2 * math.pi * i / n + rng.uniform(-0.04, 0.04)
+            rr = R * _egg_f(a) * rng.uniform(0.9, 1.0)
+            col = "EggBurntBlack" if i % 4 else "EggBurntEdge"
+            parts.append(ball(m(col), (0.1, 0.27, 0.07), _add(o, rr * math.cos(a), rr * math.sin(a), 0.12 + 0.03 * (i % 2)),
+                              rot=(0, 0, a + rng.uniform(-0.25, 0.25)), seg=6, rings=3))
+        for i in range(9):  # a few blackened blisters inside
+            a = 2 * math.pi * i / 9 + 0.5
+            rr = R * _egg_f(a) * rng.uniform(0.55, 0.78)
+            parts.append(ball(m("EggBurntEdge"), (0.17, 0.12, 0.05), _add(o, rr * math.cos(a), rr * math.sin(a), 0.15),
+                              rot=(0, 0, a + 1.2), seg=6, rings=3))
+        parts.append(ball(m("EggBurntYolk"), (0.7, 0.66, 0.3), _add(o, 0.12, -0.06, 0.12), seg=14, rings=8))
+        parts.append(ball(m("EggBurntYolkHi"), (0.2, 0.1, 0.05), _add(o, -0.02, -0.34, 0.4), rot=(0, 0, 0.6), seg=6, rings=3))
     else:
         parts.append(ball(m("EggYolk"), (0.66, 0.63, 0.3), _add(o, 0.12, -0.06, 0.11), seg=14, rings=8))
         parts.append(ball(m("EggShine"), (0.17, 0.09, 0.05), _add(o, -0.05, -0.32, 0.39), rot=(0, 0, 0.6), seg=6, rings=4))
@@ -259,21 +266,33 @@ def fried_egg(kind, o=(0, 0, 0)):
 # onion family
 # ---------------------------------------------------------------------------
 def onion(o=(0, 0, 0)):
-    prof = [(0, 0.14), (0.4, 0.1), (0.85, 0.2), (1.15, 0.6), (1.2, 1.1), (1.06, 1.6), (0.62, 2.0),
-            (0.22, 2.25), (0.07, 2.4), (0, 2.4)]
-    verts = 16
+    # smooth bulb: sampled curve, many meridians, soft banding instead of hard stripes
+    H = 2.4
+    prof = [(0, 0.16), (0.3, 0.12), (0.62, 0.2), (0.92, 0.42), (1.1, 0.78), (1.2, 1.15), (1.15, 1.5), (0.98, 1.82),
+            (0.72, 2.05), (0.42, 2.2), (0.2, 2.3), (0.1, 2.37), (0.0, H)]
+    verts = 28
 
     def fm(c):
-        if c.z > 2.0:
-            return 2
-        return int(((math.atan2(c.y, c.x) / (2 * math.pi)) % 1.0) * verts) % 2
+        if c.z > 2.05:
+            return 3
+        k = int(((math.atan2(c.y, c.x) / (2 * math.pi)) % 1.0) * verts)
+        return (0, 1, 2, 1)[k % 4]
 
-    parts = [lathe([m("OnionSkin"), m("OnionSkinDark"), m("OnionNeck")], prof, verts=verts, loc=o, face_mat=fm)]
-    for i in range(9):  # tuft of root hairs
-        a = 2 * math.pi * i / 9
-        parts.append(rod(m("OnionRoot"), _add(o, 0.12 * math.cos(a), 0.12 * math.sin(a), 0.22),
-                         _add(o, 0.42 * math.cos(a), 0.42 * math.sin(a), 0.0), 0.035, verts=4))
-    parts.append(ball(m("OnionNeck"), (0.28, 0.06, 0.45), _add(o, 0.95, -0.4, 1.0), rot=(0, 0.3, -0.4), seg=6, rings=4))
+    parts = [lathe([m("OnionSkin"), m("OnionSkinDark"), m("OnionSkinMid"), m("OnionNeck")], prof, verts=verts, loc=o, face_mat=fm)]
+    # sprout tip: bent pale tip with a green hint
+    parts.append(rod(m("OnionNeck"), _add(o, 0, 0, 2.2), _add(o, 0.05, 0.0, 2.55), 0.07, verts=6))
+    parts.append(rod(m("OnionSprout"), _add(o, 0.05, 0.0, 2.5), _add(o, 0.2, 0.02, 2.75), 0.05, verts=6))
+    parts.append(ball(m("OnionSprout"), (0.045, 0.045, 0.08), _add(o, 0.2, 0.02, 2.78), seg=5, rings=3))
+    # root plate + splayed hairs
+    parts.append(cyl(m("OnionPlate"), 0.32, 0.12, _add(o, 0, 0, 0.06), verts=12))
+    for i in range(13):
+        a = 2 * math.pi * i / 13
+        parts.append(rod(m("OnionRoot"), _add(o, 0.2 * math.cos(a), 0.2 * math.sin(a), 0.1),
+                         _add(o, 0.5 * math.cos(a + 0.2), 0.5 * math.sin(a + 0.2), 0.0), 0.028, verts=4))
+    # papery skin flakes lifting off the bulb
+    for a, z, w in ((2.5, 1.2, 0.45), (4.4, 1.5, 0.4)):
+        parts.append(ball(m("OnionFlake"), (0.025, w * 0.6, w), _add(o, 1.17 * math.cos(a), 1.17 * math.sin(a), z),
+                          rot=(0, 0.15, a), seg=6, rings=4))
     return parts
 
 
@@ -387,22 +406,41 @@ def potato(o=(0, 0, 0)):
 
 def fries_raw(o=(0, 0, 0)):
     rng = random.Random(21)
+    basket = m("FryBasket")
     parts = []
-    t, n = 0.3, 6
-    for layer in range(4):
-        z = t / 2 + layer * t
-        for k in range(n):
-            off = (-1 + 2 * (k + 0.5) / n) * 1.25 + rng.uniform(-0.05, 0.05)
-            ln = rng.uniform(2.35, 2.75)
-            sh = rng.uniform(-0.15, 0.15)
-            col = "FryRaw" if rng.random() > 0.3 else "FryRawEdge"
-            rz = rng.uniform(-0.12, 0.12)
-            rx = rng.uniform(-0.06, 0.06)
-            zz = z + rng.uniform(-0.03, 0.05)
-            if layer % 2 == 0:
-                parts.append(box(m(col), (ln, t * 0.92, t * 0.92), _add(o, sh, off, zz), rot=(rx, 0, rz)))
-            else:
-                parts.append(box(m(col), (t * 0.92, ln, t * 0.92), _add(o, off, sh, zz), rot=(0, rx, rz)))
+    # shallow wire basket (rim rods, corner legs, base mesh) with a black-gripped handle
+    hx, hy, bh = 1.15, 1.15, 0.5
+    for z in (0.12, bh):
+        parts.append(rod(basket, _add(o, -hx, -hy, z), _add(o, hx, -hy, z), 0.045, verts=6))
+        parts.append(rod(basket, _add(o, -hx, hy, z), _add(o, hx, hy, z), 0.045, verts=6))
+        parts.append(rod(basket, _add(o, -hx, -hy, z), _add(o, -hx, hy, z), 0.045, verts=6))
+        parts.append(rod(basket, _add(o, hx, -hy, z), _add(o, hx, hy, z), 0.06, verts=6))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            parts.append(rod(basket, _add(o, sx * hx, sy * hy, 0.0), _add(o, sx * hx, sy * hy, bh), 0.045, verts=6))
+    for k in range(-2, 3):
+        parts.append(rod(basket, _add(o, k * 0.45, -hy, 0.12), _add(o, k * 0.45, -hy, bh), 0.025, verts=4))
+        parts.append(rod(basket, _add(o, k * 0.45, hy, 0.12), _add(o, k * 0.45, hy, bh), 0.025, verts=4))
+        parts.append(rod(basket, _add(o, k * 0.45, -hy, 0.04), _add(o, k * 0.45, hy, 0.04), 0.025, verts=4))
+    parts.append(rod(basket, _add(o, hx, 0, bh), _add(o, hx + 0.35, 0, bh + 0.3), 0.06, verts=6))
+    parts.append(rod(m("FryBasketHandle"), _add(o, hx + 0.3, 0, bh + 0.27), _add(o, hx + 0.58, 0, bh + 0.5), 0.1, verts=8))
+    # heaped pale potato batons, random yaw, pitched like a real pile
+    for i in range(60):
+        r = math.sqrt(rng.random()) * 1.02
+        a = rng.uniform(0, 6.28)
+        x, y = r * math.cos(a) * 0.95, r * math.sin(a) * 0.95
+        mound = 0.25 + 0.55 * max(0.0, 1 - (r / 1.1) ** 2)
+        z = rng.uniform(0.2, 0.3) + mound * rng.uniform(0.4, 1.0)
+        ln = rng.uniform(1.9, 2.6)
+        w = 0.22
+        yaw = rng.uniform(0, math.pi)
+        pitch = rng.uniform(-0.18, 0.18)
+        col = rng.choice(["FryRaw", "FryRaw", "FryRawPale", "FryRawEdge"])
+        parts.append(box(m(col), (ln, w, w), _add(o, x, y, z), rot=(rng.uniform(-0.15, 0.15), pitch, yaw)))
+        if rng.random() < 0.3:  # strip of tan potato skin on one baton side
+            parts.append(box(m("FryRawSkin"), (ln * 0.98, w * 0.35, w * 0.9),
+                             _add(o, x + math.cos(yaw + 1.57) * w * 0.5, y + math.sin(yaw + 1.57) * w * 0.5, z),
+                             rot=(0, pitch, yaw)))
     return parts
 
 
@@ -438,7 +476,38 @@ def fries(kind, o=(0, 0, 0)):
 # ---------------------------------------------------------------------------
 # chicken
 # ---------------------------------------------------------------------------
+def chicken_raw_fillet(o=(0, 0, 0)):
+    """Raw fillet: smooth glossy pale-pink teardrop, fat rounded end, tapered tip, white fat edge, tendon."""
+    ang = math.radians(32)
+    ca, sa = math.cos(ang), math.sin(ang)
+
+    def P(x, y, z):
+        return _add(o, x * ca - y * sa, x * sa + y * ca, z)
+
+    def E(mat, c, dims, tilt=0.0, seg=12, rings=8):
+        return ball(m(mat), dims, P(*c), rot=(0, 0, ang + tilt), seg=seg, rings=rings)
+
+    parts = [
+        E("ChickenRaw", (0.55, 0.0, 0.36), (1.25, 1.1, 0.38)),
+        E("ChickenRaw", (-0.45, 0.05, 0.3), (1.15, 0.9, 0.32)),
+        E("ChickenRaw", (-1.2, 0.12, 0.2), (0.75, 0.5, 0.22)),
+        # fat rounded edge along the long side
+        E("ChickenRawLump", (0.4, 0.85, 0.27), (1.1, 0.4, 0.26)),
+        E("ChickenFat", (0.35, 1.08, 0.24), (1.0, 0.14, 0.14), seg=10, rings=5),
+        E("ChickenFat", (-0.7, 0.8, 0.2), (0.6, 0.1, 0.09), tilt=0.15, seg=8, rings=4),
+        # muscle grooves + tendon down the middle
+        E("ChickenRawDeep", (0.1, -0.12, 0.6), (1.5, 0.05, 0.07), tilt=0.05, seg=10, rings=4),
+        E("ChickenFat", (0.15, 0.2, 0.64), (1.1, 0.07, 0.06), tilt=-0.04, seg=10, rings=4),
+                # wet gloss highlights
+        E("ChickenGloss", (0.95, -0.35, 0.69), (0.42, 0.17, 0.05), tilt=0.5, seg=8, rings=4),
+        E("ChickenGloss", (-0.1, 0.45, 0.58), (0.3, 0.1, 0.04), tilt=-0.3, seg=8, rings=4),
+    ]
+    return parts
+
+
 def chicken(kind, o=(0, 0, 0)):
+    if kind == "raw":
+        return chicken_raw_fillet(o)
     R = 1.5
     body_col = {"raw": "ChickenRaw", "cooked": "Crust", "burnt": "ChickenBurnt"}[kind]
 
