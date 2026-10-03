@@ -62,6 +62,11 @@ Built (rig v2): chef.glb tree `Chef` -> `Body` (origin = hips (0, 0.246, 0.0388)
 `standard` body (Godot metres, +Z front); a cosmetic model's origin sits exactly on its anchor, no rotation, no scale
 (anchors follow animation and body shape). `outfit_<id>.glb` is authored in chef space (origin at the feet) and hung
 under `Body`. Default beard = `beard_moustache.glb` (the old built-in moustache).
+Arms (p3): `Chef` -> `ArmL`/`ArmR` (empty at the shoulder, Body-local (+-0.19, 0.41, 0)) -> `UpperArm*`, `Forearm*` (ChefBody
+sleeve segments, mesh along -Y, 0.08 m), `Cuff*` (white); the old sleeve stumps left `Body`. ChefAnim aims them at the
+hands every frame; `shape()` sets meta `rig_arm` (upper/forearm thickness from body width and hand scale: `big_arms`
+= 1.4 / 1.8). Old-vs-new check: `CHEF_COMPARE=1` in `scenes/dev/chef_preview.tscn` (frozen `dev/chef_anim_v1.gd` +
+`assets/models/dev/chef_v1.glb`).
 
 ## 5. Wardrobe (persistent, per player, local file)
 Currency: **tokens**, saved per player in `user://progress.cfg`. After each shift every player earns

@@ -13,10 +13,15 @@ extends Node3D
 ##              = shapes: every GameData.BODY_SHAPES entry side by side (with the look env vars);
 ##              = cycle: every body shape, live, cycling through all animations (label shows which).
 ##   CHEF_YAW   = degrees the filmstrip chefs turn (default 35)
+##   CHEF_COMPARE = 1: old (v1) vs new rig: filmstrips get a second row behind with the frozen v1 animator +
+##                chef_v1.glb (assets/models/dev); static views show v1 (left) and new (right) side by side.
+##                Use CHEF_VIEW=game for the real game camera (Tuning distance / pitch / fov).
+##   CHEF_POSE  = <mode>@<s>: pose the shapes lineup with that animation at that time (arm close-ups)
+## Extra filmstrip modes: carry_light (weight 1 food), vip (celebration + spin), fidget (long idle).
 
 const COLORS := [Color(0.24, 0.48, 1.0), Color(1.0, 0.29, 0.29), Color(0.24, 0.81, 0.35), Color(1.0, 0.82, 0.23)]
-const ANIMS := ["idle", "walk", "carry_solo", "carry_duo", "chop", "dispense", "soda", "bell", "punch", "toss",
-	"fall", "celebrate", "fail", "ping", "strain"]
+const ANIMS := ["idle", "walk", "carry_solo", "carry_light", "carry_duo", "chop", "dispense", "soda", "bell", "punch",
+	"toss", "fall", "celebrate", "vip", "fail", "ping", "strain", "fidget"]
 const CYCLE_SECS := 2.6
 const DT := 1.0 / 60.0
 
@@ -55,10 +60,15 @@ func _look(body := "") -> Dictionary:
 		"back": _env("CHEF_BACK", "none"), "outfit": _env("CHEF_OUTFIT", "classic"), "body": body if body != "" else _env("CHEF_BODY", "standard")}
 
 
-func _chef(color: Color, body := "") -> Node3D:
-	var inst := Models.load_model("chef")
+func _chef(color: Color, body := "", v1 := false) -> Node3D:
+	var inst := Models.load_model("dev/chef_v1" if v1 else "chef")
 	Chef.dress(inst, color, _look(body))
 	return inst
+
+
+## The animator for a chef from _chef (v1: the frozen pre-arms ChefAnimV1).
+func _anim_for(inst: Node3D, seed_value: int, v1: bool) -> Object:
+	return ChefAnimV1.new(inst, seed_value) if v1 else ChefAnim.new(inst, seed_value)
 
 
 # ---------------------------------------------------------------- static views (the old preview)
@@ -67,10 +77,15 @@ func _static(view: String) -> void:
 	if view in ["three", "front", "back", "side"] and not OS.has_environment("CHEF_TINTS"):
 		tints = "0"
 	var n: int = tints.length()
+	var compare := OS.get_environment("CHEF_COMPARE") == "1"
+	if compare:
+		n = 2
 	for i in n:
-		var inst := _chef(COLORS[tints[i].to_int()])
+		var inst := _chef(COLORS[0 if compare else tints[i].to_int()], "", compare and i == 0)
 		add_child(inst)
 		inst.position = Vector3((i - (n - 1) / 2.0) * 1.5, 0, 0)
+		if compare:
+			_tag("v1" if i == 0 else "new", inst.position + Vector3(0, -0.12, 0.6))
 		inst.rotation.y = {"back": PI, "side": PI / 2, "three": deg_to_rad(35)}.get(view, 0.0)
 		if OS.get_environment("CHEF_GLOVE") == "1":
 			for hn in ["HandL", "HandR"]:
@@ -98,6 +113,15 @@ func _shapes(view: String) -> void:
 		inst.position = Vector3((i - (n - 1) / 2.0) * spacing, 0, 0)
 		inst.rotation.y = {"back": PI, "side": PI / 2, "three": deg_to_rad(25)}.get(view, 0.0)
 		_tag(id, inst.position + Vector3(0, -0.12, 0.6))
+		var pose := _env("CHEF_POSE", "")
+		if pose.contains("@"):
+			var mode := pose.get_slice("@", 0)
+			var a := ChefAnim.new(inst, 3)
+			var t := 0.0
+			while t < pose.get_slice("@", 1).to_float():
+				_drive(a.state, mode, t, inst.rotation.y, 0)
+				a.update(DT)
+				t += DT
 	_stage(view, n, spacing)
 
 
@@ -106,16 +130,28 @@ func _filmstrip(mode: String, view: String) -> void:
 	var n := int(_env("CHEF_FRAMES", "6"))
 	var yaw := deg_to_rad(_env("CHEF_YAW", "35").to_float())
 	var duo := mode == "carry_duo"
-	var carry := mode in ["carry_solo", "carry_duo", "strain"]
+	var carry := mode in ["carry_solo", "carry_duo", "strain", "carry_light"]
 	var spacing := (6.0 if duo else 4.6) if carry else 1.25
 	var times := _times(mode, n)
+	var rows := 2 if OS.get_environment("CHEF_COMPARE") == "1" else 1
+	for row in rows:
+		var v1 := row == 1
+		var row_z := -(3.4 if carry else 2.2) * row
+		_filmstrip_row(mode, n, spacing, times, yaw, duo, carry, v1, row_z)
+		if rows > 1:
+			_tag("v1" if v1 else "new", Vector3(-(n * 0.5 + 0.2) * spacing, 0.0, row_z + 0.3))
+	_stage(view, n, spacing, carry)
+
+
+func _filmstrip_row(mode: String, n: int, spacing: float, times: Array, yaw: float, duo: bool, carry: bool, v1: bool,
+		row_z: float) -> void:
 	for i in n:
 		var group := Node3D.new()
 		add_child(group)
-		group.position = Vector3((i - (n - 1) / 2.0) * spacing, 0, 0)
+		group.position = Vector3((i - (n - 1) / 2.0) * spacing, 0, row_z)
 		var chefs := 2 if duo else 1
 		for k in chefs:
-			var inst := _chef(COLORS[k])
+			var inst := _chef(COLORS[k], "", v1)
 			group.add_child(inst)
 			var cyaw := yaw
 			if duo:  # both at the rim, facing the patty (as group carriers do)
@@ -124,20 +160,23 @@ func _filmstrip(mode: String, view: String) -> void:
 			elif carry:
 				inst.position = -Vector3(sin(yaw), 0, cos(yaw)) * 1.0
 			inst.rotation.y = cyaw
-			var a := ChefAnim.new(inst, 7 + k)
+			var a: Object = _anim_for(inst, 7 + k, v1)
 			var t := 0.0
 			while t < times[i]:
-				_drive(a.state, mode, t, cyaw, k)
-				a.update(DT)
+				_drive(a.get("state"), mode, t, cyaw, k)
+				a.call("update", DT)
 				t += DT
 		if carry:
-			var patty := Models.load_model("patty_raw")
-			if patty != null:
-				group.add_child(patty)
-				# solo: the near edge just beyond the hands (rest z 0.11 + reach 0.45 + 0.1 margin)
-				patty.position = Vector3(0, 0.32, 0) if duo else Vector3(sin(yaw), 0, cos(yaw)) * (0.66 + 1.5 - 1.0) + Vector3(0, 0.32, 0)
-		_tag("%s %.2fs" % [mode, times[i]], group.position + Vector3(0, -0.1, 0.9 if not carry else 1.6))
-	_stage(view, n, spacing, carry)
+			var light := mode == "carry_light"
+			var food := Models.load_model("tomato_slice" if light else "patty_raw")
+			if food != null:
+				group.add_child(food)
+				# solo: the near edge just beyond the hands (rest z 0.11 + reach + 0.1 margin)
+				var rad := 1.0 if light else 1.5
+				var reach := 0.3 if light else 0.45
+				food.position = Vector3(0, 0.32, 0) if duo else Vector3(sin(yaw), 0, cos(yaw)) * (0.21 + reach + rad - 1.0) + Vector3(0, 0.45 if light else 0.32, 0)
+		if not v1:
+			_tag("%s %.2fs" % [mode, times[i]], group.position + Vector3(0, -0.1, 0.9 if not carry else 1.6))
 
 
 ## Sample times (s since the scripted run started) for each frame of a filmstrip.
@@ -164,9 +203,12 @@ func _times(mode: String, n: int) -> Array:
 		"fall":
 			t0 = 0.4
 			span = 1.0
-		"celebrate":
+		"celebrate", "vip":
 			t0 = 0.03
-			span = 1.1
+			span = 1.3
+		"fidget":
+			t0 = 3.2
+			span = 6.0
 		"fail":
 			t0 = 0.15
 			span = 1.3
@@ -182,7 +224,7 @@ func _times(mode: String, n: int) -> Array:
 
 
 ## Scripted state for each mode at time t (s). chef k of a group, facing yaw.
-func _drive(st: ChefAnim.State, mode: String, t: float, yaw: float, k: int) -> void:
+func _drive(st: Object, mode: String, t: float, yaw: float, k: int) -> void:
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
 	st.yaw = yaw
 	match mode:
@@ -194,6 +236,12 @@ func _drive(st: ChefAnim.State, mode: String, t: float, yaw: float, k: int) -> v
 			st.carriers = 1
 			st.hold = Vector3(0, 0.05, 0.45)
 			st.vel = fwd * Tuning.PLAYER_SPEED * 0.35 if mode == "carry_solo" else Vector3.ZERO
+		"carry_light":
+			st.carrying = true
+			st.weight = 1
+			st.carriers = 1
+			st.hold = Vector3(0, 0.0, 0.3)
+			st.vel = fwd * Tuning.PLAYER_SPEED
 		"carry_duo":
 			st.carrying = true
 			st.weight = 3
@@ -220,6 +268,10 @@ func _drive(st: ChefAnim.State, mode: String, t: float, yaw: float, k: int) -> v
 			st.vy = -6.0 if t < 1.0 else (-3.0 if t < 1.05 else 0.0)
 		"celebrate":
 			st.celebrate = t < DT
+		"vip":
+			st.celebrate = t < DT
+			if "vip" in st:
+				st.vip = t < DT
 		"fail":
 			st.fail = t < DT
 		"ping":
@@ -323,10 +375,13 @@ func _stage(view: String, n: int, spacing: float, wide := false) -> void:
 			pos = Vector3(0, 6.0, 3.5)
 			fov = 35.0
 		"game":
-			# Tuning: pitch 50 deg, distance 19, fov 50, looking towards -Z; chefs face +Z (the camera).
-			fov = 50.0
-			target = Vector3(0, 0.6, 0)
-			pos = target + Vector3(0, sin(deg_to_rad(50.0)), cos(deg_to_rad(50.0))) * 19.0
+			# the real game camera at its default zoom (CameraSystem: pitch from the zoom, Tuning fov);
+			# chefs face +Z (the camera)
+			fov = Tuning.CAMERA_FOV
+			var far01 := clampf(inverse_lerp(Tuning.CAMERA_DISTANCE_MIN, Tuning.CAMERA_DISTANCE_MAX, Tuning.CAMERA_DISTANCE), 0.0, 1.0)
+			var pitch := deg_to_rad(lerpf(Tuning.CAMERA_PITCH_DEG, Tuning.CAMERA_PITCH_FAR_DEG, far01))
+			target = Vector3(0, 0.6, -0.8 if OS.get_environment("CHEF_COMPARE") == "1" else 0.0)
+			pos = target + Vector3(0, sin(pitch), cos(pitch)) * Tuning.CAMERA_DISTANCE
 		"glove":
 			target = Vector3(0, 0.25, 0)
 			pos = Vector3(0.0, 1.1, 1.5)
@@ -341,6 +396,10 @@ func _stage(view: String, n: int, spacing: float, wide := false) -> void:
 		fov = 34.0
 		pos = Vector3(0, pos.y + dist * 0.18, dist + (1.0 if wide else 0.0))
 		target = Vector3(0, 0.65, 0.4 if wide else 0.0)
+		if OS.get_environment("CHEF_COMPARE") == "1" and OS.has_environment("CHEF_ANIM"):
+			# two rows (new in front, v1 behind): look down on both
+			target.z = -1.6 if wide else -1.1
+			pos = Vector3(0, dist * 0.5, dist * 0.95 + target.z)
 	cam.fov = fov
 	cam.far = 500.0
 	cam.position = pos

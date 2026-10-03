@@ -4,7 +4,8 @@ Vinyl-toy style chef. Contract with the game code (rig v2, see finish_chef and d
 - chef.glb: empty root `Chef` -> `Body` (hips; material `ChefBody` = jacket, collar, sleeves, tinted per player)
   -> `Head` (neck) -> `Eyes`, `Brows`, `Mouth`, `Toque` (default hat, origin at HatAnchor; hidden for other hats),
   anchors `HatAnchor`, `FaceAnchor`, `BeardAnchor`; `Body` -> anchors `BackAnchor`, `NeckAnchor`; `Chef` -> `HandL` /
-  `HandR` (origin = hand centre, HandL at +X), `FootL` / `FootR` (ankle) -> `LegL` / `LegR`. Faces Blender -Y (Godot +Z).
+  `HandR` (origin = hand centre, HandL at +X), `FootL` / `FootR` (ankle) -> `LegL` / `LegR`, `ArmL` / `ArmR` (shoulder;
+  sleeve segments `UpperArm*` / `Forearm*` in ChefBody + white `Cuff*`, posed by ChefAnim). Faces Blender -Y (Godot +Z).
   Same size and look as v1: the settle shift is fixed (CHEF_SHIFT) so hats and anchors keep their positions.
 - beard_moustache.glb: the built-in moustache, origin at BeardAnchor (default beard).
 - boxing_glove.glb: about 0.5 m, cuff toward +Y, fist toward -Y.
@@ -89,14 +90,8 @@ def chef():
     pants = M("ChefPants", "#59606e", 0.8)
     P = []
 
-    # ---- jacket + double-breasted flap
+    # ---- jacket + double-breasted flap (the sleeves are separate animated parts: ArmL / ArmR, see _arm)
     P.append(lathe(body, JT, nu=22, nv=10, name="Jacket", e=E))
-    # sleeves (short stumps, hands float just beyond)
-    for s in (-1, 1):
-        a, b = V((s * 0.215, 0.0, 0.645)), V((s * 0.283, -0.02, 0.545))
-        P.append(tube(body, [a, (a + b) / 2 + V((s * 0.012, 0, 0.005)), b], lambda t: 0.078 - 0.012 * t, samples=4, seg=8, name="Sleeve"))
-        cuff_c = b + (b - a).normalized() * 0.004
-        P.append(tube(white, [cuff_c - (b - a).normalized() * 0.01, cuff_c + (b - a).normalized() * 0.014], 0.071, samples=2, seg=8, name="Cuff"))
 
     def flap_x(z):
         if z < 0.655:
@@ -292,7 +287,7 @@ def boxing_glove():
 # Raw authoring frame (before the settle shift). Godot = (x, z + SHIFT.z, -(y + SHIFT.y)).
 CHEF_SHIFT = V((0.0, -0.03881, 0.006))   # what shapes.settle used to apply (hats_parts.CHEF_SHIFT)
 GROUPS = {  # part -> object base names (as created in chef())
-    "Body": {"Jacket", "Sleeve", "Cuff", "Flap", "Piping", "Button", "Seam", "Collar", "ScarfRing", "ScarfTri",
+    "Body": {"Jacket", "Flap", "Piping", "Button", "Seam", "Collar", "ScarfRing", "ScarfTri",
              "ScarfKnot", "ScarfBackKnot", "ScarfTail", "Apron", "ApronHem", "ApronEdge", "Band", "Pocket",
              "PocketTop", "BowLoop", "BowTail", "BowKnot"},
     "Head": {"Head", "Ear", "Cheek", "Tuft", "Nose", "BackHair"},
@@ -308,6 +303,9 @@ PIV_BODY = V((0.0, 0.0, 0.24))      # hips (top of the legs)
 PIV_HEAD = V((0.0, 0.0, 0.77))      # neck (collar ring centre)
 PIV_FOOT = (0.13, -0.005, 0.11)     # ankle (x sign per side)
 PIV_HAND = (0.335, -0.075, 0.5)     # hand centre (x sign per side)
+PIV_SHOULDER = (0.19, 0.0, 0.65)    # arm root inside the jacket (x sign per side); ChefAnim.SHOULDER = this, Body-local
+ARM_SEG = 0.08                      # authored length of UpperArm / Forearm (ChefAnim.ARM_SEG)
+WRIST_OFF = 0.075                   # cuff centre to hand centre (ChefAnim.WRIST_OFF)
 HAT_RAW = V((0.0, 0.0, 0.975))      # toque base ring centre (hats_parts.HAT_RAW)
 FACE_RAW = V((0.0, -0.21795, 0.90))  # head front between the eyes (hats_parts.FACE_RAW)
 
@@ -390,11 +388,49 @@ def _chef_raw_parts():
     return by, hl, hr
 
 
+def _arm(side, s, root):
+    """ArmL / ArmR: an empty at the shoulder (root child) -> UpperArm<side> (origin shoulder), Forearm<side>
+    (origin elbow), Cuff<side> (origin wrist). Each segment mesh runs from its origin along local -Z (Godot -Y),
+    ARM_SEG long, round so the animator may spin it freely; ChefAnim aims and stretches the three every frame.
+    The glb rest pose already points them at the hand (slight elbow), for any instance nobody animates."""
+    body = bpy.data.materials["ChefBody"]
+    white = bpy.data.materials["ChefWhite"]
+    L = ARM_SEG
+    up = lathe(body, [(-L - 0.034, 0.0, 0.0), (-L - 0.028, 0.036, 0.036), (-L - 0.014, 0.054, 0.054), (-L, 0.06, 0.06),
+                      (-L * 0.5, 0.065, 0.065), (0.0, 0.07, 0.07), (0.016, 0.062, 0.062), (0.03, 0.04, 0.04), (0.036, 0.0, 0.0)],
+               nu=14, nv=10, name="UpperArm" + side)
+    fo = lathe(body, [(-L - 0.012, 0.0, 0.0), (-L - 0.008, 0.04, 0.04), (-L, 0.055, 0.055), (-L * 0.5, 0.057, 0.057),
+                      (0.0, 0.06, 0.06), (0.018, 0.052, 0.052), (0.03, 0.034, 0.034), (0.035, 0.0, 0.0)],
+               nu=14, nv=9, name="Forearm" + side)
+    cu = lathe(white, [(-0.017, 0.0, 0.0), (-0.015, 0.05, 0.05), (-0.009, 0.066, 0.066), (0.008, 0.066, 0.066),
+                       (0.014, 0.052, 0.052), (0.016, 0.0, 0.0)], nu=14, nv=6, name="Cuff" + side)
+    sh = V((s * PIV_SHOULDER[0], PIV_SHOULDER[1], PIV_SHOULDER[2]))
+    hand = V((s * PIV_HAND[0], PIV_HAND[1], PIV_HAND[2]))
+    wr = hand - (hand - sh).normalized() * WRIST_OFF
+    d = (wr - sh).length
+    a = d * 0.55                                    # ChefAnim: segment length = 1.1 x half the rest reach
+    dirv = (wr - sh).normalized()
+    pole = V((s * 0.75, 0.6, -0.25))                # raw frame: out, back (+Y), down
+    perp = (pole - dirv * pole.dot(dirv)).normalized()
+    x = d * 0.5
+    el = sh + dirv * x + perp * math.sqrt(max(a * a - x * x, 0.0))
+    arm = _child(_empty("Arm" + side), root, sh, None)
+    down = V((0.0, 0.0, -1.0))
+    for o, at, to in ((up, sh, el), (fo, el, wr), (cu, wr, wr + (wr - el))):
+        o.parent = arm
+        o.location = at - sh
+        o.rotation_mode = "QUATERNION"
+        o.rotation_quaternion = down.rotation_difference((to - at).normalized())
+    print("ARM %s shoulder godot %s elbow %s wrist %s" % (side, _godot(sh), _godot(el), _godot(wr)))
+    return arm
+
+
 def finish_chef():
     """chef.glb (rig v2): root `Chef` (empty, at the settled origin = the feet) ->
          Body (hips) -> Head (neck) -> Eyes, Brows, Mouth, Toque, HatAnchor, FaceAnchor, BeardAnchor
                      -> BackAnchor, NeckAnchor
          HandL, HandR (hand centre), FootL, FootR (ankle) -> LegL, LegR (ankle)
+         ArmL, ArmR (shoulder) -> UpperArm*, Forearm*, Cuff* (see _arm)
     The built-in moustache is beard_moustache.glb (origin = BeardAnchor)."""
     by, hl, hr = _chef_raw_parts()
     for o in by.pop("Moustache") + by.pop("Curl"):
@@ -427,7 +463,9 @@ def finish_chef():
         piv = (s * PIV_FOOT[0], PIV_FOOT[1], PIV_FOOT[2])
         foot = part(sides[s][0], "Foot" + side, piv, root, None)
         part(sides[s][1], "Leg" + side, piv, foot, piv)
-    anchors = {"HatAnchor": (head, PIV_HEAD, HAT_RAW), "FaceAnchor": (head, PIV_HEAD, FACE_RAW),
+    _arm("L", 1, root)
+    _arm("R", -1, root)
+    anchors ={"HatAnchor": (head, PIV_HEAD, HAT_RAW), "FaceAnchor": (head, PIV_HEAD, FACE_RAW),
                "BeardAnchor": (head, PIV_HEAD, _beard_raw()), "BackAnchor": (body, PIV_BODY, _back_raw()),
                "NeckAnchor": (body, PIV_BODY, PIV_HEAD)}
     for name, (parent, ppiv, at) in anchors.items():

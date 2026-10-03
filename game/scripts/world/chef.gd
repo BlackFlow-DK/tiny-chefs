@@ -442,6 +442,19 @@ func _animate(delta: float) -> void:
 	st.punching = (flags & FLAG_PUNCHING) != 0
 	st.falling = (flags & FLAG_RESPAWNING) != 0
 	var w := get_parent() as World
+	# Head leads the turn towards where the chef is about to face: the host knows every chef's facing (set
+	# at once from the aim, the body turns after it), a client only its own aim; remote puppets use turn rate.
+	st.has_look = false
+	if not st.carrying:
+		if not puppet:
+			st.has_look = true
+			st.look_yaw = wrapf(atan2(facing.x, facing.z) - rotation.y, -PI, PI)
+		elif is_local and w != null and w.local_input.has_aim:
+			var to := w.local_input.aim3() - p
+			to.y = 0.0
+			if to.length() > AIM_MIN_DIST:
+				st.has_look = true
+				st.look_yaw = wrapf(atan2(to.x, to.z) - rotation.y, -PI, PI)
 	if w != null:
 		_work_scan -= delta
 		if st.working and (not _was_working or _work_scan <= 0.0):
@@ -512,6 +525,8 @@ func _on_net_event(text: String, sfx: String) -> void:
 	match sfx:
 		"serve":
 			anim.state.celebrate = true
+		"ev_vip_paid":
+			anim.state.vip = true   # celebration with a spin
 		"fail":
 			anim.state.fail = true
 		"ping":
