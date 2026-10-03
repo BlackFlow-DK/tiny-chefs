@@ -9,6 +9,8 @@ var _quit_row: Control
 var _confirm_row: Control
 var _stay: Button
 var _settings: SettingsView
+var _build_strip: ShopOwnedStrip
+var _build_box: Control
 
 
 func _ready() -> void:
@@ -28,6 +30,12 @@ func _ready() -> void:
 	_resume = UIKit.button("Resume", func() -> void: close(), "primary", 0)
 	v.add_child(_resume)
 	v.add_child(UIKit.button("Settings", func() -> void: _settings.open(), "secondary", 0))
+
+	_build_strip = ShopOwnedStrip.new(false, 28)
+	_build_box = VBoxContainer.new()
+	_build_box.add_theme_constant_override("separation", 0)
+	_build_box.add_child(_build_strip)
+	v.add_child(_build_box)
 
 	v.add_child(controls_strip())
 
@@ -76,6 +84,9 @@ func _ask_confirm(on: bool) -> void:
 
 func open() -> void:
 	visible = true
+	if Net.world != null and Net.world.shift != null:
+		_build_strip.refresh(Net.world.shift)
+	_build_box.visible = _build_strip.has_any()
 	_leave_row.visible = true
 	_quit_row.visible = true
 	_confirm_row.visible = false
