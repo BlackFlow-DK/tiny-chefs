@@ -150,7 +150,7 @@ func face(back := false) -> void:
 		_idle = 0.0
 
 
-## Recolour every ChefBody / HatTint surface (same rule as the game chef: Chef.tint).
+## Recolour every ChefBody / HatTint / OutfitTint surface (same rule as the game chef: Chef.tint).
 static func tint(n: Node, color: Color) -> void:
 	Chef.tint(n, color)
 

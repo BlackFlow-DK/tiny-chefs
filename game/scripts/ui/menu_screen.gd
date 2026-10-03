@@ -333,7 +333,7 @@ func _on_join() -> void:
 		return
 	_show_status("Connecting to %s ..." % ip, "info")
 	_set_busy(true)
-	var t := get_tree().create_timer(JOIN_TIMEOUT)
+	var t := get_tree().create_timer(maxf(JOIN_TIMEOUT, Net.join_retry_left() + 1.0))   # --join runs retry longer
 	_timeout = t
 	t.timeout.connect(func() -> void:
 		if _timeout != t or not _connecting:

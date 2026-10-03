@@ -90,7 +90,8 @@ func _build_right() -> Control:
 	var t := UIKit.title("Wardrobe")
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	titles.add_child(t)
-	titles.add_child(UIKit.caption("Tokens come from shifts: 1 per 60 coins, 4 per campaign star. Yours to keep."))
+	titles.add_child(UIKit.caption("Tokens come from shifts: 1 per %d coins, %d per campaign star. Yours to keep."
+		% [Progress.COINS_PER_TOKEN, Progress.TOKENS_PER_STAR]))
 	head.add_child(titles)
 	_wallet = UIKit.token_chip(0, true, "Your tokens", true)
 	_wallet.size_flags_vertical = Control.SIZE_SHRINK_CENTER

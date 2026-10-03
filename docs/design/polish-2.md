@@ -70,7 +70,7 @@ hands every frame; `shape()` sets meta `rig_arm` (upper/forearm thickness from b
 
 ## 5. Wardrobe (persistent, per player, local file)
 Currency: **tokens**, saved per player in `user://progress.cfg`. After each shift every player earns
-`floor(team coins earned this shift / 60) + 4 per campaign star earned`. Categories: hat, outfit, beard,
+`floor(team coins earned this shift / 40) + 5 per campaign star earned`. Categories: hat, outfit, beard,
 accessory, back item, body shape, colour stays free. Each category has 1 to 2 free starters; the rest cost
 tokens (10 to 80). Owned items and the equipped look are saved locally and the equipped look is sent to the
 host as today (`Net` look sync; the look dict gains `outfit, beard, back, body`). A Wardrobe screen is reachable

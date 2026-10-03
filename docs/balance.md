@@ -170,6 +170,10 @@ Pass 1 numbers above are history; the values in force are below.
   **full** = every line at max, **real6** = what the tree model below owns after shift 5 (gloves, knife II,
   griddle II, shoes II, tongs, insurance, mitts, quick hands, heavy gloves, friendly service I).
 - About 1 run in 5 lost its client (ENet never connected, host report without a shift result); re-run.
+  Cause (integration, 2026-10-03): a client whose host was not listening within ~5 to 9 s of its join gave up
+  (one ENet attempt + the menu's 9 s timeout) and idled in the menu; on a loaded machine the host can boot that
+  late. Not load-induced packet loss: 8/8 idle and 4/4 four-at-once duo runs connected, snapshots <= 750 bytes.
+  Fixed: `--join` runs retry for 60 s (`Net.join_retry_for`, a new attempt every 4 s or on failure).
 
 ## Baseline (today's data, before this pass)
 
@@ -226,7 +230,8 @@ without crushing everyone else at shifts 3 to 4; the curve stays close to the ol
 then climbs: a full tree makes ~1.8x at shift 6, ~1.4x at shift 8 and misses shift 10; hard full ~1.0 at shift 6.
 A team without upgrades misses shift 5+ clearly (pass 1 already had shift 6 at 0.71). Failing a shift repeats
 it and keeps the coins, so a stuck team buys its way forward. Knob: `ShiftPlan.OVERTIME_TARGET_CURVE` (0.03
-lowers the shift 6 target by ~10 %).
+lowers the shift 6 target by ~10 %). **Set to 0.03 by the owner after this pass** (x1.08, 1.22, 1.42, 1.68,
+2.00, 2.38 for k = 1..6); the shift 6 rows below were measured against 0.045.
 
 ## Upgrade prices and tree length
 

@@ -16,11 +16,11 @@ extends RefCounted
 ## target by 1 + OVERTIME_TARGET_STEP k + OVERTIME_TARGET_CURVE k^2. The curve keeps later shifts biting for
 ## upgraded teams (docs/balance.md pass 2): a bot team with the full upgrade tree makes ~1.8x the target at
 ## shift 6, ~1.1x at shift 8 and misses shift 10; a team without upgrades just about makes Overtime 1 and
-## clearly misses Overtime 3+.
+## clearly misses Overtime 3+. Curve lowered 0.045 -> 0.03 (owner, after pass 2): shift 6 target ~10 % lower.
 const OVERTIME_INTERVAL := 0.88
 const OVERTIME_PATIENCE := 0.94
 const OVERTIME_TARGET_STEP := 0.05
-const OVERTIME_TARGET_CURVE := 0.045
+const OVERTIME_TARGET_CURVE := 0.03
 
 ## Campaign: mission (settings.mission + shift_index), clamped to the last one.
 ## Endless: GameData.SHIFTS, then "Overtime k" keeps getting harder. Custom: the settings' custom fields.

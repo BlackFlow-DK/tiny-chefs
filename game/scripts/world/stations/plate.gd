@@ -74,7 +74,8 @@ func host_update(_dt: float) -> void:
 		elif bool(it.def["plate"]) and stack.size() < Tuning.PLATE_MAX_STACK:
 			stack.append(it.kind)
 			world.stats.on_plated(it, self)
-			print("content: plate took %s (%d on the plate)" % [it.kind, stack.size()])
+			print("content: plate took %s #%d (%d on the plate) at (%.1f, %.1f) v %.1f" % [it.kind, it.item_id,
+				stack.size(), it.global_position.x, it.global_position.z, it.linear_velocity.length()])
 			world.remove_item(it)
 			Net.event("", "plop")
 		else:

@@ -60,6 +60,7 @@ func _handle_args() -> void:
 			menu.set_status("Could not host on UDP port %d (%s)." % [Tuning.PORT, error_string(err)])
 	elif Net.has_arg("join"):
 		menu.ip_edit.text = Net.arg_str("join", "127.0.0.1")
+		Net.join_retry_for(Net.AUTO_JOIN_RETRY_SECONDS)   # the host may not be listening yet
 		menu._on_join()
 
 
@@ -116,7 +117,8 @@ func _award_tokens() -> void:
 	var before := Progress.tokens()
 	var n := Progress.award_shift(info)
 	print("tokens: +%d (team coins %d -> %d, stars %d -> %d) wallet %d -> %d" % [n, int(info.get("earned", 0)),
-		maxi(0, int(info.get("earned", 0))) / 60, int(info.get("stars", 0)), 4 * int(info.get("stars", 0)),
+		maxi(0, int(info.get("earned", 0))) / Progress.COINS_PER_TOKEN, int(info.get("stars", 0)),
+		Progress.TOKENS_PER_STAR * int(info.get("stars", 0)),
 		before, Progress.tokens()])
 	Net.metrics["tokens_award"] = n
 	Net.metrics["tokens_wallet"] = Progress.tokens()

@@ -7,7 +7,7 @@ extends Node3D
 ##   PV_TINTS = player colour indices, e.g. "0123" (default "0")
 ##   PV_BODIES = csv of body shapes (default "standard"; with PV_VARY=body)
 ##   PV_ROWS  = all to stack every variant as rows in depth (best with game/top)
-## Materials named OutfitTint are tinted here like ChefBody (Chef.tint only knows ChefBody/HatTint).
+## OutfitTint materials take the player colour through Chef.dress / Chef.tint (_tint_outfit here is redundant now).
 
 const COLORS := [Color(0.24, 0.48, 1.0), Color(1.0, 0.29, 0.29), Color(0.24, 0.81, 0.35), Color(1.0, 0.82, 0.23)]
 const OUTFITS := ["stripes", "tuxedo", "overalls", "hero", "bbq", "knight", "scarf", "hawaiian", "sash"]

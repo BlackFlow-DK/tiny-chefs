@@ -42,4 +42,4 @@ balloon 25 (a balloon on a string: balloon mesh named `Float`), sword 30 (giant 
 standard 0, stout 0, tall 20, long_legs 25, tiny 30, big_head 30, big_arms 40.
 
 ## Earning tokens
-After each shift every player earns `floor(team coins earned this shift / 60) + 4 x campaign stars earned`.
+After each shift every player earns `floor(team coins earned this shift / 40) + 5 x campaign stars earned` (`Progress.COINS_PER_TOKEN`, `TOKENS_PER_STAR`).

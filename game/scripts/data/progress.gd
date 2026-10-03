@@ -130,12 +130,16 @@ static func add_tokens(n: int) -> void:
 	_save()
 
 
-## Tokens a shift's results earn every player: floor(team coins earned / 60) + 4 x campaign stars
+const COINS_PER_TOKEN := 40   # team coins earned in a shift per token
+const TOKENS_PER_STAR := 5    # per campaign star earned
+
+
+## Tokens a shift's results earn every player: floor(team coins earned / 40) + 5 x campaign stars
 ## (info = the RESULTS phase info every peer receives: "earned", and "stars" on campaign missions).
 static func shift_award(info: Dictionary) -> int:
 	var coins := maxi(0, int(info.get("earned", 0)))
 	var stars := clampi(int(info.get("stars", 0)), 0, 3) if info.has("stars") else 0
-	return coins / 60 + 4 * stars
+	return coins / COINS_PER_TOKEN + TOKENS_PER_STAR * stars
 
 
 ## Every peer at shift end: add this shift's award to my wallet. Returns it (also kept in last_award).

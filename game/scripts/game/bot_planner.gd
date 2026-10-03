@@ -623,7 +623,9 @@ func stage_dest(p: Plate, k: String) -> Dictionary:
 		if score > bs:
 			bs = score
 			best = c
-	return {"pos": best, "r": 0.7, "stage": true}
+	# A waiting spot needs no precision: a two-chef carry (patty) could not settle within 0.7 m of it on the
+	# food truck and stalled 6 s (bot stuck -> drop -> re-plan).
+	return {"pos": best, "r": 1.2, "stage": true}
 
 
 ## A free spot on station s for item it: a 3 x 2 grid inset by the item's radius, the one farthest from

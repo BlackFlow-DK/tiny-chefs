@@ -47,9 +47,14 @@ var metrics: Dictionary = {}
 var world: Node = null  # the World sets itself here while it exists
 var settings := GameSettings.new()  # host-owned game settings; a read-only copy on clients
 
+const JOIN_ATTEMPT_SECONDS := 4.0   # with a retry window open: an attempt still connecting after this restarts
+const AUTO_JOIN_RETRY_SECONDS := 60.0   # --join runs keep retrying this long (join_retry_for)
+
 var _ready_peers: Dictionary = {}
 var _test_report := ""
 var _finished := false
+var _join_retry_until := 0   # Time.get_ticks_msec(): failed / unanswered connects retry until then
+var _join_attempt := 0
 
 
 func _ready() -> void:
@@ -160,7 +165,39 @@ func join(ip: String, pname: String) -> Error:
 	local_name = clean_name(pname)
 	metrics["role"] = "client"
 	print("net: connecting to %s:%d" % [ip, port()])
+	_join_attempt += 1
+	if join_retry_left() > 0.0:
+		var a := _join_attempt
+		get_tree().create_timer(JOIN_ATTEMPT_SECONDS).timeout.connect(func() -> void:
+			if a == _join_attempt and _connecting():
+				_retry_join())
 	return OK
+
+
+## --join runs (bots, tests, LAN shortcuts): keep retrying a connect that fails or gets no answer for this
+## long. A client started before its host listens (busy machine, many test processes) used to give up after
+## one ENet attempt / the menu's 9 s timeout and sit in the menu (balance runs: "never connected").
+func join_retry_for(seconds: float) -> void:
+	_join_retry_until = Time.get_ticks_msec() + int(seconds * 1000.0)
+
+
+func join_retry_left() -> float:
+	return maxf(0.0, float(_join_retry_until - Time.get_ticks_msec()) / 1000.0)
+
+
+func _connecting() -> bool:
+	var p := multiplayer.multiplayer_peer
+	return p is ENetMultiplayerPeer and not is_host and \
+		p.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTING
+
+
+## A new attempt while the retry window is open (true), else false.
+func _retry_join() -> bool:
+	if join_retry_left() <= 0.0:
+		return false
+	print("net: no answer from %s:%d yet, retrying (%.0f s left)" % [join_ip, port(), join_retry_left()])
+	join(join_ip, local_name)
+	return true
 
 
 ## Close the session and go back to the menu.
@@ -247,12 +284,15 @@ func _on_peer_disconnected(id: int) -> void:
 
 
 func _on_connected_to_server() -> void:
+	_join_retry_until = 0
 	metrics["connected"] = true
 	print("net: connected to host, my id %d" % my_id())
 	_register.rpc_id(1, local_name, local_look)
 
 
 func _on_connection_failed() -> void:
+	if _retry_join():
+		return
 	leave(false)
 	_apply_phase(Phase.MENU, {})
 	session_ended.emit("Could not connect to %s (port %d UDP)." % [join_ip, port()])
