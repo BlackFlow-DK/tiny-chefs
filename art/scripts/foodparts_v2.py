@@ -225,7 +225,7 @@ def patty(kind, seed=3):
     rb = 0.13
     rt = {"raw": 0.23, "cooked": 0.2, "burnt": 0.16}[kind]
     ph = [rng.uniform(0, 6.283) for _ in range(6)]
-    amp = {"raw": (0.03, 0.02, 0.012, 0, 0), "cooked": (0.02, 0.012, 0.006, 0, 0),
+    amp = {"raw": (0.05, 0.034, 0.022, 0.012, 0.006), "cooked": (0.02, 0.012, 0.006, 0, 0),
            "burnt": (0.045, 0.03, 0.02, 0.026, 0.016)}[kind]
 
     def edge(th):
@@ -284,7 +284,7 @@ def patty(kind, seed=3):
         u = r / R
         z = H0
         if kind == "raw":
-            z += -0.11 * bell(r / 0.55) + 0.03 * bell((r - 0.85) / 0.4) + 0.034 * N1(x, y) + 0.02 * N2(x, y)
+            z += -0.2 * bell(r / 0.62) + 0.04 * bell((r - 0.9) / 0.42) + 0.045 * N1(x, y) + 0.03 * N2(x, y)
         elif kind == "cooked":
             z += 0.07 * (1 - u * u) + 0.008 * N1(x, y) - 0.04 * grill(x, y)
         else:

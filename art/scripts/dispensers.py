@@ -10,7 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import artlib  # noqa: E402
-import foodparts as fp  # noqa: E402
+import foodparts as fpo  # noqa: E402
+import foodparts_v2 as fp  # noqa: E402
+from mathutils import Matrix  # noqa: E402
 import shapes  # noqa: E402
 from dispenser_parts import (M, barcode, disc, finish, flat, leaf, loft, put, rbox, ring_tube,  # noqa: E402
                              soft_ball, sticker, superellipse, sweep, sausage, wavy_sheet, crinkle_fn)
@@ -18,6 +20,14 @@ from dispenser_parts import (M, barcode, disc, finish, flat, leaf, loft, put, rb
 LIMITS = ((0.5, 6.0), (3.0, 6.0), (0.5, 6.0))
 PI = math.pi
 D2R = math.radians
+
+
+def food(objs, o, s=1.0, rz=0.0, rx=0.0):
+    """Place foodparts_v2 objects (built at the origin, base on z=0): scale, spin about z (then tip about x), move to o."""
+    mat = Matrix.Translation(o) @ Matrix.Rotation(rx, 4, "X") @ Matrix.Rotation(rz, 4, "Z") @ Matrix.Scale(s, 4)
+    for ob in objs:
+        ob.matrix_basis = mat @ ob.matrix_basis
+    return objs
 
 
 def film_mat(alpha=0.30):
@@ -36,7 +46,7 @@ def dispenser_buns():
     yellow = M("StickerYellow", "#ffd21f", 0.6)
     dark = M("InkDark", "#2b1d12", 0.9)
     film = film_mat(0.28)
-    gold = fp.m("Bun")
+    gold = fp.m("BunCrust")
     W, D, H = 5.0, 3.3, 3.3
     yf = -D / 2 - 0.03
     parts = []
@@ -67,7 +77,7 @@ def dispenser_buns():
 
     # bun pile in the open mouth
     def bun_at(kind, o, rot=(0, 0, 0), s=0.8):
-        objs = fp.bun_top(o, s) if kind == "top" else fp.bun_bottom(o, s)
+        objs = food(fp.bun_top() if kind == "top" else fp.bun_bottom(), o, s)
         put(objs, rot=rot, pivot=o)
         return objs
     parts += bun_at("top", (-1.15, 0.3, H - 0.15), (0, D2R(-6), D2R(15)))
@@ -112,8 +122,8 @@ def dispenser_patties():
         z = 0.32
         for i in range(n):
             jx, jy = rng.uniform(-0.06, 0.06), rng.uniform(-0.06, 0.06)
-            parts += fp.patty_raw((cx + jx, cy + jy, z), sc, seed=i + int(cx * 3), lumps=(i == n - 1))
-            z += 0.56 * sc
+            parts += food(fp.patty("raw", seed=(i + int(cx * 3)) % 6 + 1), (cx + jx, cy + jy, z), sc, rz=rng.uniform(0, 6.28))
+            z += 0.6 * sc
             if i < n - 1:
                 p = shapes.prism(paper if i % 2 else paper2, superellipse(20, 1.42, 1.42, 4.5), 0.0, 0.03)
                 p.location = (cx + jx, cy + jy, z)
@@ -295,9 +305,9 @@ def dispenser_tomatoes():
     metal = M("Nail", "#8c8f96", 0.4, 0.7)
     red_paint = M("CratePaint", "#d9302a", 0.6)
     white = M("PaintWhite", "#fff3d6", 0.7)
-    tom = fp.m("Tomato")
-    tom_d = fp.m("TomatoDark")
-    stem = fp.m("Stem")
+    tom = fpo.m("Tomato")
+    tom_d = fpo.m("TomatoDark")
+    stem = fpo.m("Stem")
     stem_d = M("VineDark", "#2a7a26", 0.7)
     wool = M("WoodWool", "#f0d9a0", 0.95)
     wool2 = M("WoodWool2", "#e0c07c", 0.95)
@@ -392,16 +402,10 @@ def dispenser_sausages():
     for li, (cnt, z) in enumerate(layers):
         for i in range(cnt):
             y = (i - (cnt - 1) / 2) * 2 * r * 1.0
-            mat = (pink_a, pink_b, pink_c)[(i + li) % 3]
-            parts.append(sausage(mat, (-L / 2 + rng.uniform(-0.1, 0.1), y, z), (L / 2 + rng.uniform(-0.1, 0.1), y + rng.uniform(-0.05, 0.05), z),
-                                 r, bend=rng.uniform(-0.12, 0.12)))
-    # linked pair draped from the top layer over the front lip
-    a = (1.2, -0.3, 2.45)
-    b = (1.05, -1.9, 1.55)
-    c = (0.95, -3.3, 0.5)
-    parts.append(sausage(pink_a, a, b, r, bend=0.0))
-    parts.append(sausage(pink_c, b, c, r, bend=0.0))
-    parts.append(sweep(twist, [(1.05, -1.85, 1.6), (1.05, -2.0, 1.5)], [0.14, 0.1], verts=8))
+            parts += food(fp.sausage("raw", seed=(i + li * 3) % 5 + 1), (rng.uniform(-0.1, 0.1), y, z - 0.41), 1.0,
+                          rz=rng.uniform(-0.05, 0.05))
+    # one sausage draped from the top layer over the front lip
+    parts += food(fp.sausage("raw", seed=7), (1.1, -1.25, 1.55), 1.0, rz=D2R(-90), rx=D2R(24))
     # header card standing behind, tilted back, printed with a big sausage icon
     cw, ch = 5.7, 3.9
     board = rbox(card, (cw, 0.2, ch), (0, D / 2 - 0.5, TH + ch / 2 - 0.1), r=0.1, seg=2)
@@ -409,10 +413,10 @@ def dispenser_sausages():
     parts.append(board)
     fy = D / 2 - 0.5 - 0.13
     deco = [rbox(card_l, (cw - 0.6, 0.06, 1.7), (0, fy, TH + 2.15), r=0.05, seg=2),
-            sausage(pink_a, (-1.9, fy - 0.15, TH + 2.3), (1.3, fy - 0.15, TH + 2.3), 0.5, bend=0.1),
-            sausage(pink_b, (-1.6, fy - 0.15, TH + 1.75), (1.6, fy - 0.15, TH + 1.75), 0.42, bend=-0.1),
-            rbox(red, (cw - 0.6, 0.07, 0.4), (0, fy - 0.01, TH + 3.35), r=0.03, seg=1),
+                        rbox(red, (cw - 0.6, 0.07, 0.4), (0, fy - 0.01, TH + 3.35), r=0.03, seg=1),
             rbox(red, (cw - 0.6, 0.07, 0.3), (0, fy - 0.01, TH + 0.5), r=0.03, seg=1)]
+    deco += food(fp.sausage("raw", seed=2), (-0.2, fy - 0.15, TH + 2.0), 1.0)
+    deco += food(fp.sausage("raw", seed=4), (0.2, fy - 0.15, TH + 2.75), 0.85)
     deco += sticker(red, yellow, (2.05, fy - 0.03, TH + 2.9), 0.42)
     put(deco, rot=(D2R(-5), 0, 0), pivot=(0, D / 2 - 0.5, TH))
     parts += deco
@@ -454,15 +458,15 @@ def dispenser_hotdog_buns():
     # printed stripe and logo on top of the bag
     parts.append(rbox(blue, (4.6, 1.0, 0.06), (0, -1.0, 3.5), r=0.02, seg=1))
     parts.append(disc(red, 0.5, 0.07, (-1.6, -1.0, 3.5), facing="up"))
-    parts.append(soft_ball(fp.m("Bun"), (0.3, 0.15, 0.2), (-1.6, -1.0, 3.53), seg=10, rings=6))
+    parts.append(soft_ball(fp.m("BunCrust"), (0.3, 0.15, 0.2), (-1.6, -1.0, 3.53), seg=10, rings=6))
     parts += [rbox(cream, (1.6, 0.6, 0.07), (0.6, -1.0, 3.51), r=0.02, seg=1)]
     # buns: layer 1 (3 rows), layer 2 (2 rows), one sliding out of the front
     s = 0.86
     for t in (1.95, 3.3):
-        parts += fp.hotdog_bun((0, -t, 0.1), s)
+        parts += food(fp.hotdog_bun(seed=int(t * 7) % 5 + 1), (0, -t, 0.1), s)
     for t in (2.6, 3.95):
-        parts += fp.hotdog_bun((0.1, -t, 0.85), s)
-    out = fp.hotdog_bun((0.4, -4.45, 0.02), s)
+        parts += food(fp.hotdog_bun(seed=int(t * 5) % 5 + 2), (0.1, -t, 0.8), s)
+    out = food(fp.hotdog_bun(seed=3), (0.4, -4.45, 0.02), s)
     put(out, rot=(0, 0, D2R(5)), pivot=(0.4, -4.45, 0.0))
     parts += out
     return parts

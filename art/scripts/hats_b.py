@@ -281,16 +281,16 @@ def hat_frog():
 
 # ------------------------------------------------------------------------------------------------ halo
 def hat_halo():
-    gold = M("HaloGold", "#ffd84a", 0.3, emission="#ffc21a", emission_strength=4.0)
-    R, r = 0.19, 0.04
+    gold = M("HaloGold", "#ffd84a", 0.3, emission="#ffb41a", emission_strength=1.1)
+    R, r = 0.18, 0.05
     cz = 0.27
 
     def f(u, v):
         th, ph = 2 * PI * u, 2 * PI * v
         rr = R + r * math.cos(ph)
-        return V((rr * math.cos(th), rr * math.sin(th), r * 0.82 * math.sin(ph)))
+        return V((rr * math.cos(th), rr * math.sin(th), r * 0.9 * math.sin(ph)))
     ring = grid(gold, f, 40, 12, closed=True, name="Float")
-    xf(ring, Matrix.Translation(V((0, 0.02, cz))) @ Matrix.Rotation(D(-6), 4, "X") @ Matrix.Rotation(D(4), 4, "Y"))
+    xf(ring, Matrix.Translation(V((0, 0.02, cz))) @ Matrix.Rotation(D(15), 4, "X") @ Matrix.Rotation(D(4), 4, "Y"))
     return [ring]
 
 
