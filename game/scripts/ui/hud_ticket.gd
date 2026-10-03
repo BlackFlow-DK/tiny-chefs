@@ -5,8 +5,10 @@ extends Control
 ## Positioned by HudOrderRail. Local to the HUD (the design system's UIOrderTicket has no chip state).
 ## VIP (shift event): gold paper, thick gold frame, "VIP: <dish>", a gold star badge on the top-right corner.
 
-const W := 184.0
+const W := 208.0
 const PIN := Vector2(W * 0.5, 2.0)
+const COL_GAP := 6.0
+const STACK_H := 88.0     # target height of the stack; zoom scales short stacks up to it
 
 var recipe := 0
 var vip := false
@@ -19,6 +21,12 @@ var _card: PanelContainer
 var _sb: StyleBoxFlat
 var _bar: UIProgress
 var _chips: Array[HudChip] = []
+var _root: Control      # card + flash + pin, scaled as one by the rail's fit factor
+var _overlay: Control   # ticks, count badges, 1st/last tags: drawn over every layer
+var _tops: Array[HudChip] = []   # the top layer of each column
+var _fit := 1.0
+var _two_cols := false
+var _col_split := 0
 var _flash: Panel
 var _flash_sb: StyleBoxFlat
 var _urgent: Tween
@@ -34,6 +42,9 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float, is_vip := fals
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var rec: Dictionary = GameData.RECIPES[recipe_idx]
 
+	_root = Control.new()
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_root)
 	_card = PanelContainer.new()
 	_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_card.custom_minimum_size = Vector2(W, 0)
@@ -41,12 +52,12 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float, is_vip := fals
 	_sb = UITheme.box(Color("#FFE8A3") if vip else UITheme.CREAM, _border, 12, 6 if vip else 4, 5)
 	_sb.content_margin_left = 12
 	_sb.content_margin_right = 12
-	_sb.content_margin_top = 18
-	_sb.content_margin_bottom = 12
+	_sb.content_margin_top = 16
+	_sb.content_margin_bottom = 11
 	_card.add_theme_stylebox_override("panel", _sb)
-	add_child(_card)
+	_root.add_child(_card)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
+	v.add_theme_constant_override("separation", 4)
 	_card.add_child(v)
 
 	var head := HBoxContainer.new()
@@ -67,29 +78,22 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float, is_vip := fals
 	name_l.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	name_l.custom_minimum_size = Vector2(0, 40)
+	name_l.custom_minimum_size = Vector2(0, 24)
 	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(name_l)
 	v.add_child(head)
 
-	# Wraps to a second row for long recipes (Burger Meal, The Works) so the ticket keeps its width W.
-	var row := HFlowContainer.new()
-	row.add_theme_constant_override("h_separation", 4)
-	row.add_theme_constant_override("v_separation", 4)
-	var counts := {}
-	var order: Array = []
+	# The mini stack: layers bottom-to-top; runs of one kind merge into a layer with a "2x" badge.
+	var groups: Array = []
 	for k in rec["items"]:
-		if not counts.has(k):
-			order.append(k)
-		counts[k] = int(counts.get(k, 0)) + 1
-	for k in order:
-		var c := HudChip.new()
-		c.setup(str(k), int(counts[k]))
-		row.add_child(c)
-		_chips.append(c)
-	v.add_child(row)
+		if not groups.is_empty() and groups[-1][0] == k:
+			groups[-1][1] += 1
+		else:
+			groups.append([k, 1])
+	var stack := _build_stack(groups)
+	v.add_child(stack)
 	if ModifierSystem.is_active("mystery_orders"):
-		row.visible = false   # chips still tick internally (set_plate), just hidden
+		stack.visible = false   # layers still tick internally (set_plate), just hidden
 		v.add_child(_mystery_row())
 
 	_bar = UIKit.progress(1.0, 150, 14, true)
@@ -101,7 +105,7 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float, is_vip := fals
 	_flash.add_theme_stylebox_override("panel", _flash_sb)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_flash.modulate.a = 0.0
-	add_child(_flash)
+	_root.add_child(_flash)
 
 	var pin := Control.new()
 	pin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -112,10 +116,82 @@ func setup(recipe_idx: int, number_text: String, tilt_deg: float, is_vip := fals
 		pin.draw_circle(PIN + Vector2(-2, -2), 2.2, UITheme.CREAM)
 		if vip:
 			_draw_star(pin, Vector2(W - 10, 6), 17.0))
-	add_child(pin)
+	_root.add_child(pin)
 
 	_card.resized.connect(_on_card_resized)
 	_on_card_resized.call_deferred()
+
+
+## Columns of layers. Up to 5 layers: one column. Longer: two columns, split after the bun top when a
+## meal has sides after the burger (Burger Meal: burger | fries, soda), else in half; the second column
+## continues where the first ends (small arrow between them).
+func _build_stack(groups: Array) -> Control:
+	var n := groups.size()
+	_col_split = n
+	if n > 5:
+		_col_split = (n + 1) / 2
+		for i in n - 1:
+			if groups[i][0] == "bun_top" and i + 1 >= 2:
+				_col_split = i + 1
+				break
+	var cols: Array = [groups.slice(0, _col_split)]
+	if _col_split < n:
+		cols.append(groups.slice(_col_split))
+	_two_cols = cols.size() > 1
+	var area_w := W - 24.0
+	var col_w := (area_w - COL_GAP * (cols.size() - 1)) / cols.size()
+	var labelled := not _two_cols
+	# Zoom: short stacks get bigger icons. Measure at zoom 1 first.
+	var h1 := 0.0
+	for col in cols:
+		var hh := 0.0
+		for i in col.size():
+			var probe := HudChip.new()
+			probe.setup(str(col[i][0]), int(col[i][1]), 1.0, col_w, labelled)
+			hh += probe.h_box if i == col.size() - 1 else probe.step
+			probe.free()
+		h1 = maxf(h1, hh)
+	var zoom := clampf(STACK_H / h1, 0.8, 1.1)
+	var col_h: Array = []
+	for col in cols:
+		var hh := 0.0
+		for i in col.size():
+			var c := HudChip.new()
+			c.setup(str(col[i][0]), int(col[i][1]), zoom, col_w, labelled)
+			col[i] = c
+			hh += c.h_box if i == col.size() - 1 else c.step
+		col_h.append(hh)
+	var total_h: float = maxf(col_h[0], col_h[-1])
+	var stack := Control.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.custom_minimum_size = Vector2(area_w, total_h + 2.0)
+	for ci in cols.size():
+		var col: Array = cols[ci]
+		var bottom := total_h + 1.0
+		var cx := ci * (col_w + COL_GAP)
+		for i in col.size():
+			var c: HudChip = col[i]
+			c.position = Vector2(cx, bottom - c.h_box)
+			stack.add_child(c)
+			_chips.append(c)
+			bottom -= c.step
+		_tops.append(col[-1])
+	if n > 1:
+		_chips[0].tag = "1st"
+		_chips[-1].tag = "last"
+		if _two_cols:
+			_chips[_col_split].tag = "cont"
+	_overlay = Control.new()
+	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_overlay.draw.connect(_draw_overlay)
+	stack.add_child(_overlay)
+	return stack
+
+
+func _draw_overlay() -> void:
+	for c in _chips:
+		c.draw_marks(_overlay, _tops.has(c))
 
 
 ## mystery_orders: a row of "?" chips in place of the ingredients.
@@ -148,17 +224,33 @@ static func _draw_star(ci: CanvasItem, c: Vector2, r: float) -> void:
 	ci.draw_circle(c + Vector2(-r * 0.2, -r * 0.25), r * 0.14, UITheme.CREAM)
 
 
-## Height of the paper itself (the Control's own size can stay larger after a tall layout pass).
-func body_height() -> float:
+## Height of the paper itself at its natural size (the Control's own size can stay larger after a tall layout pass).
+func natural_height() -> float:
 	return _card.size.y + 5.0
 
 
+## Height on screen (natural height times the rail's fit factor).
+func body_height() -> float:
+	return natural_height() * _fit
+
+
+func width() -> float:
+	return W * _fit
+
+
+## Uniform shrink so a rail full of tall tickets stays under its share of the screen.
+func set_fit(f: float) -> void:
+	_fit = f
+	_root.scale = Vector2(f, f)
+	_on_card_resized()
+
+
 func _on_card_resized() -> void:
-	size = Vector2(W, _card.size.y + 5)
+	size = Vector2(W, natural_height()) * _fit
 	custom_minimum_size = size
 	_flash.position = Vector2.ZERO
 	_flash.size = _card.size
-	pivot_offset = PIN
+	pivot_offset = PIN * _fit
 
 
 func set_progress(left_s: float, patience_s: float) -> void:
@@ -170,12 +262,15 @@ func set_progress(left_s: float, patience_s: float) -> void:
 
 
 func set_plate(stack: Array) -> void:
+	var left := {}
+	for k in stack:
+		left[k] = int(left.get(k, 0)) + 1
 	for c in _chips:
-		var n := 0
-		for k in stack:
-			if k == c.kind:
-				n += 1
+		var n := mini(int(left.get(c.kind, 0)), c.need)
+		left[c.kind] = int(left.get(c.kind, 0)) - n
 		c.set_have(n)
+	if _overlay != null:
+		_overlay.queue_redraw()
 
 
 func flash(col: Color, hold := 0.5) -> void:
