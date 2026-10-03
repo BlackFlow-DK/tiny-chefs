@@ -254,7 +254,7 @@ func _on_event(text: String, sfx: String) -> void:
 		return   # shift events: HudEventBanner shows these
 	var kind := "info"
 	match sfx:
-		"serve", "buy":
+		"serve", "buy", "combo":
 			kind = "success"
 		"fail":
 			kind = "error"

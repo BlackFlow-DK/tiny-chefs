@@ -6,7 +6,7 @@ extends PanelContainer
 
 ## Visible height at the camera distance is 1.82 m; leave a margin for the tilt.
 const FILL := 1.85
-const MODELS := {"gloves": "boxing_glove", "knife": "knife"}   # fallback when an upgrade has no "icon"
+const MODELS := {"gloves": "boxing_glove", "sharp_knife": "knife"}   # fallback when an upgrade has no "icon"
 
 var _pivot: Node3D
 var _emblem: Control
@@ -21,7 +21,7 @@ func _init(upgrade_id := "", color := UITheme.MUSTARD, px := 116) -> void:
 		_build_view(model_name, px)
 	else:
 		_emblem = _Emblem.new()
-		_emblem.set("kind", upgrade_id)
+		_emblem.set("kind", str(GameData.upgrade(upgrade_id).get("emblem", GameData.upgrade_id(upgrade_id))))
 		_emblem.set("color", color)
 		_emblem.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_emblem.size_flags_vertical = Control.SIZE_EXPAND_FILL

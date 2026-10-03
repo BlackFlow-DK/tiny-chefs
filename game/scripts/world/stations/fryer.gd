@@ -1,7 +1,7 @@
 class_name Fryer
 extends Griddle
 ## Deep fryer: the griddle's slots/timers/bars (see Griddle) along "fries_to": raw -> fried after FRY_TIME,
-## fried -> burnt after FRY_BURN_TIME, FRYER_SLOTS at once. Flat and sunk like the griddle (no collider).
+## fried -> burnt after FRY_BURN_TIME, FRYER_SLOTS (+ big_fryer) at once. Flat and sunk like the griddle (no collider).
 ## Oil bubbles rise while anything on it is frying (every peer, from the replicated Item.cooking).
 
 var _bubbles: CPUParticles3D
@@ -52,8 +52,12 @@ func key() -> String:
 	return "fries_to"
 
 
-func _slots() -> int:
+func base_slots() -> int:
 	return Tuning.FRYER_SLOTS
+
+
+func slots_upgrade() -> String:
+	return "big_fryer"
 
 
 func _stage_time(_d: Dictionary, cook_stage: bool) -> float:

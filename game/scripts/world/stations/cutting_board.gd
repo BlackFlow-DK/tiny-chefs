@@ -61,16 +61,24 @@ func host_update(dt: float) -> void:
 	chopping = n > 0
 	food_local = food.global_position - global_position
 	if chopping:
-		var mult := Tuning.KNIFE_MULT if world.shift.has_upgrade("knife") else 1.0
-		progress += dt * float(n) * mult / Tuning.CHOP_TIME
+		progress += dt * float(n) * chop_mult() / Tuning.CHOP_TIME
 	food.bar = progress
 	food.bar_kind = Item.Bar.CHOP
 	if progress >= 1.0:
+		if world.shift.has_upgrade("sharp_knife"):
+			print("upgrades: board chopped %s at x%.2f (one chef: %.2fs, base %.1fs)" % [food.kind, chop_mult(), Tuning.CHOP_TIME / chop_mult(), Tuning.CHOP_TIME])
 		world.chop(food)
 		progress = 0.0
 		chopping = false
 		has_food = false
 		_food_id = -1
+
+
+## Chop rate multiplier: 1 + sharp_knife value (one chef chops in CHOP_TIME / this).
+func chop_mult() -> float:
+	if world == null or world.shift == null:
+		return 1.0
+	return 1.0 + world.shift.upgrade_value("sharp_knife", 0.0)
 
 
 func reset() -> void:

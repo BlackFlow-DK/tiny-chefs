@@ -17,7 +17,13 @@ func on_punch_pressed(c: Chef) -> void:
 		_punch(c)
 
 
+## Punch launch multiplier (food speed and chef shove): 1 + heavy_gloves value.
+static func launch_mult(shift: ShiftManager) -> float:
+	return 1.0 + shift.upgrade_value("heavy_gloves", 0.0)
+
+
 func _punch(c: Chef) -> void:
+	var power := launch_mult(world.shift)
 	c.punch_cd = Tuning.PUNCH_COOLDOWN
 	c.punch_anim = 0.25
 	world.stats.on_punch(c)
@@ -48,7 +54,7 @@ func _punch(c: Chef) -> void:
 		var o := best as Chef
 		Net.metrics["punch_hits"] = int(Net.metrics.get("punch_hits", 0)) + 1
 		world.release(o)
-		o.knock = fwd * Tuning.PUNCH_PLAYER_SPEED
+		o.knock = fwd * Tuning.PUNCH_PLAYER_SPEED * power
 	elif best is Item:
 		var it := best as Item
 		Net.metrics["punch_hits"] = int(Net.metrics.get("punch_hits", 0)) + 1
@@ -56,9 +62,9 @@ func _punch(c: Chef) -> void:
 		world.detach_all(it)
 		world.item_launched(it)   # slippery: no "keeps its carry velocity" on top of the punch
 		var w := sqrt(float(it.weight()))
-		it.linear_velocity = fwd * (Tuning.PUNCH_ITEM_SPEED / w) + Vector3.UP * (Tuning.PUNCH_ITEM_UP / w)
+		it.linear_velocity = (fwd * (Tuning.PUNCH_ITEM_SPEED / w) + Vector3.UP * (Tuning.PUNCH_ITEM_UP / w)) * power
 		it.angular_velocity = Vector3(0, 8.0, 0)
 		it.refuse_cooldown = 0.3
-		if Net.has_arg("carry-log"):
-			print("punch: chef %d launched %s %d (held by %d) at %.2f m/s" % [c.peer_id, it.kind, it.item_id, held,
-				it.linear_velocity.length()])
+		if Net.has_arg("carry-log") or power > 1.0:
+			print("punch: chef %d launched %s %d (held by %d) at %.2f m/s (power x%.2f)" % [c.peer_id, it.kind, it.item_id, held,
+				it.linear_velocity.length(), power])

@@ -11,7 +11,7 @@ extends RefCounted
 ## Either way item + carriers move as one unit that is swept against the world and other chefs
 ## (Jolt test motion): a blocked move slides, a blocked swing stops. A carrier past the counter
 ## edge lets go (and falls); food whose centre leaves the counter is dropped by BoundsSystem.
-## Speed = PLAYER_SPEED * clamp(carriers / weight, CARRY_MIN_FACTOR, 1).
+## Speed = PLAYER_SPEED * move_mult (shoes) * clamp((carriers + protein_shake) / weight, CARRY_MIN_FACTOR, 1).
 ## --carry-log prints every carried item's mode, swing rate and whether a carrier is inside scenery.
 ## --carry-spawn=<kind>:<x>:<z>[,...] (agent tests) drops that food on the counter when play starts.
 
@@ -76,10 +76,17 @@ func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
 	return by_aim if by_aim != null else best
 
 
-## Every peer: how far (m, chef centre to food footprint) a chef can grab: Tuning.REACH, x
-## Tuning.TONGS_REACH_MULT with the tongs upgrade.
+## Every peer: how far (m, chef centre to food footprint) a chef can grab: Tuning.REACH x (1 + tongs value).
 func grab_reach() -> float:
-	return Tuning.REACH * (Tuning.TONGS_REACH_MULT if world.shift.has_upgrade("tongs") else 1.0)
+	return Tuning.REACH * (1.0 + world.shift.upgrade_value("tongs", 0.0))
+
+
+## Carry speed factor for n carriers on food of weight w: clamp((n + protein_shake value) / w, MIN, 1).
+## The shake only adds a fractional carrier here (speed), never above the unloaded speed; carrier pips,
+## swing rate and grab rules still count real chefs.
+static func speed_factor(n: int, w: int, shift: ShiftManager) -> float:
+	var extra := shift.upgrade_value("protein_shake", 0.0) if shift != null else 0.0
+	return clampf((float(n) + extra) / float(w), Tuning.CARRY_MIN_FACTOR, 1.0)
 
 
 ## A fresh grab press: drop what the chef holds, else grab the best candidate.
@@ -154,7 +161,7 @@ func move_carried(dt: float, mult: float, playing: bool) -> void:
 			sum += world.input_of(c.peer_id).move3() if playing else Vector3.ZERO
 		var n: int = it.carriers.size()
 		var avg := sum / float(n)
-		var factor := clampf(float(n) / float(it.weight()), Tuning.CARRY_MIN_FACTOR, 1.0)
+		var factor := speed_factor(n, it.weight(), world.shift)
 		var moved := _translate_unit(it, avg * Tuning.PLAYER_SPEED * mult * factor * dt)
 		if n == 1:
 			var c: Chef = it.carriers[0]

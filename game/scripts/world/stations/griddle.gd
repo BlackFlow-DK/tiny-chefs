@@ -6,6 +6,7 @@ extends Station
 ## dragged off. At most _slots() at once. The Fryer subclass reuses all of this with "fries_to".
 
 var _ids: Array = []  # item ids on the station, in arrival order
+var _fit := -1        # slot_fit() cache
 
 
 func build() -> void:
@@ -33,19 +34,60 @@ func key() -> String:
 	return "cooks_to"
 
 
-func _slots() -> int:
+## Base slots, before the big_griddle / big_fryer upgrade.
+func base_slots() -> int:
 	return Tuning.GRIDDLE_SLOTS
 
 
+## Upgrade line that adds slots here.
+func slots_upgrade() -> String:
+	return "big_griddle"
+
+
+# ----------------------------------------------------------------
+
+## Items cooking at once: base + the slot upgrade, capped by how many of the largest food this station
+## takes fit side by side on its footprint (slot_fit).
+func _slots() -> int:
+	return mini(base_slots() + int(_upg(slots_upgrade())), maxi(base_slots(), slot_fit()))
+
+
+func slots() -> int:
+	return _slots()
+
+
+## How many of the bulkiest food this station cooks (along key()) fit on its top, laid out in a grid in
+## either orientation: the minimum over every such kind. Griddle 9x7 with 3x3 patties: 6. Fryer 7x6 with
+## 3x3 chicken / 2.8 fries: 4.
+func slot_fit() -> int:
+	if _fit >= 0:
+		return _fit
+	var best := 1 << 20
+	for k in GameData.ITEMS:
+		var d: Dictionary = GameData.ITEMS[k]
+		if not d.has(key()):
+			continue
+		var s: Vector3 = d["size"]
+		var a := floori(size.x / s.x) * floori(size.z / s.z)
+		var b := floori(size.x / s.z) * floori(size.z / s.x)
+		best = mini(best, maxi(a, b))
+	_fit = maxi(1, best)
+	return _fit
+
+
+## Cumulative upgrade value (0 when not owned / no world yet).
+func _upg(id: String) -> float:
+	if world == null or world.shift == null:
+		return 0.0
+	return world.shift.upgrade_value(id, 0.0)
+
+
 ## Seconds for the stage an item of this def is in.
-## Difficulty burn window (ShiftDef burn_scale) x Tuning.OVEN_MITTS_MULT with the oven_mitts upgrade.
+## Difficulty burn window (ShiftDef burn_scale) x (1 + oven_mitts value).
 func _burn_scale() -> float:
 	if world == null or world.shift == null:
 		return 1.0
-	var k := float(world.shift.def.get("burn_scale", 1.0))
-	if world.shift.has_upgrade("oven_mitts"):
-		k *= Tuning.OVEN_MITTS_MULT
-	return k
+	return float(world.shift.def.get("burn_scale", 1.0)) * (1.0 + _upg("oven_mitts"))
 
 
 ## Burn-window multiplier in force (difficulty x upgrades).
@@ -53,9 +95,9 @@ func burn_scale() -> float:
 	return _burn_scale()
 
 
-## Cook-stage speed multiplier: Tuning.HOT_GRIDDLE_MULT with the hot_griddle upgrade (griddle and fryer).
+## Cook-stage speed multiplier: 1 + hot_griddle value (griddle and fryer).
 func cook_speed() -> float:
-	return Tuning.HOT_GRIDDLE_MULT if world != null and world.shift != null and world.shift.has_upgrade("hot_griddle") else 1.0
+	return 1.0 + _upg("hot_griddle")
 
 
 ## Stage time with the cook speed applied (the burn stage already carries _burn_scale()).
@@ -129,8 +171,8 @@ func host_update(dt: float) -> void:
 		var cook := is_cook_stage(it.kind)
 		var limit := _limit(it.def, cook)
 		if it.cook_time >= limit:
-			if world.shift.has_upgrade("hot_griddle") or world.shift.has_upgrade("oven_mitts"):
-				print("upgrades: %s %s stage done after %.2fs" % [type, it.kind, limit])
+			if world.shift.has_upgrade("hot_griddle") or world.shift.has_upgrade("oven_mitts") or world.shift.has_upgrade(slots_upgrade()):
+				print("upgrades: %s %s stage done after %.2fs (slot %d/%d)" % [type, it.kind, limit, slot, _slots()])
 			it.cook_time = 0.0
 			_transform(it, str(it.def[k]))
 			if not it.def.has(k):

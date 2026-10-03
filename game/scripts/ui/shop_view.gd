@@ -3,12 +3,16 @@ extends Control
 ## "Chef shop": big team-wallet chip, one card per upgrade (icon, effect, price, Buy / OWNED)
 ## and a footer with what comes next. Same calls as before: Net.buy(id), Net.set_phase(PLAYING).
 
-const COLORS := {"gloves": UITheme.TOMATO, "knife": UITheme.SKY, "shoes": UITheme.LETTUCE,
-	"second_plate": UITheme.SKY, "oven_mitts": UITheme.TOMATO, "hot_griddle": UITheme.MUSTARD, "tongs": UITheme.LETTUCE}
-## More than this many upgrades: narrower cards so one row still fits 1280 px.
-const WIDE_CARDS_MAX := 4
+## Card colour per upgrade category (GameData.UPGRADE_CATEGORIES).
+const COLORS := {"cooking": UITheme.MUSTARD, "prep": UITheme.SKY, "movement": UITheme.LETTUCE,
+	"service": UITheme.SKY, "chaos": UITheme.TOMATO}
+## Stop-gap layout for the tiered tree (a dedicated shop rebuild replaces it): a grid of small cards in
+## GameData.UPGRADES order, each showing the NEXT level (title, effect, price) or MAX.
+const COLUMNS := 8
+const CARD_W := 136
+const ICON_PX := 48
 
-var _cards: Dictionary = {}     # id -> {card, button, price, chip, badge, state}
+var _cards: Dictionary = {}     # id -> {card, button, price, chip, badge, name, level, desc, state "<st>:<level>", cost}
 var _wallet_lbl: Label
 var _wallet_chip: PanelContainer
 var _wallet_shown := -1.0
@@ -45,11 +49,19 @@ func _init() -> void:
 	head.add_child(_make_wallet())
 	v.add_child(head)
 
-	var cards := HBoxContainer.new()
-	cards.add_theme_constant_override("separation", 10 if _compact() else 16)
+	var cards := GridContainer.new()
+	cards.columns = mini(COLUMNS, GameData.UPGRADES.size())
+	cards.add_theme_constant_override("h_separation", 8)
+	cards.add_theme_constant_override("v_separation", 8)
 	for u in GameData.UPGRADES:
 		cards.add_child(_make_card(u))
-	v.add_child(cards)
+	# Scrolls when the grid is taller than the window allows (gamepad focus follows).
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	scroll.custom_minimum_size = Vector2(COLUMNS * (CARD_W + 8), 520)
+	scroll.add_child(cards)
+	v.add_child(scroll)
 
 	# Footer.
 	var foot := HBoxContainer.new()
@@ -96,27 +108,29 @@ func _make_wallet() -> Control:
 
 func _make_card(u: Dictionary) -> Control:
 	var id: String = u["id"]
-	var col: Color = COLORS.get(id, UITheme.MUSTARD)
-	var compact := _compact()
-	var cv := UIKit.card(6 if compact else 8)
+	var col: Color = COLORS.get(str(u.get("category", "")), UITheme.MUSTARD)
+	var cv := UIKit.card(2)
 	var card: PanelContainer = cv[0]
 	var v: VBoxContainer = cv[1]
-	card.custom_minimum_size = Vector2(156 if compact else 236, 0)
+	var sb := UITheme.box(UITheme.CREAM, UITheme.INK, 12, 3, 3)
+	sb.set_content_margin_all(6)
+	card.add_theme_stylebox_override("panel", sb)
+	card.custom_minimum_size = Vector2(CARD_W, 0)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var icon_wrap := CenterContainer.new()
 	var icon_area := Control.new()
-	icon_area.custom_minimum_size = Vector2(116, 94) if compact else Vector2(190, 122)
+	icon_area.custom_minimum_size = Vector2(CARD_W - 12, ICON_PX + 2)
 	icon_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon := ShopIcon.new(id, col, 88 if compact else 116)
+	var icon := ShopIcon.new(id, col, ICON_PX)
 	icon_area.add_child(icon)
 	icon.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
 	icon.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	icon.grow_vertical = Control.GROW_DIRECTION_BOTH
-	# OWNED ribbon, tilted across the icon.
+	# MAX ribbon, tilted across the icon.
 	var badge := PanelContainer.new()
 	badge.add_theme_stylebox_override("panel", UITheme.box(UITheme.LETTUCE, UITheme.INK, 8, 3, 4))
-	var bl := UIKit.number("OWNED")
+	var bl := UIKit.number("MAX")
 	bl.add_theme_font_size_override("font_size", UITheme.S_BODY)
 	badge.add_child(bl)
 	badge.visible = false
@@ -125,84 +139,87 @@ func _make_card(u: Dictionary) -> Control:
 	badge.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
 	badge.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	badge.grow_vertical = Control.GROW_DIRECTION_BOTH
-	badge.position.y += 26 if compact else 34
+	badge.position.y += 12
 	badge.rotation = -0.2
 	icon_wrap.add_child(icon_area)
 	v.add_child(icon_wrap)
 
-	var nm := UIKit.heading(str(u["name"]))
+	var nm := UIKit.body(str(u["name"]))
+	nm.add_theme_font_size_override("font_size", 18)
 	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if compact:
-		nm.add_theme_font_size_override("font_size", UITheme.S_BODY)
-		nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nm.custom_minimum_size = Vector2(116, 52)
-		nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nm.custom_minimum_size = Vector2(CARD_W - 12, 0)
 	v.add_child(nm)
-	var desc := UIKit.caption(_short_desc(u))
+	var desc := UIKit.caption("")
+	desc.add_theme_font_size_override("font_size", 14)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.custom_minimum_size = Vector2(116, 98) if compact else Vector2(190, 62)
+	desc.custom_minimum_size = Vector2(CARD_W - 12, 54)
+	desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(desc)
 
-	var price_row := CenterContainer.new()
+	# Level + price on one row.
+	var price_row := HBoxContainer.new()
+	price_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	price_row.add_theme_constant_override("separation", 6)
+	var lvl := UIKit.caption("")
+	lvl.add_theme_font_size_override("font_size", 14)
+	lvl.add_theme_color_override("font_color", col.darkened(0.5))
+	lvl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	price_row.add_child(lvl)
 	var chip := PanelContainer.new()
 	chip.theme_type_variation = "ChipPanel"
 	var ph := HBoxContainer.new()
-	ph.add_theme_constant_override("separation", 8)
-	ph.add_child(UIKit.dot(UITheme.MUSTARD, 22))
-	var price := UIKit.number(str(int(u["price"])))
+	ph.add_theme_constant_override("separation", 6)
+	ph.add_child(UIKit.dot(UITheme.MUSTARD, 18))
+	var price := UIKit.number("0")
+	price.add_theme_font_size_override("font_size", UITheme.S_BODY)
 	ph.add_child(price)
 	chip.add_child(ph)
 	price_row.add_child(chip)
 	v.add_child(price_row)
 
-	var btn := UIKit.button("Buy", func() -> void: _on_buy(id), "accent", 110 if compact else 170)
+	var btn := UIKit.button("Buy", func() -> void: _on_buy(id), "accent", CARD_W - 40)
+	btn.custom_minimum_size.y = 36
+	btn.add_theme_font_size_override("font_size", 18)
 	v.add_child(btn)
-	var active := UIKit.heading("Active all run")
+	var active := UIKit.body("Maxed out")
 	active.add_theme_color_override("font_color", UITheme.LETTUCE.darkened(0.45))
 	active.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if compact:
-		active.add_theme_font_size_override("font_size", UITheme.S_BODY)
-		active.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		active.custom_minimum_size = Vector2(116, 0)
-	active.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	active.custom_minimum_size = Vector2(0, 36)
 	active.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	active.visible = false
 	v.add_child(active)
-	var na := UIKit.body("Not available on this kitchen")
+	var na := UIKit.caption("Not available on this kitchen")
 	na.add_theme_color_override("font_color", UITheme.TOMATO_DARK)
 	na.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	na.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	na.custom_minimum_size = Vector2(116 if compact else 190, 0)
-	na.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	na.custom_minimum_size = Vector2(CARD_W - 12, 36)
 	na.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	na.visible = false
 	v.add_child(na)
-	_cards[id] = {"card": card, "button": btn, "price": price, "chip": price_row, "badge": badge, "active": active, "na": na, "state": ""}
+	_cards[id] = {"card": card, "button": btn, "price": price, "chip": price_row, "badge": badge, "active": active, "na": na,
+		"name": nm, "level": lvl, "desc": desc, "state": "", "cost": 0}
 	return card
 
 
-## Narrow cards when there are more upgrades than fit a 1280 px row at full width.
-static func _compact() -> bool:
-	return GameData.UPGRADES.size() > WIDE_CARDS_MAX
-
-
 ## Shorter effect line for the cards (key hints live in the pause menu and the guide).
-func _short_desc(u: Dictionary) -> String:
-	if u["id"] == "gloves":
+func _short_desc(id: String, level: int) -> String:
+	if id == "gloves":
 		return "Unlocks punching. Launch food, shove friends."
-	if u["id"] == "second_plate":
+	if id == "second_plate":
 		return "Unlocks the second plate and bell."
-	return str(u["desc"])
+	return GameData.upgrade_desc(id, level)
 
 
 func _on_buy(id: String) -> void:
 	var c: Dictionary = _cards[id]
-	if c["state"] == "poor":
+	var st := str(c["state"])
+	if st.begins_with("poor"):
 		UIKit.shake(c["card"], 7.0)
-		var need := int(GameData.upgrade(id)["price"]) - int(_wallet_shown)
+		var need := int(c["cost"]) - int(_wallet_shown)
 		UIKit.toast(self, "Need %d more coins" % maxi(need, 1), "error", 1.6)
-	elif c["state"] == "buy":
+	elif st.begins_with("buy"):
 		Net.buy(id)
 
 
@@ -229,33 +246,48 @@ func update(sm: ShiftManager) -> void:
 		var id: String = u["id"]
 		var c: Dictionary = _cards[id]
 		var btn: Button = c["button"]
-		var price := int(u["price"])
-		var st := "owned" if sm.has_upgrade(id) else ("buy" if sm.coins >= price else "poor")
-		if st != "owned" and not ShiftSystem.upgrade_available(id, sm.next_index):
+		var lv := sm.upgrade_level(id)
+		var mx := GameData.upgrade_max_level(id)
+		var price := sm.next_price(id)
+		var st := "max" if price < 0 else ("buy" if sm.coins >= price else "poor")
+		if st != "max" and not ShiftSystem.upgrade_available(id, sm.next_index):
 			st = "na"   # e.g. Second Plate on a kitchen without a second plate
-		if st == c["state"]:
+		elif st != "max" and not sm.requires_met(id):
+			st = "locked"   # e.g. Heavy Gloves before Boxing Gloves
+		var key := "%s:%d" % [st, lv]
+		if key == c["state"]:
 			continue
 		var prev: String = c["state"]
-		c["state"] = st
-		var owned := st == "owned"
-		var na := st == "na"
-		btn.visible = not owned and not na
-		(c["chip"] as Control).visible = not owned and not na
+		c["state"] = key
+		c["cost"] = price
+		var maxed := st == "max"
+		var na := st == "na" or st == "locked"
+		(c["name"] as Label).text = GameData.upgrade_title(id, mini(lv + 1, mx))
+		(c["level"] as Label).text = ("Lv %d/%d" % [lv, mx]) if mx > 1 else ""
+		(c["desc"] as Label).text = _short_desc(id, mini(lv + 1, mx))
+		(c["price"] as Label).text = str(maxi(price, 0))
+		if st == "locked":
+			var req := GameData.upgrade_requires(id)
+			(c["na"] as Label).text = "Needs %s" % GameData.upgrade_title(str(req[0]), int(req[1]))
+		elif st == "na":
+			(c["na"] as Label).text = "Not available on this kitchen"
+		btn.text = "Upgrade" if lv > 0 else "Buy"
+		btn.visible = not maxed and not na
+		(c["chip"] as Control).visible = not maxed and not na
 		(c["na"] as Control).visible = na
 		(c["card"] as Control).modulate = Color(1, 1, 1, 0.6) if na else Color.WHITE
-		if na and btn.has_focus():
+		if (na or maxed) and btn.has_focus():
 			focus_lost = true
-		(c["badge"] as Control).visible = owned
-		(c["active"] as Control).visible = owned
+		(c["badge"] as Control).visible = maxed
+		(c["active"] as Control).visible = maxed
 		(c["price"] as Label).add_theme_color_override("font_color", UITheme.TOMATO_DARK if st == "poor" else UITheme.INK)
 		btn.theme_type_variation = "SecondaryButton" if st == "poor" else "AccentButton"
 		btn.modulate = Color(1, 1, 1, 0.7) if st == "poor" else Color.WHITE
-		if owned and btn.has_focus():
-			focus_lost = true
-		if owned and prev != "" and _primed:
+		if prev != "" and _primed and lv > int(prev.get_slice(":", 1)):
 			UIKit.punch(c["card"], 0.07, 0.3)
-			UIKit.punch(c["badge"], 0.5, 0.35)
-			UIKit.toast(self, "Bought %s!" % u["name"], "success", 2.0)
+			if maxed:
+				UIKit.punch(c["badge"], 0.5, 0.35)
+			UIKit.toast(self, "Bought %s!" % GameData.upgrade_title(id, lv), "success", 2.0)
 	if not _primed:
 		_primed = true
 		_focus_start()
@@ -284,7 +316,7 @@ func _next_text(sm: ShiftManager) -> String:
 func _focus_start() -> void:
 	for u in GameData.UPGRADES:
 		var c: Dictionary = _cards[u["id"]]
-		if c["state"] == "buy":
+		if str(c["state"]).begins_with("buy"):
 			(c["button"] as Button).grab_focus.call_deferred()
 			return
 	if Net.is_host:
@@ -292,7 +324,7 @@ func _focus_start() -> void:
 	else:
 		for u in GameData.UPGRADES:
 			var c: Dictionary = _cards[u["id"]]
-			if c["state"] == "poor":
+			if str(c["state"]).begins_with("poor"):
 				(c["button"] as Button).grab_focus.call_deferred()
 				return
 

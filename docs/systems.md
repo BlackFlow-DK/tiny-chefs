@@ -28,7 +28,7 @@ plate cooldowns -> every `Station.host_update` -> bounds falls -> modifiers -> s
 | Cutting board (`systems/cutting_board_system.gd` + `world/stations/cutting_board.gd`) | chop progress of any `chops_to` food, workers, knife anim, state (station); whole -> `chop_count` pieces (system) | `chop`; `CuttingBoard.reset, state, apply_state, has_food` (`has_tomato` = old alias) | both |
 | Plate + bell (`systems/plate_system.gd` + `world/stations/plate.gd`, `bell.gd`) | N plate + bell pairs (`world.plates/bells`, first = `world.plate/bell`; each bell serves its nearest plate, `Bell.plate`); stack snapping (station); serve at the bell in reach, pay/penalty, raw/burnt/whole refusal, refuse cooldown (system); closed stations (see below) | `on_work_pressed, bell_near, refuse_from_plate(it, p, msg), tick`; `Plate.stack, clear_stack, state`; `Bell.ring` (replicated counter via `state()`) | all three |
 | Trash (`world/stations/trash.gd`) | food on the drain disappears (no system file needed) | `host_update` | it |
-| Shift (`systems/shift_system.gd`) | shift start/end, clock, order expiry + "new order" events, shop buy, --upgrades, --quit-after-shift | `start_shift, tick, sync_order_count, try_buy, apply_test_upgrades, process_quit` | it, `game/shift_manager.gd`, `game/order_manager.gd` |
+| Shift (`systems/shift_system.gd`) | shift start/end, clock, order expiry + "new order" events, shop buy (next level of a line; refuses at max / unmet `requires` / station not on the next map), `--upgrades=id:level,...` (bare id = max), `--coins=<n>`, `--upgrade-table`, --quit-after-shift | `start_shift, tick, sync_order_count, try_buy, apply_test_upgrades, process_quit`; static `upgrade_available(id, next_index)` | it, `game/shift_manager.gd`, `game/order_manager.gd` |
 | Events (`systems/event_system.gd` + `world/events/*.gd`: `shift_event.gd` base, `vip_event.gd`, `inspector_event.gd`, `cat_paw_event.gd`) | timed shift events: schedule (own cadence each, telegraph 4 s / inspector 15 s, one at a time, `EVENT_GAP` 15 s between, none in the first 30 s / last 20 s), enabled from ShiftDef `events` (+ map hazard `cat_paw`), host `--events=a,b` (endless/custom) + `--event-fast`; VIP order flag + pay/penalty multipliers (`OrderManager.add_vip, pay_for, expire_penalty`), inspector fines, paw launch/shove; replicated as snapshot meta `"e"` (clients animate the paw from it); visuals every peer; banners in `ui/hud_event_banner.gd` | `world.events`: `start_shift, tick, process, state, apply_state, inspector_left, on_order_served, on_order_expired` (via `world.order_served/order_expired`); stats: signals `vip_served(pay), vip_expired, inspector_fined(kind, coins), inspected(burnt_count), paw_hit(target)` + `counters` (run totals, also `Net.metrics["events"]`) | it, `world/events/**`, `ui/hud_event_banner.gd` |
 | Roster (`systems/roster_system.gd`) | host adds/removes chefs + input slots on join/leave; client name refresh; everyone re-applies chef looks (`Net.look_of`) on every roster change | `sync` | it |
 | Snapshot (`systems/snapshot_system.gd`) | replicated wire format: build (host), apply (client) | `build, apply` | it + matching `state()/apply_state()`; format change needs both peers |
@@ -55,12 +55,19 @@ which upgrade opens it, and IndicatorLayer floats a "Buy <upgrade>" pill over it
 `{"type": "bell", ..., "pos": Vector3(-14, 0, 8), "label": "Serve 2", "upgrade": "second_plate"}`.
 Snapshot meta carries every plate stack (`"p"`: Array, map order) and every bell's ring counter (`"r"`).
 
-### Upgrade hooks
-`second_plate`: `Station.is_locked`. `oven_mitts`: `Griddle._burn_scale()` (x `Tuning.OVEN_MITTS_MULT` on top of
-the ShiftDef `burn_scale`; the Fryer inherits it). `hot_griddle`: `Griddle.cook_speed()` divides the cook stage
-(griddle + fryer). `tongs`: `CarrySystem.grab_reach()` / `World.grab_reach()` (x `Tuning.TONGS_REACH_MULT`). The
-host logs `upgrades: ...` at shift start and for every upgraded stage / long grab. Shop cards come from
-`GameData.UPGRADES` (`icon`: model name, or "" for an emblem ShopIcon draws for the id).
+### Upgrade hooks (tiered tree: `docs/upgrades.md`)
+Owned state is `world.shift.upgrades` = `{id: level}` (shift meta index 8). Every hook reads
+`shift.upgrade_value(id, 0)` (cumulative value at the owned level) so levels stack: `hot_griddle`
+`Griddle.cook_speed()` (griddle + fryer), `oven_mitts` `Griddle.burn_scale()`, `big_griddle`/`big_fryer`
+`Griddle.slots()` (capped by `slot_fit()`: what fits on the footprint), `sharp_knife` `CuttingBoard.chop_mult()`,
+`quick_hands` `Dispenser.hold_time()` (soda too), `shoes` `World.move_mult()`, `protein_shake`
+`CarrySystem.speed_factor()` (speed only), `tongs` `CarrySystem.grab_reach()`, `second_plate` `Station.is_locked`,
+`friendly_service` `OrderManager.patience_mult` (set at shift start), `tip_jar` `OrderManager.pay_for(o, shift)`,
+`insurance` `OrderManager.expire_penalty(o, shift)`, `combo_bell` `PlateSystem.combo_mult` (streak, "Combo xN!"
+toast), `gloves` PunchSystem gate, `heavy_gloves` `PunchSystem.launch_mult`. Old id `knife` = `sharp_knife`.
+Host logs `upgrades: owned [...] | <every hook's value>` at shift start, `upgrades: bought ...`, and a line per
+upgraded stage / chop / long grab / combo / tip / insurance; `--upgrade-table` prints each line at level 1 and max.
+Shop cards come from `GameData.UPGRADES` (`icon`: model name, or "" for an emblem ShopIcon draws for `emblem`/id).
 
 ### Ping
 Middle mouse / pad Y (`ping` action, InputSystem): the aim point, else 3 m in front of the chef ->
@@ -81,8 +88,8 @@ colour, 3 s, one per player), Sfx plays "ping", the HUD skips it.
 | Progress (`data/progress.gd`) | local save `user://progress.cfg`: best coins per map + difficulty (key `<map>\|<difficulty>`) and per mission, mission stars (only ever go up); written on the host at shift end; the lobby reads stars + locks | static `best, set_best, get_stars, set_stars, get_best_coins, set_best_coins, is_unlocked(i)` (mission i-1 has a star), `reload` | stats + campaign owners |
 | Bot (`game/bot.gd`) | `--bot` player: reads world view, writes PlayerInput | `update` | it |
 | PlayerInput / Controls (`game/player_input.gd`, `game/controls.gd`) | input packet shape (move, work, grab/punch/work seqs, `aim_point: Vector2` world XZ + `has_aim: bool`); input map | `copy_from, move3, aim3`; `Controls.setup`. Host reads a player's aim as `world.input_of(peer_id).aim_point/has_aim` | them (packet shape = wire format: `Net._rpc_input` + `World.receive_input`) |
-| Shift/Order data (`game/shift_manager.gd`, `game/order_manager.gd`) | wallet, clock, upgrades; open orders (replicated as meta) | `begin, add_coins, has_upgrade, to_meta/from_meta`; `reset, update, match_plate` | Shift owner |
-| Data (`data/tuning.gd`, `data/game_data.gd`) | every tunable; items, recipes, shifts, upgrades; maps (`MAPS`: id -> MapDef, fields documented above `MAPS` in game_data.gd) | constants; `GameData.item, kind_index, upgrade, shift_def` (= `ShiftPlan.build(Net.settings, ...)`), `map(id), map_ids(include_dev), surfaces_bounds, surfaces_contain` | balance owner |
+| Shift/Order data (`game/shift_manager.gd`, `game/order_manager.gd`) | wallet, clock, upgrade levels (`upgrades`: `{id: level}`); open orders (replicated as meta) | `begin, add_coins, upgrade_level, upgrade_value(id, fallback), has_upgrade, requires_met, next_price, set_upgrade_level, upgrades_text, to_meta/from_meta`; `reset, update, match_plate`, static `pay_for(o, shift, extra), expire_penalty(o, shift), patience_mult_for(shift)` | Shift owner |
+| Data (`data/tuning.gd`, `data/game_data.gd`) | every tunable; items, recipes, shifts, upgrades; maps (`MAPS`: id -> MapDef, fields documented above `MAPS` in game_data.gd) | constants; `GameData.item, kind_index, shift_def` (= `ShiftPlan.build(Net.settings, ...)`), `map(id), map_ids(include_dev), surfaces_bounds, surfaces_contain`; upgrades (`docs/upgrades.md`): `upgrade(id), upgrade_ids(), upgrade_categories(), upgrade_id(alias), upgrade_max_level, upgrade_price(id, level), upgrade_total(id, level), upgrade_value_text, upgrade_desc(id, level), upgrade_title(id, level), upgrade_requires` | balance owner |
 | Data (`data/tuning.gd`, `data/game_data.gd`) | every tunable; items, stations, recipes, shifts, upgrades | constants; `GameData.item, kind_index, upgrade, shift_def, transform_station, route` | balance owner |
 | Sfx (`audio/sfx.gd`, autoload) | synthesized sounds | `play` | it |
 | UI (`ui/*.gd`) | HUD, menu, lobby, end screens, pause, theme + kit widgets; chef look picker `ChefCustomisePanel` (`setup(peer_id)`, local player only, calls `Net.set_look`); `LobbyChefView.new(color, px, peer_id)` / `follow(peer_id)` shows a player's look live | `Hud.toggle_help, EndScreens.show_phase, PauseMenu.open/close, UITheme.build, UIKit.*` | `ui/**` (reads `world.shift/orders/items/camera/hint_text`, writes `world.input_blocked`) |

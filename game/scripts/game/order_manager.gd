@@ -7,6 +7,7 @@ var orders: Array = []
 var _timer := 0.0
 var _spawned := 0
 var last_spawned := 0   # orders added by the last update() (2-3 = a burst: ModifierSystem.bursts)
+var patience_mult := 1.0   # host: new orders wait this much longer (friendly_service; set at shift start)
 var _rng := RandomNumberGenerator.new()
 
 
@@ -47,7 +48,7 @@ func _spawn(sdef: Dictionary) -> void:
 	# The first order of a shift is always the first listed recipe (Cheeseburger on shift 1).
 	var id: String = allowed[0] if _spawned == 0 else allowed[_rng.randi_range(0, allowed.size() - 1)]
 	_spawned += 1
-	var p := float(sdef["patience"])
+	var p := float(sdef["patience"]) * patience_mult
 	orders.append({"r": GameData.recipe_index(id), "left": p, "patience": p})
 
 
@@ -56,23 +57,35 @@ func _spawn(sdef: Dictionary) -> void:
 func add_vip(sdef: Dictionary) -> Dictionary:
 	var allowed: Array = sdef["recipes"]
 	var id: String = allowed[_rng.randi_range(0, allowed.size() - 1)]
-	var p := float(sdef["patience"]) * Tuning.VIP_PATIENCE_MULT
+	var p := float(sdef["patience"]) * Tuning.VIP_PATIENCE_MULT * patience_mult
 	var o := {"r": GameData.recipe_index(id), "left": p, "patience": p, "vip": true}
 	orders.append(o)
 	return o
 
 
-## Coins for serving order o now: price + bonus scaled by patience left, x VIP_PAY_MULT for a VIP.
-static func pay_for(o: Dictionary) -> int:
+## Patience multiplier for new orders: 1 + friendly_service value.
+static func patience_mult_for(shift: ShiftManager) -> float:
+	return 1.0 + shift.upgrade_value("friendly_service", 0.0)
+
+
+## Coins for serving order o now: price + bonus scaled by patience left, x VIP_PAY_MULT for a VIP,
+## x (1 + tip_jar value) and x `extra` (combo_bell, PlateSystem.combo_mult) when shift is given.
+static func pay_for(o: Dictionary, shift: ShiftManager = null, extra := 1.0) -> int:
 	var r: Dictionary = GameData.RECIPES[int(o["r"])]
 	var frac := clampf(float(o["left"]) / float(o["patience"]), 0.0, 1.0)
 	var mult := Tuning.VIP_PAY_MULT if bool(o.get("vip", false)) else 1.0
-	return int(round((float(r["price"]) + round(float(r["bonus"]) * frac)) * mult))
+	if shift != null:
+		mult *= 1.0 + shift.upgrade_value("tip_jar", 0.0)
+	return int(round((float(r["price"]) + round(float(r["bonus"]) * frac)) * mult * extra))
 
 
-## Coins lost when order o expires (VIPs cost VIP_EXPIRE_MULT times as much).
-static func expire_penalty(o: Dictionary) -> int:
-	return Tuning.EXPIRE_PENALTY * (Tuning.VIP_EXPIRE_MULT if bool(o.get("vip", false)) else 1)
+## Coins lost when order o expires (VIPs cost VIP_EXPIRE_MULT times as much), x (1 - insurance value)
+## when shift is given.
+static func expire_penalty(o: Dictionary, shift: ShiftManager = null) -> int:
+	var pen := Tuning.EXPIRE_PENALTY * (Tuning.VIP_EXPIRE_MULT if bool(o.get("vip", false)) else 1)
+	if shift == null:
+		return pen
+	return int(round(float(pen) * maxf(0.0, 1.0 - shift.upgrade_value("insurance", 0.0))))
 
 
 ## Index of the open order whose recipe equals the plate contents (as a multiset), or -1.

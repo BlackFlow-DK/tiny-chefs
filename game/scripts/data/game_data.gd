@@ -225,17 +225,58 @@ const SHIFTS := [
 	{"name": "Hot Dog Rush", "recipes": ["cheeseburger", "salad", "double", "hotdog"], "interval": 28.0, "patience": 95.0, "duration": 210.0, "target": 310},
 ]
 
-## Shared team wallet; upgrades last for the run. icon: model spun on the shop card (ShopIcon); "" = an
-## emblem drawn for the id (flat models like the plate read badly in the small tilted view).
+## Shared team wallet; upgrades last for the run, each a line of levels (tree + per-level table: docs/upgrades.md).
+##   id, name, category (UPGRADE_CATEGORIES), desc ("{value}" = the cumulative effect at a level, formatted by
+##   unit: "pct" 0.45 -> "45%", "int" 2 -> "2", "num" 0.68 -> "0.68", "none"), icon (model spun on the shop card;
+##   "" = an emblem ShopIcon draws for "emblem", default the id), levels: [{price, value}] where value is the
+##   PER-LEVEL step. stack: "add" (default: effect at level L = sum of the first L values) or "mult" (product).
+##   Every line below adds; hooks read the sum via ShiftManager.upgrade_value(id, default) and apply it as noted.
+##   Optional requires: "<id>" (owns any level) or "<id>:<level>".
+## Prices are placeholders (cheap first level, ~x1.6 per level); the balance agent owns them.
 const UPGRADES := [
-	{"id": "gloves", "name": "Boxing Gloves", "desc": "Unlocks punching (Space / Q / pad B). Launch food, shove friends.", "price": 200, "icon": "boxing_glove"},
-	{"id": "knife", "name": "Sharp Knife", "desc": "Chopping is twice as fast.", "price": 200, "icon": "knife"},
-	{"id": "shoes", "name": "Running Shoes", "desc": "+20% move and carry speed.", "price": 300, "icon": ""},
-	{"id": "second_plate", "name": "Second Plate", "desc": "Enables the second plate and bell on kitchens that have one.", "price": 300, "icon": ""},
-	{"id": "oven_mitts", "name": "Oven Mitts", "desc": "Food takes 50% longer to burn.", "price": 250, "icon": ""},
-	{"id": "hot_griddle", "name": "Hot Griddle", "desc": "Griddle and fryer cook 30% faster.", "price": 300, "icon": ""},
-	{"id": "tongs", "name": "Long Tongs", "desc": "Grab food from 50% further away.", "price": 200, "icon": ""},
+	# Cooking
+	{"id": "hot_griddle", "name": "Hot Griddle", "category": "cooking", "desc": "Griddle and fryer cook {value} faster.", "icon": "", "unit": "pct",
+		"levels": [{"price": 80, "value": 0.15}, {"price": 130, "value": 0.15}, {"price": 210, "value": 0.15}, {"price": 330, "value": 0.15}, {"price": 530, "value": 0.15}]},   # cook speed x (1 + v)
+	{"id": "oven_mitts", "name": "Oven Mitts", "category": "cooking", "desc": "Food takes {value} longer to burn.", "icon": "", "unit": "pct",
+		"levels": [{"price": 60, "value": 0.25}, {"price": 100, "value": 0.25}, {"price": 160, "value": 0.25}]},   # burn window x (1 + v)
+	{"id": "big_griddle", "name": "Big Griddle", "category": "cooking", "desc": "Griddle cooks {value} more at once.", "icon": "", "emblem": "hot_griddle", "unit": "int",
+		"levels": [{"price": 150, "value": 1}, {"price": 240, "value": 1}]},   # slots + v (capped by what fits)
+	{"id": "big_fryer", "name": "Big Fryer", "category": "cooking", "desc": "Fryer fries {value} more at once.", "icon": "", "emblem": "hot_griddle", "unit": "int",
+		"levels": [{"price": 150, "value": 1}, {"price": 240, "value": 1}]},   # slots + v (capped by what fits)
+	# Prep
+	{"id": "sharp_knife", "name": "Sharp Knife", "category": "prep", "desc": "Chopping is {value} faster.", "icon": "knife", "unit": "pct",
+		"levels": [{"price": 60, "value": 0.25}, {"price": 100, "value": 0.25}, {"price": 160, "value": 0.25}, {"price": 250, "value": 0.25}]},   # chop rate x (1 + v)
+	{"id": "quick_hands", "name": "Quick Hands", "category": "prep", "desc": "Dispensers and soda are {value} faster.", "icon": "", "unit": "pct",
+		"levels": [{"price": 50, "value": 0.2}, {"price": 80, "value": 0.2}, {"price": 130, "value": 0.2}]},   # hold time / (1 + v)
+	# Movement
+	{"id": "shoes", "name": "Running Shoes", "category": "movement", "desc": "+{value} move and carry speed.", "icon": "", "unit": "pct",
+		"levels": [{"price": 70, "value": 0.07}, {"price": 110, "value": 0.07}, {"price": 180, "value": 0.07}, {"price": 290, "value": 0.07}]},   # speed x (1 + v)
+	{"id": "protein_shake", "name": "Protein Shake", "category": "movement", "desc": "Heavy food: carriers count {value} extra.", "icon": "", "unit": "num",
+		"levels": [{"price": 90, "value": 0.34}, {"price": 140, "value": 0.34}, {"price": 230, "value": 0.34}]},   # carry speed clamp((n + v) / weight)
+	{"id": "tongs", "name": "Long Tongs", "category": "movement", "desc": "Grab food from {value} further away.", "icon": "", "unit": "pct",
+		"levels": [{"price": 60, "value": 0.25}, {"price": 100, "value": 0.25}]},   # reach x (1 + v)
+	# Service
+	{"id": "second_plate", "name": "Second Plate", "category": "service", "desc": "Enables the second plate and bell on kitchens that have one.", "icon": "", "unit": "none",
+		"levels": [{"price": 250, "value": 1}]},
+	{"id": "friendly_service", "name": "Friendly Service", "category": "service", "desc": "Customers wait {value} longer.", "icon": "", "emblem": "second_plate", "unit": "pct",
+		"levels": [{"price": 70, "value": 0.1}, {"price": 110, "value": 0.1}, {"price": 180, "value": 0.1}, {"price": 290, "value": 0.1}]},   # patience x (1 + v)
+	{"id": "tip_jar", "name": "Tip Jar", "category": "service", "desc": "Orders pay {value} more.", "icon": "", "unit": "pct",
+		"levels": [{"price": 100, "value": 0.08}, {"price": 160, "value": 0.08}, {"price": 260, "value": 0.08}, {"price": 410, "value": 0.08}]},   # pay x (1 + v)
+	{"id": "insurance", "name": "Insurance", "category": "service", "desc": "Expired orders cost {value} less.", "icon": "", "unit": "pct",
+		"levels": [{"price": 50, "value": 0.25}, {"price": 80, "value": 0.25}, {"price": 130, "value": 0.25}]},   # expiry penalty x (1 - v)
+	{"id": "combo_bell", "name": "Combo Bell", "category": "service", "desc": "Serve within 20 s of the last serve: +{value} pay per streak step (max 5).", "icon": "", "unit": "pct",
+		"levels": [{"price": 90, "value": 0.05}, {"price": 140, "value": 0.05}, {"price": 230, "value": 0.05}]},   # pay x (1 + v * min(streak - 1, 5))
+	# Chaos
+	{"id": "gloves", "name": "Boxing Gloves", "category": "chaos", "desc": "Unlocks punching (Space / Q / pad B). Launch food, shove friends.", "icon": "boxing_glove", "unit": "none",
+		"levels": [{"price": 120, "value": 1}]},
+	{"id": "heavy_gloves", "name": "Heavy Gloves", "category": "chaos", "desc": "Punches launch {value} harder.", "icon": "boxing_glove", "unit": "pct", "requires": "gloves",
+		"levels": [{"price": 80, "value": 0.4}, {"price": 130, "value": 0.4}]},   # punch launch x (1 + v)
 ]
+
+## Shop order of the categories, with their display names.
+const UPGRADE_CATEGORIES := [["cooking", "Cooking"], ["prep", "Prep"], ["movement", "Movement"], ["service", "Service"], ["chaos", "Chaos"]]
+## Old upgrade ids that still work everywhere (--upgrades, has_upgrade, try_buy).
+const UPGRADE_ALIASES := {"knife": "sharp_knife"}
 
 
 ## MapDef for id (unknown ids fall back to the diner).
@@ -313,11 +354,101 @@ static func recipe_index(id: String) -> int:
 	return -1
 
 
+## Canonical upgrade id (old ids via UPGRADE_ALIASES, e.g. "knife" -> "sharp_knife").
+static func upgrade_id(id: String) -> String:
+	return str(UPGRADE_ALIASES.get(id, id))
+
+
+## The UPGRADES entry for id (aliases ok), or {}.
 static func upgrade(id: String) -> Dictionary:
+	var cid := upgrade_id(id)
 	for u in UPGRADES:
-		if u["id"] == id:
+		if u["id"] == cid:
 			return u
 	return {}
+
+
+## Every upgrade id in shop order.
+static func upgrade_ids() -> Array:
+	var out: Array = []
+	for u in UPGRADES:
+		out.append(u["id"])
+	return out
+
+
+## [{id, name, upgrades: [ids in shop order]}] for every category that has upgrades.
+static func upgrade_categories() -> Array:
+	var out: Array = []
+	for c in UPGRADE_CATEGORIES:
+		var ids: Array = []
+		for u in UPGRADES:
+			if u["category"] == c[0]:
+				ids.append(u["id"])
+		if not ids.is_empty():
+			out.append({"id": c[0], "name": c[1], "upgrades": ids})
+	return out
+
+
+static func upgrade_max_level(id: String) -> int:
+	return (upgrade(id).get("levels", []) as Array).size()
+
+
+## Price of level `level` (1-based) of id, or -1 past the max / unknown id.
+static func upgrade_price(id: String, level: int) -> int:
+	var lv: Array = upgrade(id).get("levels", [])
+	if level < 1 or level > lv.size():
+		return -1
+	return int(lv[level - 1]["price"])
+
+
+## Cumulative effect at `level` (0 below level 1): sum ("add") or product ("mult") of the first `level` values.
+static func upgrade_total(id: String, level: int) -> float:
+	var u := upgrade(id)
+	var lv: Array = u.get("levels", [])
+	var n := mini(level, lv.size())
+	if n <= 0:
+		return 0.0
+	var mult := str(u.get("stack", "add")) == "mult"
+	var v := 1.0 if mult else 0.0
+	for i in n:
+		v = v * float(lv[i]["value"]) if mult else v + float(lv[i]["value"])
+	return v
+
+
+## The effect at `level` formatted by the entry's unit ("45%", "2", "0.68"; "" for unit none).
+static func upgrade_value_text(id: String, level: int) -> String:
+	var v := upgrade_total(id, level)
+	match str(upgrade(id).get("unit", "none")):
+		"pct":
+			return "%d%%" % int(round(v * 100.0))
+		"int":
+			return str(int(round(v)))
+		"num":
+			return "%.2f" % v
+	return ""
+
+
+## desc with {value} filled in for `level` (use the next level for a shop preview).
+static func upgrade_desc(id: String, level: int) -> String:
+	return str(upgrade(id).get("desc", "")).replace("{value}", upgrade_value_text(id, maxi(level, 1)))
+
+
+## "Hot Griddle III" (one-level lines: just the name).
+static func upgrade_title(id: String, level: int) -> String:
+	var u := upgrade(id)
+	if upgrade_max_level(id) <= 1 or level < 1:
+		return str(u.get("name", id))
+	var roman := ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+	return "%s %s" % [u.get("name", id), roman[mini(level, roman.size()) - 1]]
+
+
+## [required id, required level] or [] when the line needs nothing.
+static func upgrade_requires(id: String) -> Array:
+	var r := str(upgrade(id).get("requires", ""))
+	if r.is_empty():
+		return []
+	var f := r.split(":")
+	return [upgrade_id(f[0]), int(f[1]) if f.size() > 1 else 1]
 
 
 ## ShiftDef for shift i (0-based) of the current run, scaled for the player count: ShiftPlan.build with

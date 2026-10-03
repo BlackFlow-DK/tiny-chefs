@@ -47,8 +47,16 @@ func stand_spot() -> Vector3:
 	return a if Vector2(a.x, a.z).length() <= Vector2(b.x, b.z).length() else b
 
 
-## Seconds of holding work per batch.
+## Seconds of holding work per batch: base_hold() / (1 + quick_hands value).
 func hold_time() -> float:
+	var k := 1.0
+	if world != null and world.shift != null:
+		k += world.shift.upgrade_value("quick_hands", 0.0)
+	return base_hold() / k
+
+
+## Hold time before upgrades.
+func base_hold() -> float:
 	return Tuning.DISPENSE_HOLD
 
 

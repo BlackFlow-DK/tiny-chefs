@@ -216,7 +216,7 @@ func _physics_process(dt: float) -> void:
 ## Host tick, fixed order: chef actions + walking, carrying, edge, cooldowns, stations, hazards, falls, shift.
 func _simulate(dt: float) -> void:
 	var playing := Net.phase == Net.Phase.PLAYING
-	var mult := Tuning.SHOES_MULT if shift.has_upgrade("shoes") else 1.0
+	var mult := move_mult()
 	var t := Prof.t0()
 	for id in chefs.keys():
 		var c: Chef = chefs[id]
@@ -335,6 +335,11 @@ func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
 ## Every peer: grab reach in m (tongs upgrade), see CarrySystem.grab_reach.
 func grab_reach() -> float:
 	return _carry_sys.grab_reach()
+
+
+## Every peer: walk and carry speed multiplier, 1 + shoes value (nothing else about movement changes).
+func move_mult() -> float:
+	return 1.0 + shift.upgrade_value("shoes", 0.0)
 
 
 func release(c: Chef, sound := false) -> void:
