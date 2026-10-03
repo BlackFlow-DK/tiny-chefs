@@ -20,6 +20,7 @@ const ANCHORS := {"HatAnchor": HAT_ANCHOR, "FaceAnchor": FACE_ANCHOR, "BeardAnch
 	"BackAnchor": Vector3(0.0, 0.606, -0.1784), "NeckAnchor": Vector3(0.0, 0.776, 0.0388)}
 const BODY_PIVOT := Vector3(0.0, 0.246, 0.0388)   # Body's origin (hips) in chef.glb; outfits hang under Body at -this
 const LOOK_SLOTS := ["LookHat", "LookAcc", "LookBeard", "LookBack", "LookOutfit"]
+const TINTED := ["ChefBody", "HatTint", "OutfitTint"]   # material names that take the player's colour
 
 var peer_id := 0
 var slot := 0
@@ -157,10 +158,11 @@ static func look_ids(l: Dictionary) -> String:
 
 
 ## Dress any chef.glb instance (game chef, lobby turntable, menu diorama, previews) from a look dict
-## (missing keys = defaults): body shape (ChefAnim.shape), the built-in Toque only for hat "toque",
+## (missing keys = defaults): body shape (ChefAnim.shape), the built-in Toque unless a hat model is attached,
 ## hat_<id>.glb at HatAnchor, acc_<id>.glb at FaceAnchor, beard_<id>.glb at BeardAnchor, back_<id>.glb at
 ## BackAnchor, outfit_<id>.glb under Body (authored in chef space, origin at the feet), replacing earlier
-## ones; "none" and missing models are skipped. Then tints ChefBody + HatTint surfaces.
+## ones; "none" and missing models (catalogue items not made yet) are skipped. Spin / Float parts get
+## CosmeticMotion. Then tints ChefBody / HatTint / OutfitTint surfaces.
 static func dress(model: Node3D, tint_color: Color, l: Dictionary) -> void:
 	if model == null:
 		return
@@ -171,11 +173,10 @@ static func dress(model: Node3D, tint_color: Color, l: Dictionary) -> void:
 			old.queue_free()
 	ChefAnim.shape(model, str(l.get("body", "standard")))
 	var hat_id := str(l.get("hat", "toque"))
+	var hat_on := hat_id != "toque" and _attach(model, "hat_" + hat_id, "LookHat", "HatAnchor")
 	var toque := model.find_child("Toque", true, false) as Node3D
 	if toque != null:
-		toque.visible = hat_id == "toque"
-	if hat_id != "toque":
-		_attach(model, "hat_" + hat_id, "LookHat", "HatAnchor")
+		toque.visible = not hat_on   # also while a hat's model is still being made (never a bald chef)
 	var acc_id := str(l.get("acc", "none"))
 	if acc_id != "none":
 		_attach(model, "acc_" + acc_id, "LookAcc", "FaceAnchor")
@@ -194,15 +195,17 @@ static func dress(model: Node3D, tint_color: Color, l: Dictionary) -> void:
 			body.add_child(outfit)
 		else:
 			model.add_child(outfit)
+		CosmeticMotion.attach(outfit)
 	tint(model, tint_color)
 
 
 ## Attach model_name.glb at the anchor node (identity transform), or at ANCHORS[anchor] on the model root
-## when the model has no such node (primitive chef). Missing model: skipped.
-static func _attach(model: Node3D, model_name: String, node_name: String, anchor: String) -> void:
+## when the model has no such node (primitive chef). Missing model (not made yet): skipped, nothing attached.
+## Returns true when something was attached.
+static func _attach(model: Node3D, model_name: String, node_name: String, anchor: String) -> bool:
 	var m := Models.load_model(model_name)
 	if m == null:
-		return
+		return false
 	m.name = node_name
 	var a := model.find_child(anchor, true, false) as Node3D
 	if a != null:
@@ -210,6 +213,61 @@ static func _attach(model: Node3D, model_name: String, node_name: String, anchor
 	else:
 		m.position = ANCHORS.get(anchor, Vector3.ZERO)
 		model.add_child(m)
+	CosmeticMotion.attach(m)
+	return true
+
+
+## Living cosmetic parts, for any attached cosmetic on any chef (game, lobby, wardrobe, previews): a node
+## named `Spin*` turns about its local Y axis (through its mesh centre, so a propeller spins on its hub even
+## when its origin is elsewhere); a node named `Float*` bobs up and down with a slight sway (halo, balloon).
+## Added by dress() as a child of the cosmetic only when it has such parts; freed with it.
+class CosmeticMotion extends Node:
+	const SPIN_RATE := 9.0      # rad/s
+	const BOB := 0.03           # m, float amplitude
+	const BOB_RATE := 2.4       # rad/s
+	const SWAY := 0.08          # rad, float tilt
+
+	var _parts: Array = []      # [Node3D, rest Transform3D, pivot Vector3 (local), "spin"|"float", phase]
+	var _t := 0.0
+
+	static func attach(cosmetic: Node3D) -> void:
+		var parts: Array = []
+		var i := 0
+		for n in cosmetic.find_children("*", "Node3D", true, false):
+			var nm := String(n.name)
+			var kind := "spin" if nm.begins_with("Spin") else ("float" if nm.begins_with("Float") else "")
+			if kind.is_empty():
+				continue
+			var nd := n as Node3D
+			var pivot := Vector3.ZERO
+			if nd is MeshInstance3D and (nd as MeshInstance3D).mesh != null:
+				var c := (nd as MeshInstance3D).get_aabb().get_center()
+				pivot = Vector3(c.x, 0.0, c.z)
+			parts.append([nd, nd.transform, pivot, kind, i * 1.3])
+			i += 1
+		if parts.is_empty():
+			return
+		var cm := CosmeticMotion.new()
+		cm.name = "CosmeticMotion"
+		cm._parts = parts
+		cm._t = randf() * 10.0
+		cosmetic.add_child(cm)
+
+	func _process(delta: float) -> void:
+		_t += delta
+		for p: Array in _parts:
+			var nd: Node3D = p[0]
+			if not is_instance_valid(nd):
+				continue
+			var rest: Transform3D = p[1]
+			var pivot: Vector3 = p[2]
+			if p[3] == "spin":
+				var r := Transform3D(Basis(Vector3.UP, wrapf(_t * SPIN_RATE, 0.0, TAU)), Vector3.ZERO)
+				nd.transform = rest * Transform3D(Basis(), pivot) * r * Transform3D(Basis(), -pivot)
+			else:
+				var a := _t * BOB_RATE + float(p[4])
+				var tilt := Basis(Vector3.FORWARD, sin(a * 0.5) * SWAY)
+				nd.transform = Transform3D(tilt * rest.basis, rest.origin + Vector3(0, sin(a) * BOB, 0))
 
 
 ## The name tag is drawn by IndicatorLayer (reads player_name every frame).
@@ -261,8 +319,8 @@ func _primitive_chef(body_color: Color) -> Node3D:
 	return root
 
 
-## Recolour every surface whose material is named ChefBody or HatTint (contract rule for chef.glb and
-## the hats). Starts from the mesh's own material, so tinting again replaces the colour.
+## Recolour every surface whose material is named ChefBody, HatTint or OutfitTint (contract rule for chef.glb
+## and the cosmetics). Starts from the mesh's own material, so tinting again replaces the colour.
 static func tint(n: Node, tint_color: Color) -> void:
 	if n is MeshInstance3D:
 		var mi := n as MeshInstance3D
@@ -271,7 +329,7 @@ static func tint(n: Node, tint_color: Color) -> void:
 				var m := mi.mesh.surface_get_material(i)
 				if m == null:
 					m = mi.get_active_material(i)
-				if m != null and (m.resource_name == "ChefBody" or m.resource_name == "HatTint") and m is BaseMaterial3D:
+				if m != null and TINTED.has(m.resource_name) and m is BaseMaterial3D:
 					var d := m.duplicate() as BaseMaterial3D
 					d.albedo_color = tint_color
 					mi.set_surface_override_material(i, d)

@@ -5,6 +5,7 @@ extends SubViewportContainer
 ## or follow(peer_id) later): colour, hat and accessory from Net.look_of, updated live on Net.looks_changed.
 
 var peer_id := 0  ## > 0: dressed from Net.look_of(peer_id)
+var turntable := false  ## set before adding: full slow spin, drag (mouse / touch) to turn, wider framing (Wardrobe)
 
 var _vp: SubViewport
 var _pivot: Node3D
@@ -40,7 +41,9 @@ func _ready() -> void:
 	var px := _px
 	stretch = true
 	custom_minimum_size = Vector2(px)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_STOP if turntable else Control.MOUSE_FILTER_IGNORE
+	if turntable:
+		mouse_default_cursor_shape = Control.CURSOR_DRAG
 	_vp = SubViewport.new()
 	_vp.own_world_3d = true
 	_vp.transparent_bg = true
@@ -77,6 +80,10 @@ func _ready() -> void:
 	root.add_child(cam)
 	cam.current = true
 	cam.position = mid + Vector3(0, h * 0.05, h * 2.5)
+	if turntable:
+		# Room for tall bodies, hats and back items; a touch from above.
+		mid.y += h * 0.08
+		cam.position = mid + Vector3(0, h * 0.35, h * 3.3)
 	cam.look_at(mid, Vector3.UP)
 	Net.looks_changed.connect(_refresh_look)
 	_refresh_look()
@@ -102,9 +109,45 @@ func _update_look() -> void:
 
 func _process(delta: float) -> void:
 	if _pivot != null:
-		_pivot.rotation.y = sin(Time.get_ticks_msec() * 0.0012) * 0.55
+		if turntable:
+			_idle += delta
+			if not _dragging and _idle > 1.5:
+				_pivot.rotation.y += delta * 0.6 * clampf(_idle - 1.5, 0.0, 1.0)
+		else:
+			_pivot.rotation.y = sin(Time.get_ticks_msec() * 0.0012) * 0.55
 	if _anim != null:
 		_anim.update(delta)
+
+
+var _dragging := false
+var _idle := 0.0
+
+
+## Turntable: drag to spin; the slow auto-spin resumes a moment after letting go.
+func _gui_input(event: InputEvent) -> void:
+	if not turntable or _pivot == null:
+		return
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		_dragging = event.is_pressed()
+		_idle = 0.0
+		accept_event()
+	elif event is InputEventScreenTouch:
+		_dragging = event.is_pressed()
+		_idle = 0.0
+	elif event is InputEventMouseMotion and _dragging:
+		_pivot.rotation.y += (event as InputEventMouseMotion).relative.x * 0.012
+		_idle = 0.0
+		accept_event()
+	elif event is InputEventScreenDrag:
+		_pivot.rotation.y += (event as InputEventScreenDrag).relative.x * 0.012
+		_idle = 0.0
+
+
+## Turntable: face the camera (front) or show the back (back items).
+func face(back := false) -> void:
+	if _pivot != null:
+		_pivot.rotation.y = PI if back else 0.0
+		_idle = 0.0
 
 
 ## Recolour every ChefBody / HatTint surface (same rule as the game chef: Chef.tint).

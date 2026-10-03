@@ -1,25 +1,25 @@
 class_name ChefCustomisePanel
 extends VBoxContainer
-## Compact look picker for the LOCAL player (lobby card): colour swatches, hat chips, accessory chips.
-## setup(peer_id): editable only when peer_id is this machine's player; picks go to Net.set_look (saved
-## in menu.cfg, replicated to everyone). Follows Net.looks_changed. A LobbyChefView in the same card
-## with no player set is made to follow peer_id, so the card's chef shows the pick live.
-## Fits a ~150 px wide card.
+## Compact look strip for the LOCAL player (lobby card): the four colour swatches, a one-line summary of the
+## look and a "Wardrobe" button (hats, beards, face, outfits, back items, body shapes: WardrobeView).
+## setup(peer_id): editable only when peer_id is this machine's player; picks go to Net.set_look (saved as the
+## equipped look in Progress, replicated to everyone). Follows Net.looks_changed. A LobbyChefView in the same
+## card with no player set is made to follow peer_id, so the card's chef shows the pick live.
+## The Wardrobe button emits wardrobe_requested (the lobby opens its WardrobeView).
+
+signal wardrobe_requested
 
 const T = preload("res://scripts/ui/ui_theme.gd")
-const CHIP := Vector2(34, 32)
-const SWATCH := Vector2(30, 30)
+const SWATCH := Vector2(34, 34)
 
 var peer_id := 0
-var wide := false   ## set before adding: two rows (colour + hats, then accessories + the name line) for a wide strip
-
+var wide := false   ## set before adding: one row (swatches, summary, Wardrobe button) for a wide strip
 
 var _swatches: Array[Button] = []
-var _hat_chips: Array[Button] = []
-var _acc_chips: Array[Button] = []
 var _label: Label
 var _warn: Label
-var _look := {"color": 0, "hat": "toque", "acc": "none"}
+var _wardrobe_btn: Button
+var _look := {"color": 0}
 
 
 func setup(id: int) -> void:
@@ -33,52 +33,42 @@ func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL if wide else Control.SIZE_SHRINK_CENTER
 	if peer_id == 0:
 		peer_id = Net.my_id()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN if wide else BoxContainer.ALIGNMENT_CENTER
+	add_child(row)
 	_swatches = []
-	var row := _row()
 	for i in GameData.PLAYER_COLORS.size():
 		var b := _chip_button(SWATCH, "%s jacket" % GameData.COLOR_NAMES[i])
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		b.pressed.connect(func() -> void: _pick({"color": i}))
 		b.draw.connect(_draw_swatch.bind(b, i))
 		row.add_child(b)
 		_swatches.append(b)
+	_label = UIKit.caption("")
+	_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_label.clip_text = true
+	_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_wardrobe_btn = UIKit.button("Wardrobe", func() -> void: wardrobe_requested.emit(), "accent", 150)
+	_wardrobe_btn.custom_minimum_size.y = 46
+	_wardrobe_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	if wide:
-		row.alignment = BoxContainer.ALIGNMENT_BEGIN
+		# The strip is narrow (two lobby cells): swatches + a wide Wardrobe button; the summary is its tooltip
+		# (the player's card above shows the look anyway).
 		var sp := Control.new()
-		sp.custom_minimum_size = Vector2(10, 0)
+		sp.custom_minimum_size = Vector2(6, 0)
 		sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(sp)
-	else:
-		row = _row()
-	for h: Dictionary in GameData.HATS:
-		var id := str(h["id"])
-		var b := _chip_button(CHIP, str(h["label"]))
-		b.pressed.connect(func() -> void: _pick({"hat": id}))
-		b.draw.connect(_draw_icon.bind(b, "hat_" + id))
-		row.add_child(b)
-		_hat_chips.append(b)
-	row = _row()
-	for a: Dictionary in GameData.ACCESSORIES:
-		var id := str(a["id"])
-		var b := _chip_button(CHIP, str(a["label"]))
-		b.pressed.connect(func() -> void: _pick({"acc": id}))
-		b.draw.connect(_draw_icon.bind(b, "acc_" + id))
-		row.add_child(b)
-		_acc_chips.append(b)
-	_label = UIKit.caption("")
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if wide:
-		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_label.clip_text = true
-		var sp2 := Control.new()
-		sp2.custom_minimum_size = Vector2(6, 0)
-		sp2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(sp2)
-		row.alignment = BoxContainer.ALIGNMENT_BEGIN
-		row.add_child(_label)
-	else:
+		_wardrobe_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(_wardrobe_btn)
+		_label.visible = false
 		add_child(_label)
+	else:
+		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_label.custom_minimum_size = Vector2(140, 0)
+		add_child(_label)
+		_wardrobe_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		add_child(_wardrobe_btn)
 	_warn = UIKit.caption("")
 	_warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_warn.add_theme_color_override("font_color", T.TOMATO_DARK)
@@ -95,14 +85,6 @@ func editable() -> bool:
 	return peer_id == Net.my_id()
 
 
-func _row() -> HBoxContainer:
-	var r := HBoxContainer.new()
-	r.add_theme_constant_override("separation", 6)
-	r.alignment = BoxContainer.ALIGNMENT_CENTER
-	add_child(r)
-	return r
-
-
 func _chip_button(sz: Vector2, tip: String) -> Button:
 	var b := Button.new()
 	b.custom_minimum_size = sz
@@ -113,7 +95,7 @@ func _chip_button(sz: Vector2, tip: String) -> Button:
 	return b
 
 
-## Chip look: cream (mustard when selected), ink outline, small hard shadow.
+## Chip look: the colour, ink outline (thicker when picked), small hard shadow.
 func _style(b: Button, fill: Color, selected: bool) -> void:
 	var bw := 4 if selected else 3
 	var sets := {
@@ -154,20 +136,9 @@ func _refresh() -> void:
 		_style(b, GameData.PLAYER_COLORS[i], i == int(_look["color"]))
 		b.disabled = not on
 		b.queue_redraw()
-	for i in _hat_chips.size():
-		var sel: bool = GameData.HATS[i]["id"] == _look["hat"]
-		_style(_hat_chips[i], T.MUSTARD if sel else T.CREAM_HI, sel)
-		_hat_chips[i].disabled = not on
-		_hat_chips[i].queue_redraw()
-	for i in _acc_chips.size():
-		var sel: bool = GameData.ACCESSORIES[i]["id"] == _look["acc"]
-		_style(_acc_chips[i], T.MUSTARD if sel else T.CREAM_HI, sel)
-		_acc_chips[i].disabled = not on
-		_acc_chips[i].queue_redraw()
-	var parts := PackedStringArray([_label_of(GameData.HATS, str(_look["hat"]))])
-	if _look["acc"] != "none":
-		parts.append(_label_of(GameData.ACCESSORIES, str(_look["acc"])))
-	_label.text = "%s · %s" % [GameData.COLOR_NAMES[int(_look["color"])], " + ".join(parts)]
+	_wardrobe_btn.visible = on
+	_label.text = "%s · %s" % [GameData.COLOR_NAMES[int(_look["color"])], summary(_look)]
+	_wardrobe_btn.tooltip_text = "Hats, beards, outfits and more. Wearing: %s" % _label.text
 	var same := PackedStringArray()
 	for id in Net.players.keys():
 		if int(id) != peer_id and Net.color_index_of(int(id)) == int(_look["color"]):
@@ -176,11 +147,14 @@ func _refresh() -> void:
 	_warn.visible = not same.is_empty()
 
 
-static func _label_of(table: Array, id: String) -> String:
-	for e: Dictionary in table:
-		if e["id"] == id:
-			return str(e["label"])
-	return id
+## "Cowboy hat + Glasses + Tall": the worn items that differ from the plain chef (or "Classic chef").
+static func summary(l: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for cat: String in Cosmetics.CATEGORIES:
+		var id := str(l.get(cat, Cosmetics.default_id(cat)))
+		if id != Cosmetics.default_id(cat) and id != str(Cosmetics.EMPTY.get(cat, "")):
+			parts.append(Cosmetics.item_name(cat, id))
+	return " + ".join(parts) if not parts.is_empty() else "Classic chef"
 
 
 ## The card's LobbyChefView (built by the lobby without a player) follows this player.
@@ -209,8 +183,7 @@ static func _find_view(n: Node) -> LobbyChefView:
 	return null
 
 
-# ---------------------------------------------------------------- icons (drawn on the chips)
-
+## A tick on the picked colour.
 func _draw_swatch(b: Button, i: int) -> void:
 	if i != int(_look["color"]):
 		return
@@ -228,77 +201,3 @@ func _press_dy(b: Button) -> float:
 	if b.get_draw_mode() == BaseButton.DRAW_HOVER:
 		return -2.0
 	return 0.0
-
-
-func _draw_icon(b: Button, icon: String) -> void:
-	var c := b.size * 0.5 + Vector2(0, _press_dy(b))
-	var u := minf(b.size.x, b.size.y) / 32.0  # icon unit: drawn on a 32 px grid
-	var ink := T.INK if not b.disabled else T.PAPER_OFF_INK
-	var tintc: Color = GameData.PLAYER_COLORS[int(_look["color"])]
-	var white := Color("#FBF9F3")
-	match icon:
-		"hat_toque":
-			for p: Vector2 in [Vector2(-5, -4), Vector2(5, -4), Vector2(0, -7)]:
-				b.draw_circle(c + p * u, 6.5 * u, ink)
-			b.draw_rect(Rect2(c + Vector2(-7.5, -3) * u, Vector2(15, 10.5) * u), ink)
-			for p: Vector2 in [Vector2(-5, -4), Vector2(5, -4), Vector2(0, -7)]:
-				b.draw_circle(c + p * u, 4.8 * u, white)
-			b.draw_rect(Rect2(c + Vector2(-5.8, -3) * u, Vector2(11.6, 8.8) * u), white)
-		"hat_beanie":
-			var dome := _arc(c + Vector2(0, 3) * u, 9.5 * u, PI, TAU, 12)
-			_poly(b, dome, tintc, ink, u)
-			b.draw_rect(Rect2(c + Vector2(-10.5, 2) * u, Vector2(21, 5) * u), ink)
-			b.draw_rect(Rect2(c + Vector2(-9, 3.3) * u, Vector2(18, 2.4) * u), tintc.darkened(0.2))
-			b.draw_circle(c + Vector2(0, -8) * u, 3.4 * u, ink)
-			b.draw_circle(c + Vector2(0, -8) * u, 2.0 * u, white)
-		"hat_paper":
-			var boat := PackedVector2Array([c + Vector2(-11, 6) * u, c + Vector2(0, -9) * u, c + Vector2(11, 6) * u])
-			_poly(b, boat, white, ink, u)
-			b.draw_line(c + Vector2(-9, 3) * u, c + Vector2(9, 3) * u, ink, 1.5 * u, true)
-		"hat_bandana":
-			var band := PackedVector2Array([c + Vector2(-9, -4) * u, c + Vector2(8, -4) * u, c + Vector2(8, 3) * u, c + Vector2(-9, 3) * u])
-			_poly(b, band, tintc, ink, u)
-			var tail := PackedVector2Array([c + Vector2(6, 1) * u, c + Vector2(11, 8) * u, c + Vector2(4, 8) * u])
-			_poly(b, tail, tintc, ink, u)
-			b.draw_circle(c + Vector2(-4, -0.5) * u, 1.2 * u, white)
-			b.draw_circle(c + Vector2(2, -0.5) * u, 1.2 * u, white)
-		"acc_none":
-			b.draw_arc(c, 8 * u, 0, TAU, 20, ink, 2.5 * u, true)
-			b.draw_line(c + Vector2(-5.6, 5.6) * u, c + Vector2(5.6, -5.6) * u, ink, 2.5 * u, true)
-		"acc_glasses":
-			for s in [-1.0, 1.0]:
-				b.draw_circle(c + Vector2(s * 6, 0) * u, 5 * u, Color(0.7, 0.85, 1.0))
-				b.draw_arc(c + Vector2(s * 6, 0) * u, 5 * u, 0, TAU, 18, ink, 2.2 * u, true)
-			b.draw_line(c + Vector2(-1.2, -0.5) * u, c + Vector2(1.2, -0.5) * u, ink, 2.2 * u, true)
-		"acc_moustache":
-			# Two lobes with curled tips: ink silhouettes first, then the fills, so no seam shows.
-			var brown := Color("#5C3B26")
-			for pass_i in 2:
-				var grow := 1.3 if pass_i == 0 else 0.0
-				var col := ink if pass_i == 0 else brown
-				for sx in [-1.0, 1.0]:
-					b.draw_colored_polygon(_ellipse(c + Vector2(sx * 5, 1) * u, Vector2(6.2 + grow, 3.2 + grow) * u, sx * -0.3), col)
-					b.draw_circle(c + Vector2(sx * 10.5, -1.5) * u, (2.2 + grow) * u, col)
-
-
-static func _ellipse(centre: Vector2, r: Vector2, rot: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for k in 16:
-		var a := TAU * k / 16.0
-		pts.append(centre + Vector2(cos(a) * r.x, sin(a) * r.y).rotated(rot))
-	return pts
-
-
-static func _arc(centre: Vector2, r: float, a0: float, a1: float, n: int) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for k in n + 1:
-		var a := lerpf(a0, a1, float(k) / n)
-		pts.append(centre + Vector2(cos(a), sin(a)) * r)
-	return pts
-
-
-static func _poly(b: Button, pts: PackedVector2Array, fill: Color, ink: Color, u: float) -> void:
-	b.draw_colored_polygon(pts, fill)
-	var closed := pts.duplicate()
-	closed.append(pts[0])
-	b.draw_polyline(closed, ink, 2.2 * u, true)

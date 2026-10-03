@@ -153,8 +153,11 @@ func _build_set(root: Node3D) -> void:
 		var c := Models.load_model("chef")
 		if c == null:
 			continue
-		var hat: Dictionary = GameData.HATS.pick_random()
-		var acc: Dictionary = GameData.ACCESSORIES.pick_random()
+		# Only items whose model exists (the catalogue lists some still being made).
+		var hat: Dictionary = GameData.HATS.filter(func(e: Dictionary) -> bool:
+			return e["id"] == "toque" or Models.has_model(str(e["model"]))).pick_random()
+		var acc: Dictionary = GameData.ACCESSORIES.filter(func(e: Dictionary) -> bool:
+			return e["id"] == "none" or Models.has_model(str(e["model"]))).pick_random()
 		Chef.dress(c, GameData.PLAYER_COLORS[i], {"hat": str(hat["id"]), "acc": str(acc["id"])})
 		var holder := Node3D.new()
 		holder.position = _set_pos(spots[i])
