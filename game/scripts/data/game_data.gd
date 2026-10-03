@@ -245,29 +245,29 @@ static func body_shape(id: String) -> Dictionary:
 ## Recipes. Plate contents must match "items" exactly as a multiset (stacking order is free).
 ## price is paid on serve, plus up to "bonus" scaled by the patience left.
 const RECIPES := [
-	{"id": "cheeseburger", "name": "Cheeseburger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bun_top"], "price": 45, "bonus": 20},
-	{"id": "salad", "name": "Garden Salad", "items": ["lettuce_leaf", "lettuce_leaf", "tomato_slice", "tomato_slice"], "price": 35, "bonus": 15},
-	{"id": "double", "name": "Double Beef Cheeseburger", "items": ["bun_bottom", "patty_cooked", "patty_cooked", "cheese_slice", "cheese_slice", "bun_top"], "price": 75, "bonus": 30},
-	{"id": "hotdog", "name": "Hot Dog", "items": ["hotdog_bun", "sausage_cooked"], "price": 40, "bonus": 15},
-	{"id": "bacon_cheeseburger", "name": "Bacon Cheeseburger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bacon_cooked", "bun_top"], "price": 60, "bonus": 25},
-	{"id": "breakfast_burger", "name": "Breakfast Burger", "items": ["bun_bottom", "patty_cooked", "fried_egg", "bacon_cooked", "bun_top"], "price": 65, "bonus": 25},
-	{"id": "chicken_burger", "name": "Crispy Chicken Burger", "items": ["bun_bottom", "chicken_cooked", "lettuce_leaf", "bun_top"], "price": 60, "bonus": 25},
-	{"id": "pickle_burger", "name": "Pickle Burger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "pickle_slice", "pickle_slice", "bun_top"], "price": 60, "bonus": 25},
-	{"id": "the_works", "name": "The Works", "items": ["bun_bottom", "patty_cooked", "patty_cooked", "cheese_slice", "bacon_cooked", "onion_slice", "tomato_slice", "lettuce_leaf", "bun_top"], "price": 120, "bonus": 45},
-	{"id": "fries", "name": "Fries", "items": ["fries"], "price": 30, "bonus": 10},
-	{"id": "onion_rings", "name": "Onion Rings", "items": ["onion_rings"], "price": 25, "bonus": 10},
-	{"id": "loaded_hotdog", "name": "Loaded Hot Dog", "items": ["hotdog_bun", "sausage_cooked", "onion_slice"], "price": 50, "bonus": 20},
-	{"id": "chicken_salad", "name": "Chicken Salad", "items": ["lettuce_leaf", "lettuce_leaf", "chicken_cooked", "tomato_slice"], "price": 55, "bonus": 20},
-	{"id": "burger_meal", "name": "Burger Meal", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bun_top", "fries", "soda_cup"], "price": 90, "bonus": 35},
-	{"id": "hotdog_meal", "name": "Hot Dog Meal", "items": ["hotdog_bun", "sausage_cooked", "fries", "soda_cup"], "price": 80, "bonus": 30},
+	{"id": "cheeseburger", "name": "Cheeseburger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bun_top"], "price": 30, "bonus": 13},
+	{"id": "salad", "name": "Garden Salad", "items": ["lettuce_leaf", "lettuce_leaf", "tomato_slice", "tomato_slice"], "price": 23, "bonus": 10},
+	{"id": "double", "name": "Double Beef Cheeseburger", "items": ["bun_bottom", "patty_cooked", "patty_cooked", "cheese_slice", "cheese_slice", "bun_top"], "price": 50, "bonus": 20},
+	{"id": "hotdog", "name": "Hot Dog", "items": ["hotdog_bun", "sausage_cooked"], "price": 26, "bonus": 10},
+	{"id": "bacon_cheeseburger", "name": "Bacon Cheeseburger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bacon_cooked", "bun_top"], "price": 40, "bonus": 16},
+	{"id": "breakfast_burger", "name": "Breakfast Burger", "items": ["bun_bottom", "patty_cooked", "fried_egg", "bacon_cooked", "bun_top"], "price": 43, "bonus": 16},
+	{"id": "chicken_burger", "name": "Crispy Chicken Burger", "items": ["bun_bottom", "chicken_cooked", "lettuce_leaf", "bun_top"], "price": 40, "bonus": 16},
+	{"id": "pickle_burger", "name": "Pickle Burger", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "pickle_slice", "pickle_slice", "bun_top"], "price": 40, "bonus": 16},
+	{"id": "the_works", "name": "The Works", "items": ["bun_bottom", "patty_cooked", "patty_cooked", "cheese_slice", "bacon_cooked", "onion_slice", "tomato_slice", "lettuce_leaf", "bun_top"], "price": 78, "bonus": 30},
+	{"id": "fries", "name": "Fries", "items": ["fries"], "price": 20, "bonus": 7},
+	{"id": "onion_rings", "name": "Onion Rings", "items": ["onion_rings"], "price": 16, "bonus": 7},
+	{"id": "loaded_hotdog", "name": "Loaded Hot Dog", "items": ["hotdog_bun", "sausage_cooked", "onion_slice"], "price": 33, "bonus": 13},
+	{"id": "chicken_salad", "name": "Chicken Salad", "items": ["lettuce_leaf", "lettuce_leaf", "chicken_cooked", "tomato_slice"], "price": 36, "bonus": 13},
+	{"id": "burger_meal", "name": "Burger Meal", "items": ["bun_bottom", "patty_cooked", "cheese_slice", "bun_top", "fries", "soda_cup"], "price": 60, "bonus": 23},
+	{"id": "hotdog_meal", "name": "Hot Dog Meal", "items": ["hotdog_bun", "sausage_cooked", "fries", "soda_cup"], "price": 52, "bonus": 20},
 ]
 
 ## Shifts (base values for ONE player; see Tuning.SCALE_* for more players).
 ## interval: seconds between new orders. patience: seconds an order waits. target: coins to earn.
 const SHIFTS := [
-	{"name": "Lunch Warm-up", "recipes": ["cheeseburger", "salad"], "interval": 40.0, "patience": 110.0, "duration": 210.0, "target": 190},
-	{"name": "Double Trouble", "recipes": ["cheeseburger", "salad", "double"], "interval": 34.0, "patience": 105.0, "duration": 210.0, "target": 300},
-	{"name": "Hot Dog Rush", "recipes": ["cheeseburger", "salad", "double", "hotdog"], "interval": 28.0, "patience": 95.0, "duration": 210.0, "target": 310},
+	{"name": "Lunch Warm-up", "recipes": ["cheeseburger", "salad"], "interval": 40.0, "patience": 110.0, "duration": 210.0, "target": 125},
+	{"name": "Double Trouble", "recipes": ["cheeseburger", "salad", "double"], "interval": 34.0, "patience": 105.0, "duration": 210.0, "target": 190},
+	{"name": "Hot Dog Rush", "recipes": ["cheeseburger", "salad", "double", "hotdog"], "interval": 28.0, "patience": 95.0, "duration": 210.0, "target": 180},
 ]
 
 ## Shared team wallet; upgrades last for the run, each a line of levels (tree + per-level table: docs/upgrades.md).
@@ -277,45 +277,46 @@ const SHIFTS := [
 ##   PER-LEVEL step. stack: "add" (default: effect at level L = sum of the first L values) or "mult" (product).
 ##   Every line below adds; hooks read the sum via ShiftManager.upgrade_value(id, default) and apply it as noted.
 ##   Optional requires: "<id>" (owns any level) or "<id>:<level>".
-## Prices are placeholders (cheap first level, ~x1.6 per level); the balance agent owns them.
+## Prices (docs/balance.md "Pass 2"): first levels of gloves / hot_griddle / sharp_knife / shoes cost about a third of a
+## 2-player first shift; each level ~x1.5; premium lines start at 180-250. Whole tree 11980 coins.
 const UPGRADES := [
 	# Cooking
 	{"id": "hot_griddle", "name": "Hot Griddle", "category": "cooking", "desc": "Griddle and fryer cook {value} faster.", "icon": "", "unit": "pct",
-		"levels": [{"price": 80, "value": 0.15}, {"price": 130, "value": 0.15}, {"price": 210, "value": 0.15}, {"price": 330, "value": 0.15}, {"price": 530, "value": 0.15}]},   # cook speed x (1 + v)
+		"levels": [{"price": 100, "value": 0.15}, {"price": 150, "value": 0.15}, {"price": 230, "value": 0.15}, {"price": 350, "value": 0.15}, {"price": 530, "value": 0.15}]},   # cook speed x (1 + v)
 	{"id": "oven_mitts", "name": "Oven Mitts", "category": "cooking", "desc": "Food takes {value} longer to burn.", "icon": "", "unit": "pct",
-		"levels": [{"price": 60, "value": 0.25}, {"price": 100, "value": 0.25}, {"price": 160, "value": 0.25}]},   # burn window x (1 + v)
+		"levels": [{"price": 130, "value": 0.25}, {"price": 200, "value": 0.25}, {"price": 300, "value": 0.25}]},   # burn window x (1 + v)
 	{"id": "big_griddle", "name": "Big Griddle", "category": "cooking", "desc": "Griddle cooks {value} more at once.", "icon": "", "emblem": "hot_griddle", "unit": "int",
-		"levels": [{"price": 150, "value": 1}, {"price": 240, "value": 1}]},   # slots + v (capped by what fits)
+		"levels": [{"price": 220, "value": 1}, {"price": 340, "value": 1}]},   # slots + v (capped by what fits)
 	{"id": "big_fryer", "name": "Big Fryer", "category": "cooking", "desc": "Fryer fries {value} more at once.", "icon": "", "emblem": "hot_griddle", "unit": "int",
-		"levels": [{"price": 150, "value": 1}]},   # slots + v; one level: a 7x6 fryer fits 4 baskets
+		"levels": [{"price": 200, "value": 1}]},   # slots + v; one level: a 7x6 fryer fits 4 baskets
 	# Prep
 	{"id": "sharp_knife", "name": "Sharp Knife", "category": "prep", "desc": "Chopping is {value} faster.", "icon": "knife", "unit": "pct",
-		"levels": [{"price": 60, "value": 0.25}, {"price": 100, "value": 0.25}, {"price": 160, "value": 0.25}, {"price": 250, "value": 0.25}]},   # chop rate x (1 + v)
+		"levels": [{"price": 100, "value": 0.25}, {"price": 150, "value": 0.25}, {"price": 230, "value": 0.25}, {"price": 350, "value": 0.25}]},   # chop rate x (1 + v)
 	{"id": "quick_hands", "name": "Quick Hands", "category": "prep", "desc": "Dispensers and soda are {value} faster.", "icon": "", "unit": "pct",
-		"levels": [{"price": 50, "value": 0.2}, {"price": 80, "value": 0.2}, {"price": 130, "value": 0.2}]},   # hold time / (1 + v)
+		"levels": [{"price": 130, "value": 0.2}, {"price": 200, "value": 0.2}, {"price": 300, "value": 0.2}]},   # hold time / (1 + v)
 	# Movement
 	{"id": "shoes", "name": "Running Shoes", "category": "movement", "desc": "+{value} move and carry speed.", "icon": "", "unit": "pct",
-		"levels": [{"price": 70, "value": 0.07}, {"price": 110, "value": 0.07}, {"price": 180, "value": 0.07}, {"price": 290, "value": 0.07}]},   # speed x (1 + v)
+		"levels": [{"price": 110, "value": 0.07}, {"price": 170, "value": 0.07}, {"price": 260, "value": 0.07}, {"price": 400, "value": 0.07}]},   # speed x (1 + v)
 	{"id": "protein_shake", "name": "Protein Shake", "category": "movement", "desc": "Heavy food: carriers count {value} extra.", "icon": "", "unit": "num",
-		"levels": [{"price": 90, "value": 0.34}, {"price": 140, "value": 0.34}, {"price": 230, "value": 0.34}]},   # carry speed clamp((n + v) / weight)
+		"levels": [{"price": 180, "value": 0.34}, {"price": 280, "value": 0.34}, {"price": 420, "value": 0.34}]},   # carry speed clamp((n + v) / weight)
 	{"id": "tongs", "name": "Long Tongs", "category": "movement", "desc": "Grab food from {value} further away.", "icon": "", "unit": "pct",
-		"levels": [{"price": 60, "value": 0.25}, {"price": 100, "value": 0.25}]},   # reach x (1 + v)
+		"levels": [{"price": 120, "value": 0.25}, {"price": 180, "value": 0.25}]},   # reach x (1 + v)
 	# Service
 	{"id": "second_plate", "name": "Second Plate", "category": "service", "desc": "Enables the second plate and bell on kitchens that have one.", "icon": "", "unit": "none",
-		"levels": [{"price": 250, "value": 1}]},
+		"levels": [{"price": 240, "value": 1}]},
 	{"id": "friendly_service", "name": "Friendly Service", "category": "service", "desc": "Customers wait {value} longer.", "icon": "", "emblem": "second_plate", "unit": "pct",
-		"levels": [{"price": 70, "value": 0.1}, {"price": 110, "value": 0.1}, {"price": 180, "value": 0.1}, {"price": 290, "value": 0.1}]},   # patience x (1 + v)
+		"levels": [{"price": 150, "value": 0.1}, {"price": 230, "value": 0.1}, {"price": 350, "value": 0.1}, {"price": 530, "value": 0.1}]},   # patience x (1 + v)
 	{"id": "tip_jar", "name": "Tip Jar", "category": "service", "desc": "Orders pay {value} more.", "icon": "", "unit": "pct",
-		"levels": [{"price": 100, "value": 0.08}, {"price": 160, "value": 0.08}, {"price": 260, "value": 0.08}, {"price": 410, "value": 0.08}]},   # pay x (1 + v)
+		"levels": [{"price": 250, "value": 0.08}, {"price": 380, "value": 0.08}, {"price": 570, "value": 0.08}, {"price": 860, "value": 0.08}]},   # pay x (1 + v)
 	{"id": "insurance", "name": "Insurance", "category": "service", "desc": "Expired orders cost {value} less.", "icon": "", "unit": "pct",
-		"levels": [{"price": 50, "value": 0.25}, {"price": 80, "value": 0.25}, {"price": 130, "value": 0.25}]},   # expiry penalty x (1 - v)
+		"levels": [{"price": 120, "value": 0.25}, {"price": 180, "value": 0.25}, {"price": 270, "value": 0.25}]},   # expiry penalty x (1 - v)
 	{"id": "combo_bell", "name": "Combo Bell", "category": "service", "desc": "Serve within 20 s of the last serve: +{value} pay per streak step (max 5).", "icon": "", "unit": "pct",
-		"levels": [{"price": 90, "value": 0.05}, {"price": 140, "value": 0.05}, {"price": 230, "value": 0.05}]},   # pay x (1 + v * min(streak - 1, 5))
+		"levels": [{"price": 220, "value": 0.05}, {"price": 340, "value": 0.05}, {"price": 520, "value": 0.05}]},   # pay x (1 + v * min(streak - 1, 5))
 	# Chaos
 	{"id": "gloves", "name": "Boxing Gloves", "category": "chaos", "desc": "Unlocks punching (Space / Q / pad B). Launch food, shove friends.", "icon": "boxing_glove", "unit": "none",
-		"levels": [{"price": 120, "value": 1}]},
+		"levels": [{"price": 90, "value": 1}]},
 	{"id": "heavy_gloves", "name": "Heavy Gloves", "category": "chaos", "desc": "Punches launch {value} harder.", "icon": "boxing_glove", "unit": "pct", "requires": "gloves",
-		"levels": [{"price": 80, "value": 0.4}, {"price": 130, "value": 0.4}]},   # punch launch x (1 + v)
+		"levels": [{"price": 140, "value": 0.4}, {"price": 210, "value": 0.4}]},   # punch launch x (1 + v)
 ]
 
 ## Shop order of the categories, with their display names.

@@ -149,3 +149,144 @@ target already prices in its map; custom shifts use the host's number).
 - Every row is 1 to 4 runs; treat single numbers as +-15 %.
 - `tools\test-multiplayer.ps1 -Port 7942` and `-Solo -Port 7942` pass with these values (no shift-seconds change
   needed; the tests check serves, not targets).
+
+# Pass 2: upgrade tree economy
+
+October 2026, after tidy/messy pay, tip_jar/combo_bell, the new food physics (bots pause before dropping) and
+the tiered upgrade tree. Goal (owner): food pays less so progress takes longer; the first gloves / cooking /
+chopping levels are cheap and come quickly, then a long tree. Movement, carry and physics numbers untouched.
+Pass 1 numbers above are history; the values in force are below.
+
+## Method
+
+- Same harness and scaling as pass 1 (`-ShiftSeconds 150`, coins x 210/150, campaign x duration/150), 2 to 3
+  groups in parallel on ports 8041 to 8046. 68 completed runs; raw logs deleted (pooled table:
+  `build\balance\p2\pass2-pooled.md`, not committed), these tables are the record.
+- Bots ignore prices and targets, so every run measures throughput: runs made before the price cut were
+  converted to new prices (x 0.66, the effective cut on the shift 0 to 2 menus) and pooled with later runs;
+  ratios are recomputed against the final targets. Rows are means of n runs (n in brackets); single runs are
+  +-30 %.
+- Bots never buy: upgraded teams are `--upgrades=` builds. **mid** = `hot_griddle:2,sharp_knife:2,shoes:2,tip_jar:1`,
+  **full** = every line at max, **real6** = what the tree model below owns after shift 5 (gloves, knife II,
+  griddle II, shoes II, tongs, insurance, mitts, quick hands, heavy gloves, friendly service I).
+- About 1 run in 5 lost its client (ENet never connected, host report without a shift result); re-run.
+
+## Baseline (today's data, before this pass)
+
+Old prices and targets, coins at 210 s.
+
+| row | coins (n) | target | ratio |
+|---|---|---|---|
+| 1p shift 0 / 1 / 2 | 305 / 464 / 290 (2 each) | 190 / 300 / 310 | 1.60 / 1.55 / 0.94 |
+| 2p shift 0 / 1 / 2 | 421 (2) / 482 (1) / 387 (2) | 333 / 525 / 543 | 1.26 / 0.92 / 0.71 |
+| 3p shift 0 / 1 / 2 | 391 / 672 / 700 (1 each) | 361 / 570 / 589 | 1.08 / 1.18 / 1.19 |
+| 4p shift 0 / 1 | 353 / 45 (1 each) | 389 / 615 | 0.91 / 0.07 |
+
+Multi-bot teams now earn far less than in pass 1 (2 bots ~1.3x one bot, was 1.75x), so the 2p+ targets had
+drifted to 0.7 to 1.2. A 2p normal shift 0 to 2 averaged ~470 coins at today's prices (all runs pooled).
+
+## After (final values)
+
+New prices, final targets. 2p normal shifts 0 to 2 now average **312 coins = 66 % of today's ~470**.
+
+| row | coins (n) | target | ratio |
+|---|---|---|---|
+| 1p shift 0 / 1 / 2 | 198 (3) / 293 (3) / 222 (5) | 125 / 190 / 180 | 1.59 / 1.54 / 1.23 |
+| 2p shift 0 / 1 / 2 | 271 (4) / 345 (4) / 319 (4) | 169 / 256 / 243 | 1.60 / 1.35 / 1.31 |
+| 3p shift 0 / 1 / 2 | 267 (2) / 428 (2) / 473 (2) | 200 / 304 / 288 | 1.33 / 1.41 / 1.64 |
+| 4p shift 0 / 1 / 2 | 238 (2) / 137 (3) / 447 (1) | 212 / 323 / 306 | 1.12 / 0.42 / 1.46 |
+| hard 2p shift 1 / 2 | 248 (2) / 324 (2) | 321 / 304 | 0.77 / 1.07 (mean 0.92) |
+| chaos 2p shift 1 | 245 (2: 325, 165) | 346 | 0.71 |
+| picnic 2p shift 1 | 147 (1) | 205 | 0.72 (one run) |
+| campaign m0 / m2 / m6 / m8 (2p) | 241 / 270 / 230 / 109 | 66 / 155 / 162 / 101 | 3.65 / 1.74 / 1.42 / 1.08 |
+| campaign m4 (food_truck, 2p) | 35 | 149 | 0.24 (bots stall: 2 served, 2 expired) |
+
+4p shift 1 stays broken for bots (4 bots crowd one plate on the 3-recipe menu: 1 to 3 serves in all 3 runs).
+
+## Upgraded teams (2p endless, final targets)
+
+| build | normal shift 2 | normal shift 6 | hard shift 2 | hard shift 6 |
+|---|---|---|---|---|
+| none | 319 / 243 = 1.31 | 249 / 467 = 0.53 | 324 / 304 = 1.07 | 202 / 583 = 0.35 |
+| mid | 395 / 243 = 1.62 | 355 (2) / 467 = 0.76 | 405 / 304 = 1.33 | 273 / 583 = 0.47 |
+| real6 | - | 200 / 467 = 0.43 | - | 227 / 583 = 0.39 |
+| full | 815 / 243 = 3.35 | 837 (2) / 467 = 1.79 | 753 / 304 = 2.48 | 590 (2) / 583 = 1.01 |
+
+Full tree further on (normal): shift 8 976 / 710 = 1.37, shift 10 742 / 1040 = 0.71, shifts 14 and 20 0.13 to
+0.15 (the order flow is at its floor and orders expire). real10 at shift 10: 0.24; real14 at shift 14: 0.18.
+
+What the bots show: the cheap speed lines (griddle, knife, shoes, mitts, quick hands) give no measurable bot gain
+(real6 earned less than none, inside the noise); bots are bound by planning and the single plate. The big jumps
+are second_plate + big_griddle/big_fryer (throughput) and tip_jar/combo_bell (pay): full = 2.5x none at shift 2,
+3.4x at shift 6. Humans should get more out of the speed lines than bots do.
+
+**Endless ramp**: Overtime k (shift index 2 + k) target was x(1 + 0.04 k); now x(1 + 0.05 k + 0.045 k^2)
+(1.10, 1.28, 1.56, 1.92, 2.32, 2.92 for k = 1..6). A linear step cannot make later shifts bite for a maxed team
+without crushing everyone else at shifts 3 to 4; the curve stays close to the old ramp for Overtime 1 to 2 and
+then climbs: a full tree makes ~1.8x at shift 6, ~1.4x at shift 8 and misses shift 10; hard full ~1.0 at shift 6.
+A team without upgrades misses shift 5+ clearly (pass 1 already had shift 6 at 0.71). Failing a shift repeats
+it and keeps the coins, so a stuck team buys its way forward. Knob: `ShiftPlan.OVERTIME_TARGET_CURVE` (0.03
+lowers the shift 6 target by ~10 %).
+
+## Upgrade prices and tree length
+
+Old placeholders -> new (I .. max). Cheap band = 25 to 40 % of a 2p first shift (271 coins): gloves 33 %,
+knife and griddle 37 %, shoes 41 % (1p: 45 to 56 % of 198). Each level ~x1.5 (1.50 to 1.56). Premium lines
+start at 180 to 250 (0.6 to 0.8 of a 2p shift).
+
+| line | old | new | new total |
+|---|---|---|---|
+| gloves | 120 | 90 | 90 |
+| sharp_knife | 60 / 100 / 160 / 250 | 100 / 150 / 230 / 350 | 830 |
+| hot_griddle | 80 / 130 / 210 / 330 / 530 | 100 / 150 / 230 / 350 / 530 | 1360 |
+| shoes | 70 / 110 / 180 / 290 | 110 / 170 / 260 / 400 | 940 |
+| tongs | 60 / 100 | 120 / 180 | 300 |
+| insurance | 50 / 80 / 130 | 120 / 180 / 270 | 570 |
+| oven_mitts | 60 / 100 / 160 | 130 / 200 / 300 | 630 |
+| quick_hands | 50 / 80 / 130 | 130 / 200 / 300 | 630 |
+| heavy_gloves | 80 / 130 | 140 / 210 | 350 |
+| friendly_service | 70 / 110 / 180 / 290 | 150 / 230 / 350 / 530 | 1260 |
+| protein_shake | 90 / 140 / 230 | 180 / 280 / 420 | 880 |
+| big_fryer | 150 | 200 | 200 |
+| big_griddle | 150 / 240 | 220 / 340 | 560 |
+| second_plate | 250 | 240 | 240 |
+| combo_bell | 90 / 140 / 230 | 220 / 340 / 520 | 1080 |
+| tip_jar | 100 / 160 / 260 / 410 | 250 / 380 / 570 / 860 | 2060 |
+| **whole tree** | 7120 | **11980** | |
+
+Tree length (model: greedy, cheapest next level first; income rises linearly with the share of the tree bought,
+up to the measured 2.5x for a full tree): **2 players finish after ~25 shifts** (11980 = 38 unupgraded 2p
+shifts of 312, or 25 shifts at the run's average income of ~480). 1 player ~32 shifts, 3 players ~20 (the
+wallet is shared and not scaled by players). Purchases: 2 after shift 1 (gloves + knife), 2 to 3 per shift
+through shift 5 (the first levels cost 90 to 150), 2 per shift to shift 11, then 1 to 2.
+
+Income lines (2p shift ~310 to 480): tip_jar I (+8 % pay) returns ~25 to 38 coins a shift, payback 7 to 10
+shifts; combo_bell only pays on serves within 20 s of each other (a bot pair at shift 1 with combo III chained 2
+serves, +5 coins), far over 3 shifts; friendly_service I (+10 % patience) saves at most an expiry or two (10
+coins plus the order) a shift, so 150 takes ~4+ shifts.
+
+## Other changed numbers (old -> new)
+
+| value | old | new | why |
+|---|---|---|---|
+| recipe price / bonus | see pass 1 | x ~0.66: cheeseburger 30/13, salad 23/10, double 50/20, hotdog 26/10, bacon cheeseburger 40/16, breakfast 43/16, chicken burger 40/16, pickle 40/16, the works 78/30, fries 20/7, onion rings 16/7, loaded hot dog 33/13, chicken salad 36/13, burger meal 60/23, hot dog meal 52/20 | income to 60 to 70 %; relative effort pricing kept |
+| `Tuning.EXPIRE_PENALTY` | 15 | 10 | same share of an order |
+| `Tuning.WRONG_SERVE_PENALTY` | 10 | 7 | same |
+| `Tuning.INSPECTOR_FINE` / `INSPECTOR_BONUS` | 25 / 15 | 16 / 10 | same |
+| `SHIFTS` targets (1p) | 190 / 300 / 310 | 125 / 190 / 180 | ratios above; shift 2 (hot dogs, events) earns less than shift 1 for bots |
+| `Tuning.SCALE_TARGET_BY_PLAYERS` | 1 / 1.75 / 1.9 / 2.05 | 1 / 1.35 / 1.6 / 1.7 | bot teams now earn 1.3x / 1.6x / ~1.6x one bot |
+| `Difficulty` hard / chaos target | x1.45 / x1.6 | x1.25 / x1.35 | hard bots earned ~0.85x normal (pass 1: 1.0x) |
+| `ShiftPlan.OVERTIME_TARGET_STEP` | 0.04 | 0.05, plus `OVERTIME_TARGET_CURVE` 0.045 (k^2) | the ramp above |
+| mission targets m0..m11 | 100 180 160 155 165 210 165 110 90 110 110 120 | 70 120 115 100 110 140 120 85 60 85 85 95 | x0.66 (m0, m2, m6, m8 measured, the rest scaled; hard/chaos missions also x1.45/1.25 or x1.6/1.35 for the lower multipliers) |
+| earn objectives m5 / m10 | 280 / 150 | 185 / 115 | ~1.33x the mission target, as before |
+
+## Not measured / limits
+
+- Bot noise is large (+-30 % per run) and most upgraded rows are 1 to 2 runs: the ramp and ladder rest on means.
+- Human gain from the cheap speed lines is unknown (bots show none); if playtests show human teams sailing
+  through shifts 5 to 7 with ~10 cheap levels, raise `OVERTIME_TARGET_CURVE`.
+- food_truck (m3 to m5): bots stall there too now (m4: 2 serves); its targets are pass 1 x0.66, unmeasured.
+  twin_islands (m9 to m11) is still unplayable for bots. Easy preset and m1 not re-measured.
+- 4p shift 1 is a bot crowding failure, not a target signal.
+- `docs/PLAYING.md` "Upgrades" still lists pre-tree prices (not touched here).
+- `tools\test-multiplayer.ps1 -Port 8041` and `-Solo -Port 8042` pass; `godot-check` OK.

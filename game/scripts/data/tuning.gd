@@ -74,15 +74,15 @@ const SCRAPE_HOLD := 1.2           # s of holding work on a plate (not at the be
 const MAX_ORDERS := 4
 const FIRST_ORDER_DELAY := 2.0
 const EMPTY_ORDER_DELAY := 4.0     # when no order is open, the next one comes at most this soon
-const WRONG_SERVE_PENALTY := 10
+const WRONG_SERVE_PENALTY := 7
 const MESSY_PAY := 0.85            # an untidy dish (Plate.tidy: base first, bun top last) pays this share of price + bonus
-const EXPIRE_PENALTY := 15         # ~1/4 of an average order (docs/balance.md)
+const EXPIRE_PENALTY := 10         # ~1/4 of an average order (docs/balance.md)
 const MIN_ORDER_INTERVAL := 12.0
 const MIN_PATIENCE := 55.0
 const SCALE_ORDER_RATE_PER_PLAYER := 0.35  # each extra player: orders this much more often
 ## Shift target x this for 1, 2, 3, 4 players (target_players_scale). Bot teams (tools/balance.ps1) earn
-## about 1.75x / 1.9x / 1.8x a single bot: one plate is the bottleneck, so the curve flattens (docs/balance.md).
-const SCALE_TARGET_BY_PLAYERS := [1.0, 1.75, 1.9, 2.05]
+## about 1.3x / 1.6x / 1.7x a single bot: one plate is the bottleneck, so the curve flattens (docs/balance.md pass 2).
+const SCALE_TARGET_BY_PLAYERS := [1.0, 1.35, 1.6, 1.7]
 
 # Shift events (world/systems/event_system.gd, world/events/*.gd)
 const EVENT_QUIET_START := 30.0    # s: no event telegraph before this much of the shift has passed
@@ -96,8 +96,8 @@ const VIP_PATIENCE_MULT := 0.6
 const VIP_EXPIRE_MULT := 2         # expiry penalty multiplier
 const INSPECTOR_PERIOD := 95.0
 const INSPECTOR_LEAD := 15.0       # s countdown banner
-const INSPECTOR_FINE := 25         # coins per burnt item on the counter
-const INSPECTOR_BONUS := 15        # coins for a clean kitchen
+const INSPECTOR_FINE := 16         # coins per burnt item on the counter
+const INSPECTOR_BONUS := 10        # coins for a clean kitchen
 const PAW_PERIOD := 55.0
 const PAW_LEAD := 4.0              # s shadow + meow before the paw lands
 const PAW_DESCEND := 0.7           # s

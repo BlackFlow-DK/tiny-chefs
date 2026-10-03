@@ -1,7 +1,9 @@
 # Tiny Chefs: upgrade tree (data contract for the shop UI and balance agents)
 
 Source of truth: `GameData.UPGRADES` in `game/scripts/data/game_data.gd`. This table mirrors it; if they
-disagree, the code wins. Prices are placeholders (balance agent sets them; first levels cheap, ~x1.6 per level).
+disagree, the code wins. Prices: balance pass 2 (`docs/balance.md`): first levels 90 to 150, each level ~x1.5,
+premium lines (second plate, big griddle/fryer, protein shake, combo bell, tip jar) start at 180 to 250; the whole
+tree costs 11980 coins (about 24 two-player shifts).
 
 ## Data shape
 ```
@@ -32,24 +34,24 @@ disagree, the code wins. Prices are placeholders (balance agent sets them; first
   The host always logs `upgrades: effects ...` at shift start (all hooks' current values).
 
 ## Table
-| id | name | category | levels | step | effect at I .. max | hook |
-|---|---|---|---|---|---|---|
-| hot_griddle | Hot Griddle | cooking | 5 | +15% | +15 / 30 / 45 / 60 / 75% cook + fry speed | `Griddle.cook_speed()` = 1 + v (cook stage time / it) |
-| oven_mitts | Oven Mitts | cooking | 3 | +25% | +25 / 50 / 75% burn window | `Griddle.burn_scale()` x (1 + v), griddle + fryer |
-| big_griddle | Big Griddle | cooking | 2 | +1 | 5 / 6 griddle slots | `Griddle.slots()` = GRIDDLE_SLOTS + v, capped by `slot_fit()` |
-| big_fryer | Big Fryer | cooking | 1 | +1 | 4 fryer slots (a 7x6 fryer fits 4) | `Fryer.slots()` = FRYER_SLOTS + v, capped by `slot_fit()` |
-| sharp_knife | Sharp Knife | prep | 4 | +25% | +25 / 50 / 75 / 100% chop speed | `CuttingBoard.chop_mult()` = 1 + v |
-| quick_hands | Quick Hands | prep | 3 | +20% | +20 / 40 / 60% dispense + soda speed | `Dispenser.hold_time()` / (1 + v) (SodaFountain too) |
-| shoes | Running Shoes | movement | 4 | +7% | +7 / 14 / 21 / 28% move + carry speed | `World.move_mult()` = 1 + v |
-| protein_shake | Protein Shake | movement | 3 | +0.34 | +0.34 / 0.68 / 1.02 carrier | `CarrySystem.speed_factor()`: clamp((n + v) / weight, MIN, 1) (speed only, never above the unloaded max) |
-| tongs | Long Tongs | movement | 2 | +25% | +25 / 50% grab reach | `CarrySystem.grab_reach()` x (1 + v) |
-| second_plate | Second Plate | service | 1 | - | opens the second plate + bell | `Station.is_locked()` |
-| friendly_service | Friendly Service | service | 4 | +10% | +10 / 20 / 30 / 40% order patience | `OrderManager.patience_mult` = 1 + v (regular + VIP orders) |
-| tip_jar | Tip Jar | service | 4 | +8% | +8 / 16 / 24 / 32% pay | `OrderManager.pay_for(o, shift, combo, tidy)`: x MESSY_PAY if untidy, then x (1 + v) x combo, then x VIP |
-| insurance | Insurance | service | 3 | 25% | -25 / 50 / 75% expiry penalty | `OrderManager.expire_penalty(o, shift)` x (1 - v) |
-| combo_bell | Combo Bell | service | 3 | +5% | +5 / 10 / 15% pay per streak step (max 5 steps) | `PlateSystem.combo_mult(shift, streak)`; streak = serves each within `Tuning.COMBO_WINDOW` (20 s) of the last; toast "Combo xN!" |
-| gloves | Boxing Gloves | chaos | 1 | - | unlocks punching | `PunchSystem` gate |
-| heavy_gloves | Heavy Gloves | chaos | 2 | +40% | +40 / 80% punch launch (food + chef shove) | `PunchSystem.launch_mult(shift)` = 1 + v; requires gloves |
+| id | name | category | levels | prices I .. max (total) | step | effect at I .. max | hook |
+|---|---|---|---|---|---|---|---|
+| hot_griddle | Hot Griddle | cooking | 5 | 100 / 150 / 230 / 350 / 530 (1360) | +15% | +15 / 30 / 45 / 60 / 75% cook + fry speed | `Griddle.cook_speed()` = 1 + v (cook stage time / it) |
+| oven_mitts | Oven Mitts | cooking | 3 | 130 / 200 / 300 (630) | +25% | +25 / 50 / 75% burn window | `Griddle.burn_scale()` x (1 + v), griddle + fryer |
+| big_griddle | Big Griddle | cooking | 2 | 220 / 340 (560) | +1 | 5 / 6 griddle slots | `Griddle.slots()` = GRIDDLE_SLOTS + v, capped by `slot_fit()` |
+| big_fryer | Big Fryer | cooking | 1 | 200 | +1 | 4 fryer slots (a 7x6 fryer fits 4) | `Fryer.slots()` = FRYER_SLOTS + v, capped by `slot_fit()` |
+| sharp_knife | Sharp Knife | prep | 4 | 100 / 150 / 230 / 350 (830) | +25% | +25 / 50 / 75 / 100% chop speed | `CuttingBoard.chop_mult()` = 1 + v |
+| quick_hands | Quick Hands | prep | 3 | 130 / 200 / 300 (630) | +20% | +20 / 40 / 60% dispense + soda speed | `Dispenser.hold_time()` / (1 + v) (SodaFountain too) |
+| shoes | Running Shoes | movement | 4 | 110 / 170 / 260 / 400 (940) | +7% | +7 / 14 / 21 / 28% move + carry speed | `World.move_mult()` = 1 + v |
+| protein_shake | Protein Shake | movement | 3 | 180 / 280 / 420 (880) | +0.34 | +0.34 / 0.68 / 1.02 carrier | `CarrySystem.speed_factor()`: clamp((n + v) / weight, MIN, 1) (speed only, never above the unloaded max) |
+| tongs | Long Tongs | movement | 2 | 120 / 180 (300) | +25% | +25 / 50% grab reach | `CarrySystem.grab_reach()` x (1 + v) |
+| second_plate | Second Plate | service | 1 | 240 | - | opens the second plate + bell | `Station.is_locked()` |
+| friendly_service | Friendly Service | service | 4 | 150 / 230 / 350 / 530 (1260) | +10% | +10 / 20 / 30 / 40% order patience | `OrderManager.patience_mult` = 1 + v (regular + VIP orders) |
+| tip_jar | Tip Jar | service | 4 | 250 / 380 / 570 / 860 (2060) | +8% | +8 / 16 / 24 / 32% pay | `OrderManager.pay_for(o, shift, combo, tidy)`: x MESSY_PAY if untidy, then x (1 + v) x combo, then x VIP |
+| insurance | Insurance | service | 3 | 120 / 180 / 270 (570) | 25% | -25 / 50 / 75% expiry penalty | `OrderManager.expire_penalty(o, shift)` x (1 - v) |
+| combo_bell | Combo Bell | service | 3 | 220 / 340 / 520 (1080) | +5% | +5 / 10 / 15% pay per streak step (max 5 steps) | `PlateSystem.combo_mult(shift, streak)`; streak = serves each within `Tuning.COMBO_WINDOW` (20 s) of the last; toast "Combo xN!" |
+| gloves | Boxing Gloves | chaos | 1 | 90 | - | unlocks punching | `PunchSystem` gate |
+| heavy_gloves | Heavy Gloves | chaos | 2 | 140 / 210 (350) | +40% | +40 / 80% punch launch (food + chef shove) | `PunchSystem.launch_mult(shift)` = 1 + v; requires gloves |
 
 ## Notes for the shop UI agent
 - Build cards from `GameData.upgrade_categories()`; per card read `shift.upgrade_level(id)`,

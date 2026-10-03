@@ -12,12 +12,15 @@ extends RefCounted
 ## target already prices in its map, custom uses the host's number) -> Difficulty.apply -> player-count scaling.
 
 ## Endless "Overtime k" (shift index >= GameData.SHIFTS.size()): each step multiplies the interval and patience
-## of the last SHIFTS entry by these (down to Tuning.MIN_ORDER_INTERVAL / MIN_PATIENCE) and adds
-## OVERTIME_TARGET_STEP of its target. Tuned with tools/balance.ps1 (docs/balance.md): a bot team just
-## about meets Overtime 3 (--start-shift=5) and clearly misses Overtime 6 (--start-shift=8).
+## of the last SHIFTS entry by these (down to Tuning.MIN_ORDER_INTERVAL / MIN_PATIENCE) and multiplies its
+## target by 1 + OVERTIME_TARGET_STEP k + OVERTIME_TARGET_CURVE k^2. The curve keeps later shifts biting for
+## upgraded teams (docs/balance.md pass 2): a bot team with the full upgrade tree makes ~1.8x the target at
+## shift 6, ~1.1x at shift 8 and misses shift 10; a team without upgrades just about makes Overtime 1 and
+## clearly misses Overtime 3+.
 const OVERTIME_INTERVAL := 0.88
 const OVERTIME_PATIENCE := 0.94
-const OVERTIME_TARGET_STEP := 0.04
+const OVERTIME_TARGET_STEP := 0.05
+const OVERTIME_TARGET_CURVE := 0.045
 
 ## Campaign: mission (settings.mission + shift_index), clamped to the last one.
 ## Endless: GameData.SHIFTS, then "Overtime k" keeps getting harder. Custom: the settings' custom fields.
@@ -95,7 +98,7 @@ static func _endless_base(i: int) -> Dictionary:
 		d["name"] = "Overtime %d" % k
 		d["interval"] = maxf(Tuning.MIN_ORDER_INTERVAL, float(d["interval"]) * pow(OVERTIME_INTERVAL, k))
 		d["patience"] = maxf(Tuning.MIN_PATIENCE, float(d["patience"]) * pow(OVERTIME_PATIENCE, k))
-		d["target"] = int(round(float(d["target"]) * (1.0 + OVERTIME_TARGET_STEP * k)))
+		d["target"] = int(round(float(d["target"]) * (1.0 + OVERTIME_TARGET_STEP * k + OVERTIME_TARGET_CURVE * k * k)))
 	return d
 
 
