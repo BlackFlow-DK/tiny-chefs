@@ -11,6 +11,14 @@ const RAIL_H := 12.0
 
 var _tickets: Array[HudTicket] = []
 var _spawned := 0
+var _fit := 1.0
+
+## Share of the screen height the rail may cover (tickets shrink uniformly past it).
+const MAX_SHARE := 0.28
+## Screen margins the rail keeps clear: the stats card on the left, the timer card on the right (1280 logical px design).
+const LEFT_RESERVED := 236.0
+const RIGHT_RESERVED := 151.0
+const RAIL_PAD := 12.0
 
 
 func _ready() -> void:
@@ -21,7 +29,7 @@ func _ready() -> void:
 
 ## Y under the tickets, for stacking toasts beneath.
 func rail_bottom() -> float:
-	var h := 138.0   # a one-row ticket; recipes with 5+ ingredients wrap to a second chip row
+	var h := 120.0   # the shortest ticket (a mystery / one-item order)
 	for t in _tickets:
 		h = maxf(h, t.body_height() + 8.0)
 	return TICKET_Y + h
@@ -75,6 +83,7 @@ func _add(recipe: int, vip := false) -> void:
 	var sgn := 1.0 if _spawned % 2 == 0 else -1.0
 	t.setup(recipe, "#%d" % _spawned, 1.6 * sgn, vip)
 	add_child(t)
+	t.set_fit(_fit)
 	_tickets.append(t)
 	t.base_x = _target_x(_tickets.size() - 1)
 	t.position = Vector2(t.base_x, TICKET_Y - 150.0)
@@ -95,7 +104,7 @@ func _leave(t: HudTicket, served: bool, pay: int) -> void:
 		tw.tween_property(t, "rotation", t.tilt + 0.5, 0.55).set_delay(0.16)
 		tw.tween_property(t, "modulate:a", 0.0, 0.25).set_delay(0.45)
 		if pay > 0:
-			_float_text("+%d" % pay, p + Vector2(HudTicket.W * 0.5, 110))
+			_float_text("+%d" % pay, p + Vector2(t.width() * 0.5, 110))
 	else:
 		t.flash(UITheme.TOMATO, 0.5)
 		tw.tween_property(t, "position", p + Vector2(-20, 320), 0.6).set_delay(0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -121,13 +130,22 @@ func _float_text(text: String, at: Vector2) -> void:
 
 
 func _target_x(i: int) -> float:
-	var n := _tickets.size()
-	var total := n * HudTicket.W + maxi(0, n - 1) * GAP
-	return (size.x - total) * 0.5 + i * (HudTicket.W + GAP)
+	var w := HudTicket.W * _fit
+	return _left_edge(_tickets.size()) + i * (w + GAP * _fit)
+
+
+## Left x of a row of n tickets: centred on the screen, nudged to stay between the HUD's corner cards.
+func _left_edge(n: int) -> float:
+	var w := HudTicket.W * _fit
+	var total := n * w + maxi(0, n - 1) * (GAP * _fit)
+	var lo := LEFT_RESERVED
+	var hi := maxf(lo, size.x - RIGHT_RESERVED - total)
+	return clampf((size.x - total) * 0.5, lo, hi)
 
 
 func _process(delta: float) -> void:
 	var k := 1.0 - exp(-14.0 * delta)
+	_update_fit(k)
 	for i in _tickets.size():
 		var t := _tickets[i]
 		t.base_x = lerpf(t.base_x, _target_x(i), k)
@@ -135,10 +153,30 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+## One uniform factor for all tickets: the tallest natural ticket must fit under MAX_SHARE of the screen.
+func _update_fit(k: float) -> void:
+	var tallest := 100.0
+	for t in _tickets:
+		tallest = maxf(tallest, t.natural_height())
+	var room := get_viewport_rect().size.y * MAX_SHARE - TICKET_Y - 4.0
+	var target := clampf(room / tallest, 0.5, 1.0)
+	# Width: a full house (or the VIP extra) must fit between the corner cards.
+	var n := maxi(Tuning.MAX_ORDERS, _tickets.size())
+	var avail := size.x - LEFT_RESERVED - RIGHT_RESERVED - 2.0 * RAIL_PAD
+	target = minf(target, clampf(avail / (n * HudTicket.W + (n - 1) * GAP), 0.5, 1.0))
+	if absf(target - _fit) < 0.002:
+		return
+	_fit = lerpf(_fit, target, k)
+	for t in _tickets:
+		t.set_fit(_fit)
+
+
 func _draw() -> void:
-	# The rail: a chunky ink bar with a highlight, long enough for a full house of tickets.
-	var full := Tuning.MAX_ORDERS * HudTicket.W + (Tuning.MAX_ORDERS - 1) * GAP + 36.0
-	var r := Rect2((size.x - full) * 0.5, RAIL_Y, full, RAIL_H)
+	# The rail: a chunky ink bar with a highlight, long enough for the tickets that hang from it.
+	var n := maxi(Tuning.MAX_ORDERS, _tickets.size())
+	var inner := (n * HudTicket.W + (n - 1) * GAP) * _fit
+	var full := inner + 2.0 * RAIL_PAD
+	var r := Rect2(_left_edge(n) - RAIL_PAD, RAIL_Y, full, RAIL_H)
 	draw_style_box(UITheme.box(UITheme.INK_LIGHT, UITheme.INK, 6, 3, 4), r)
 	draw_line(r.position + Vector2(10, 4.5), r.position + Vector2(full - 10, 4.5), UITheme.INK_SOFT, 2.0)
 	for x in [r.position.x + 9.0, r.end.x - 9.0]:
