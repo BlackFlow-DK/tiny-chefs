@@ -19,7 +19,9 @@ extends Node
 ## (BACKS) and "body" (BODY_SHAPES id); unknown ids fall back to each table's first entry. Each player sets only its own look with
 ## set_look({...}) (any phase): the host stores it and re-sends the roster via _sync_players; a client
 ## sends it with _register on join and _request_look afterwards. Read with look_of(id) / color_of(id).
-## The local pick (local_look) is remembered in user://menu.cfg [chef]; args --color= --hat= --acc= override.
+## The local pick (local_look) is the Wardrobe's equipped look, saved in Progress (user://progress.cfg
+## [equipped]); args --look=hat:beanie,acc:glasses,body:stout,... and --color= --hat= --acc= ... override.
+## Ids are the Cosmetics catalogue (GameData tables = Cosmetics lists).
 
 signal players_changed
 signal looks_changed  ## some player's look may have changed (also fires with every roster sync)
@@ -29,7 +31,6 @@ signal event_received(text: String, sfx: String)
 signal settings_changed
 
 enum Phase { MENU, LOBBY, PLAYING, RESULTS, SHOP }
-const LOOK_CFG := "user://menu.cfg"
 
 var phase: int = Phase.MENU
 var phase_info: Dictionary = {}
@@ -313,9 +314,15 @@ func resolve_look(look: Dictionary, slot: int) -> Dictionary:
 	if c < 0 or c >= n:
 		c = posmod(slot, n)
 	var out := {"color": c}
+	var fixed := look
+	for key: String in Cosmetics.RETIRED:   # retired ids (acc "moustache" -> beard "handlebar")
+		var parts := key.split(":")
+		if str(look.get(parts[0], "")) == parts[1]:
+			fixed = look.duplicate()
+			fixed.merge(Cosmetics.RETIRED[key], true)
 	for k: String in LOOK_TABLES:
 		var table: Array = LOOK_TABLES[k]
-		var id := str(look.get(k, ""))
+		var id := str(fixed.get(k, ""))
 		out[k] = id if GameData.has_look_id(table, id) else str(table[0]["id"])
 	return out
 
@@ -360,6 +367,9 @@ func _request_look(look: Dictionary) -> void:
 
 
 ## Host: validate and store a player's look, then re-send the roster.
+## Trust model (friends game): ownership and tokens are local to each player (Progress), so the host does
+## NOT check that a player owns what it wears; it accepts any catalogue id and only maps unknown ids to the
+## default. A modded client can wear anything; nothing about gameplay depends on the look.
 func _store_look(id: int, look: Dictionary) -> void:
 	if not players.has(id):
 		return
@@ -378,33 +388,38 @@ func _store_look(id: int, look: Dictionary) -> void:
 	looks_changed.emit()
 
 
-## menu.cfg is shared with the menu screen (section [menu]); ours is [chef]. Skipped for scripted runs
-## (--host / --join / --bot), like the menu's own keys. --color= --hat= --acc= override (not saved).
+## The equipped look lives in Progress [equipped] (it migrates the old menu.cfg [chef] keys once). Scripted
+## runs (--host / --join / --bot) start from the defaults and never save it. --look=hat:beanie,acc:glasses,...
+## then --color= --hat= --acc= --beard= --outfit= --back= --body= override (not saved).
 func _look_cfg_enabled() -> bool:
 	return not (has_arg("host") or has_arg("join") or has_arg("bot"))
 
 
 func _load_look() -> void:
 	if _look_cfg_enabled():
-		var cf := ConfigFile.new()
-		if cf.load(LOOK_CFG) == OK:
-			for k in local_look.keys():
-				local_look[k] = cf.get_value("chef", k, local_look[k])
+		local_look.merge(Progress.equipped(), true)
+	for pair in arg_str("look", "").split(",", false):
+		var kv := pair.split(":")
+		if kv.size() == 2 and local_look.has(kv[0]):
+			local_look[kv[0]] = int(kv[1]) if kv[0] == "color" else kv[1]
 	if has_arg("color"):
 		local_look["color"] = arg_int("color", -1)
 	for k: String in LOOK_TABLES:   # --hat= --acc= --beard= --outfit= --back= --body=
 		if has_arg(k):
 			local_look[k] = arg_str(k, str(local_look[k]))
+	local_look.merge(_fix_retired(local_look), true)
+
+
+## Retired ids in my own pick (acc "moustache" -> beard "handlebar"); the categories only, not the colour.
+func _fix_retired(look: Dictionary) -> Dictionary:
+	var r := resolve_look(look, 0)
+	r.erase("color")
+	return r
 
 
 func _save_look() -> void:
-	if not _look_cfg_enabled():
-		return
-	var cf := ConfigFile.new()
-	cf.load(LOOK_CFG)  # keep the menu's keys
-	for k in local_look.keys():
-		cf.set_value("chef", k, local_look[k])
-	cf.save(LOOK_CFG)
+	if _look_cfg_enabled():
+		Progress.set_equipped(local_look)
 
 
 # ---------------------------------------------------------------- phases

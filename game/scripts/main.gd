@@ -64,6 +64,11 @@ func _handle_args() -> void:
 
 
 func _on_phase(ph: int) -> void:
+	if ph == Net.Phase.RESULTS:
+		if world != null:
+			_award_tokens()   # only after a shift this peer played (not when joining into the results)
+		else:
+			Progress.last_award = 0
 	menu.visible = ph == Net.Phase.MENU
 	lobby.visible = ph == Net.Phase.LOBBY
 	if ph == Net.Phase.PLAYING and world != null and _map_changes():
@@ -102,6 +107,19 @@ func _on_phase(ph: int) -> void:
 			_auto_timer = Tuning.AUTO_SHOP_SECONDS
 	if ph == Net.Phase.LOBBY:
 		_check_autostart()
+
+
+## Every peer at shift end: its own wardrobe tokens from the replicated results (Progress.shift_award),
+## added to the local wallet before the results screen is built (it shows Progress.last_award).
+func _award_tokens() -> void:
+	var info := Net.phase_info
+	var before := Progress.tokens()
+	var n := Progress.award_shift(info)
+	print("tokens: +%d (team coins %d -> %d, stars %d -> %d) wallet %d -> %d" % [n, int(info.get("earned", 0)),
+		maxi(0, int(info.get("earned", 0))) / 60, int(info.get("stars", 0)), 4 * int(info.get("stars", 0)),
+		before, Progress.tokens()])
+	Net.metrics["tokens_award"] = n
+	Net.metrics["tokens_wallet"] = Progress.tokens()
 
 
 ## True when the phase info names a different map than the one the current World was built from.

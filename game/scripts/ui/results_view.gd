@@ -151,6 +151,20 @@ func show_results(info: Dictionary) -> void:
 	wallet.add_child(wl)
 	wallet.add_child(UIKit.coin_chip(int(info.get("coins", 0))))
 	left.add_child(wallet)
+	# Wardrobe tokens this player earned (Progress.award_shift ran just before this screen; main.gd).
+	var tokens_n := Progress.last_award
+	var tok_row := HBoxContainer.new()
+	tok_row.add_theme_constant_override("separation", 10)
+	var tok_l := UIKit.body("+0 tokens")
+	tok_l.add_theme_color_override("font_color", UITheme.SKY.darkened(0.35))
+	tok_l.add_theme_font_override("font", UITheme.font(true))
+	tok_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tok_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tok_row.add_child(tok_l)
+	var tok_chip := UIKit.token_chip(Progress.tokens() - tokens_n)
+	tok_chip.tooltip_text = "Your wardrobe tokens"
+	tok_row.add_child(tok_chip)
+	left.add_child(tok_row)
 	split.add_child(left)
 
 	# Right: stars and the stamp.
@@ -254,6 +268,14 @@ func show_results(info: Dictionary) -> void:
 			s.filled = true
 			UIKit.punch(s, 0.35, 0.28))
 		_tween.tween_interval(0.16)
+	# Tokens: "+N tokens" counts up while the wallet chip counts to its new total.
+	if tokens_n > 0:
+		_tween.tween_callback(func() -> void: tok_chip.set_amount(Progress.tokens()))
+		_tween.tween_method(func(v: float) -> void:
+			tok_l.text = "+%d tokens" % int(v), 0.0, float(tokens_n), clampf(tokens_n / 40.0, 0.3, 0.8))
+		_tween.tween_callback(func() -> void:
+			tok_l.text = "+%d tokens" % tokens_n
+			UIKit.punch(tok_l, 0.12, 0.2))
 	_tween.tween_callback(func() -> void:
 		stamp.modulate.a = 1.0
 		stamp.pivot_offset = stamp.size / 2.0

@@ -1,6 +1,7 @@
 class_name MenuScreen
 extends Control
-## Title screen: living kitchen backdrop, name, Host, Join (IP), How to play, Settings, Quit. Remembers name + IP.
+## Title screen: living kitchen backdrop, name, Host, Wardrobe (+ token wallet), Join (IP), How to play, Settings,
+## Quit. Remembers name + IP.
 
 const CFG_PATH := "user://menu.cfg"
 const JOIN_TIMEOUT := 9.0
@@ -18,6 +19,9 @@ var _how_btn: Button
 var _how: HowToPlay
 var _settings_btn: Button
 var _settings: SettingsView
+var _wardrobe: WardrobeView
+var _wardrobe_btn: Button
+var _tokens: UITokenChip
 var _join_row: Control
 var _card: PanelContainer
 var _timeout: SceneTreeTimer = null
@@ -34,9 +38,25 @@ func _ready() -> void:
 	add_child(_how)
 	_settings = SettingsView.new()
 	add_child(_settings)
+	_wardrobe = WardrobeView.new()
+	_wardrobe.closed.connect(func() -> void:
+		_tokens.set_amount(Progress.tokens(), false)
+		if is_visible_in_tree():
+			_wardrobe_btn.grab_focus.call_deferred())
+	add_child(_wardrobe)
 	_load_config()
 	visibility_changed.connect(_on_visible)
 	_on_visible.call_deferred()
+	_agent_wardrobe.call_deferred()
+
+
+## Agent helper: --wardrobe=<tab>[:<id>] opens the Wardrobe on that tab (hat, beard, acc, outfit, back, body,
+## color), selecting that item.
+func _agent_wardrobe() -> void:
+	if not Net.has_arg("wardrobe") or Net.phase != Net.Phase.MENU:
+		return
+	var spec := Net.arg_str("wardrobe", "hat").split(":")
+	_wardrobe.open(spec[0], spec[1] if spec.size() > 1 else "")
 
 
 func _build_column() -> void:
@@ -95,6 +115,18 @@ func _build_column() -> void:
 	var host_hint := UIKit.caption("Solo or LAN. Friends join with your address.")
 	host_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(host_hint)
+
+	var wrow := HBoxContainer.new()
+	wrow.add_theme_constant_override("separation", UITheme.GAP)
+	_wardrobe_btn = UIKit.button("Wardrobe", func() -> void: _wardrobe.open(), "accent")
+	_wardrobe_btn.custom_minimum_size = Vector2(0, 48)
+	_wardrobe_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrow.add_child(_wardrobe_btn)
+	_tokens = UIKit.token_chip(Progress.tokens())
+	_tokens.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_tokens.tooltip_text = "Your wardrobe tokens"
+	wrow.add_child(_tokens)
+	v.add_child(wrow)
 
 	v.add_child(HSeparator.new())
 
@@ -190,7 +222,9 @@ func _on_visible() -> void:
 		_cancel_wait()
 		_set_busy(false)
 		_clear_status()
+		_wardrobe.close()
 		return
+	_tokens.set_amount(Progress.tokens(), false)   # tokens earned in the run we just left
 	# Start focus: host button.
 	if _host_btn != null and not _host_btn.disabled:
 		_host_btn.grab_focus.call_deferred()

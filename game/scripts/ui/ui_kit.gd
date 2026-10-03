@@ -178,6 +178,16 @@ static func coin_chip(amount := 0, dark := false) -> UICoinChip:
 	return c
 
 
+## Wardrobe token pill: blue hexagon + amount (never gold: that is the team's coins). set_amount(n) counts.
+static func token_chip(amount := 0, dark := false, caption := "", big := false) -> UITokenChip:
+	var c := UITokenChip.new()
+	c.dark = dark
+	c.caption = caption
+	c.big = big
+	c.set_amount(amount, false)
+	return c
+
+
 ## Progress bar, value 0..1 via bar.set_fraction(f). ramp=true: green -> mustard -> tomato as it drains.
 static func progress(fraction := 1.0, width := 160, height := 20, ramp := true) -> UIProgress:
 	var p := UIProgress.new()

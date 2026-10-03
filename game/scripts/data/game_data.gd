@@ -184,40 +184,14 @@ const COLOR_NAMES := ["Blue", "Red", "Green", "Yellow"]
 ##   beard_<id>.glb at BeardAnchor, back_<id>.glb at BackAnchor, outfit_<id>.glb authored in chef space (origin
 ##   at the feet) and parented under Body so it follows lean and body shape ("none" = nothing, "classic" = the
 ##   built-in jacket). Anchor positions: Chef.ANCHORS.
-const HATS := [
-	{"id": "toque", "label": "Toque"},
-	{"id": "beanie", "label": "Beanie"},
-	{"id": "paper", "label": "Paper hat"},
-	{"id": "bandana", "label": "Bandana"},
-]
-const ACCESSORIES := [
-	{"id": "none", "label": "None"},
-	{"id": "glasses", "label": "Glasses"},
-	{"id": "moustache", "label": "Moustache"},
-]
-const BEARDS := [
-	{"id": "moustache", "label": "Moustache"},
-	{"id": "none", "label": "Clean shaven"},
-]
-const OUTFITS := [
-	{"id": "classic", "label": "Classic whites"},
-]
-const BACKS := [
-	{"id": "none", "label": "None"},
-]
-## Body shapes: per-part scales applied by ChefAnim.shape() on every peer; collider and gameplay size never
-## change. body: Body scale (keep x == z so head turns stay shear-free), head: Head scale (uniform, world),
-## hands / feet: uniform scale, legs: LegL/LegR length (the body rides up or down with them), arm_out: extra
-## hand spread in metres. Tallest (with a toque) stays under the 1.7 m name badge.
-const BODY_SHAPES := [
-	{"id": "standard", "label": "Standard", "body": Vector3(1, 1, 1), "head": 1.0, "hands": 1.0, "feet": 1.0, "legs": 1.0, "arm_out": 0.0},
-	{"id": "tall", "label": "Tall", "body": Vector3(0.94, 1.2, 0.94), "head": 0.97, "hands": 1.0, "feet": 1.0, "legs": 1.7, "arm_out": 0.0},
-	{"id": "stout", "label": "Stout", "body": Vector3(1.3, 0.88, 1.3), "head": 1.04, "hands": 1.15, "feet": 1.18, "legs": 0.75, "arm_out": 0.02},
-	{"id": "big_arms", "label": "Big arms", "body": Vector3(1.1, 1.0, 1.1), "head": 0.96, "hands": 1.85, "feet": 1.0, "legs": 1.0, "arm_out": 0.03},
-	{"id": "big_head", "label": "Big head", "body": Vector3(0.94, 0.9, 0.94), "head": 1.36, "hands": 1.0, "feet": 1.05, "legs": 0.85, "arm_out": 0.0},
-	{"id": "tiny", "label": "Tiny", "body": Vector3(0.8, 0.78, 0.8), "head": 0.9, "hands": 0.85, "feet": 0.85, "legs": 0.55, "arm_out": 0.0},
-	{"id": "long_legs", "label": "Long legs", "body": Vector3(1, 1, 1), "head": 1.0, "hands": 1.0, "feet": 1.05, "legs": 2.6, "arm_out": 0.0},
-]
+## The tables ARE the wardrobe catalogue (Cosmetics, docs/design/cosmetics.md): {id, name, price, model};
+## BODY_SHAPES entries also carry the part scales (see Cosmetics.BODY).
+const HATS := Cosmetics.HATS
+const ACCESSORIES := Cosmetics.ACCESSORIES
+const BEARDS := Cosmetics.BEARDS
+const OUTFITS := Cosmetics.OUTFITS
+const BACKS := Cosmetics.BACKS
+const BODY_SHAPES := Cosmetics.BODY
 
 
 static func has_hat(id: String) -> bool:

@@ -20,12 +20,12 @@ var _leave: Button
 var _copy_tween: Tween = null
 var _primary_ip := ""
 var _slot_refs: Array = [{}, {}, {}, {}]   # per slot: {id, stage, dot} so a colour pick restyles the card in place
-var _custom_card: PanelContainer           # strip under the grid: the local player's colour / hat / accessory pick
+var _custom_card: PanelContainer           # strip under the grid: the local player's colour + Wardrobe button
 var _custom_panel: Control = null
 var _custom_id := -1
+var _wardrobe: WardrobeView                # overlay; the equipped look goes to the host via Net.set_look
 
 const CELL := Vector2(188, 160)
-const CUSTOMISE_PANEL := "res://scripts/ui/chef_customise_panel.gd"
 
 
 func _ready() -> void:
@@ -107,6 +107,11 @@ func _ready() -> void:
 	_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_reason.custom_minimum_size = Vector2(1, 0)
 	right.add_child(_reason)
+	_wardrobe = WardrobeView.new()
+	_wardrobe.closed.connect(func() -> void:
+		if is_visible_in_tree():
+			(_start if Net.is_host else _leave).grab_focus.call_deferred())
+	add_child(_wardrobe)
 
 	Net.settings_changed.connect(_refresh_summary)
 	Net.players_changed.connect(refresh)
@@ -140,6 +145,7 @@ func _build_address(col: VBoxContainer) -> void:
 
 func _on_visible() -> void:
 	if not is_visible_in_tree():
+		_wardrobe.close()   # the run started (or we left): don't come back to an open wardrobe
 		return
 	_slot_keys = ["", "", "", ""]  # replay the pop-ins when the lobby opens
 	refresh()
@@ -350,21 +356,10 @@ func _refresh_customise() -> void:
 	UIKit.pop_in(_custom_card, 0.15, 0.2)
 
 
-## The chef customisation panel (ui/chef_customise_panel.gd, Control with setup(peer_id)), laid out wide
-## for the strip. Until that file exists this is a 0-height placeholder.
+## The look strip (colour swatches + the Wardrobe button), laid out wide for the strip.
 func _customise_slot(peer_id: int) -> Control:
-	if ResourceLoader.exists(CUSTOMISE_PANEL):
-		var scr: Variant = load(CUSTOMISE_PANEL)
-		if scr is GDScript and (scr as GDScript).can_instantiate():
-			var n: Variant = (scr as GDScript).new()
-			if n is Control:
-				if "wide" in n:
-					n.set("wide", true)
-				if (n as Control).has_method("setup"):
-					(n as Control).call("setup", peer_id)
-				return n
-	var ph := Control.new()
-	ph.name = "CustomisePlaceholder"
-	ph.custom_minimum_size = Vector2.ZERO
-	ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return ph
+	var p := ChefCustomisePanel.new()
+	p.wide = true
+	p.setup(peer_id)
+	p.wardrobe_requested.connect(func() -> void: _wardrobe.open())
+	return p
