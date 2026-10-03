@@ -39,7 +39,7 @@ the blue ring the station you would work, and the bottom line says what a click 
 
 ## How a shift works
 
-Orders appear at the top: the dish, its ingredients and a patience bar. An order that runs out of patience
+Orders hang at the top as tickets (see Order tickets below): the dish, its ingredients and a patience bar. An order that runs out of patience
 costs coins. Build the dish on a **plate**, then press work at the **bell** next to it. A correct plate pays
 its price plus a bonus for patience left; a wrong plate is cleared with a small penalty. When the clock runs
 out you see the results, then the shop (unless the host turned it off), then the next shift. Miss the coin
@@ -54,13 +54,34 @@ target and you retry the shift.
 - **Fryer**: chicken, cut potatoes and onion slices go in. Same cook-then-burn rhythm.
 - **Cutting board**: drop a tomato, onion or potato and hold work. More chefs chop faster.
 - **Soda fountain**: hold work to fill a cup.
-- **Plate**: drop finished food on it. Raw, burnt or uncut food bounces off. Stack it tidily: the bun (or the
-  dish's first item) first and the bun top last; a messy dish still counts but pays 15% less, and a yellow
-  "Wrong order" sign warns you early. Aim at the plate and grab to take the top item back off; hold work on
-  it (away from the bell) to scrape the whole plate into the bin.
+- **Plate**: drop finished food on it. Raw, burnt or uncut food bounces off. See Stacking and fixing a plate.
 - **Bell**: work it to serve the nearest plate.
 - **Trash drain**: drag food onto it to throw it away.
 - Fall off the counter and you respawn after a couple of seconds.
+
+## Stacking and fixing a plate
+
+- **Order**: the base goes first (the bun bottom, the hot dog bun, or the dish's first item for bun-less
+  dishes like salads) and the bun top goes last. Everything in between is free, in any order.
+- A dish stacked out of order still counts but is **messy** and pays 85% of price and bonus. A yellow
+  warning pill warns you early, and a tidy plate gets a little "Tidy!" flourish.
+- **Take the top item off**: aim at the plate and left click (or E / A). The top item comes into your hands.
+- **Scrape the whole plate**: hold right click (F / X) on the plate, away from the bell, for about a second
+  and everything goes into the bin. No coins are lost.
+
+## Tossing food
+
+Let go of food while you are moving and it flies on with your speed (lighter food goes further). Flat food
+slides and settles; round food (tomatoes, onions, potatoes, eggs) rolls on for a bit. Loose food piles up
+instead of overlapping, and the stack on a plate wobbles when something lands. A thrown egg splats and is
+wasted, so drop eggs gently.
+
+## Order tickets
+
+Each ticket shows a picture of every ingredient, read **bottom to top** in stack order, with a "1st" tag on
+the first item and a "last" tag on the last. A count badge shows doubles (for example 2x patty), and a tick
+appears on each ingredient that is already on the plate. A small stack picture shows how the dish is built.
+Gold tickets are VIP. With Mystery Orders the ingredients show as "?".
 
 ## The dishes
 
@@ -115,15 +136,35 @@ Lights Out); **events** (below).
 
 ## Upgrades
 
-Bought in the shop between shifts with the team's shared coins, and they last for the run.
+Bought in the shop between shifts with the team's shared coins, and they last for the run. The shop has
+five tabs (Cooking, Prep, Movement, Service, Chaos; Q / E switch tabs). Each tab shows a number for the
+lines you can afford right now. Every line is a row with level pips; each purchase buys the next level, and
+the row shows what that level adds. After the first shift, the cheapest affordable new line in each tab is
+tagged **Recommended**. Prices below are per level; the whole tree costs 11980 coins.
 
-- Boxing Gloves (60): punch food and friends.
-- Sharp Knife (50): chopping twice as fast.
-- Running Shoes (80): +20% move and carry speed.
-- Second Plate (90): opens a second plate and bell on kitchens that have one.
-- Oven Mitts (70): food takes 50% longer to burn.
-- Hot Griddle (90): griddle and fryer cook 30% faster.
-- Long Tongs (60): grab food from 50% further away.
+| line | levels | each level adds | prices |
+|---|---|---|---|
+| **Cooking** | | | |
+| Hot Griddle | 5 | +15% cook and fry speed | 100 / 150 / 230 / 350 / 530 |
+| Oven Mitts | 3 | +25% longer before food burns | 130 / 200 / 300 |
+| Big Griddle | 2 | +1 griddle slot | 220 / 340 |
+| Big Fryer | 1 | +1 fryer slot | 200 |
+| **Prep** | | | |
+| Sharp Knife | 4 | +25% chop speed | 100 / 150 / 230 / 350 |
+| Quick Hands | 3 | +20% faster dispensers and soda | 130 / 200 / 300 |
+| **Movement** | | | |
+| Running Shoes | 4 | +7% move and carry speed | 110 / 170 / 260 / 400 |
+| Protein Shake | 3 | each level counts as +0.34 of a carrier on heavy food | 180 / 280 / 420 |
+| Long Tongs | 2 | +25% grab reach | 120 / 180 |
+| **Service** | | | |
+| Second Plate | 1 | opens a second plate and bell on kitchens that have one | 240 |
+| Friendly Service | 4 | +10% order patience | 150 / 230 / 350 / 530 |
+| Tip Jar | 4 | +8% pay | 250 / 380 / 570 / 860 |
+| Insurance | 3 | -25% expired-order penalty | 120 / 180 / 270 |
+| Combo Bell | 3 | +5% pay per streak step (up to 5) when you serve within 20 s of the last serve | 220 / 340 / 520 |
+| **Chaos** | | | |
+| Boxing Gloves | 1 | unlocks punching | 90 |
+| Heavy Gloves | 2 | +40% punch launch (needs Boxing Gloves) | 140 / 210 |
 
 ## Events
 
@@ -131,10 +172,22 @@ Bought in the shop between shifts with the team's shared coins, and they last fo
 - **Health inspector**: a warning banner, then every burnt item left on the counter costs coins.
 - **Cat paw**: a giant paw sweeps across a lane and knocks loose food aside. It is telegraphed first.
 
-## Customise your chef
+## Tokens and the Wardrobe
 
-In the lobby pick a colour, a hat (Toque, Beanie, Paper hat, Bandana) and an accessory (None, Glasses,
-Moustache).
+- **Earning tokens**: after each shift every player earns 1 token per 40 coins the team earned that shift,
+  plus 5 tokens for each campaign star won.
+- Tokens, owned items and your chosen look are saved **on your own PC**, so your wardrobe follows you from
+  session to session. Other players see what you wear, but you only own what you bought yourself.
+- Open the **Wardrobe** from the main menu or the lobby. Pick a tab, look at the live preview, then Buy,
+  Wear or Take off. Colour is always free.
+- Categories and a few examples (price in tokens): **Hats** (Toque and Beanie free; Paper hat 10, Party hat
+  15, Top hat 30, Crown 60), **Beards** (Moustache and Clean shaven free; Stubble 10, Handlebar 15, Wizard
+  beard 40), **Face** (Nothing free; Glasses 10, Monocle 25), **Outfits** (Classic whites free; Striped apron
+  15, Tuxedo 40, Knight armour 50), **Back items** (Frying pan 15, Cape 30, Jetpack 70) and **Body shapes**
+  (Standard and Stout free; Tall 20, Tiny 30, Big arms 40).
+- Body shapes only change how your chef looks: bigger or smaller head, hands, arms and legs. They do not
+  change how big you are in the game. Your chef's arms stretch to the food you carry and the station you
+  work, and it hops when a dish is served.
 
 ## Stats
 
