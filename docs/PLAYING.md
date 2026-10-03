@@ -175,7 +175,7 @@ tagged **Recommended**. Prices below are per level; the whole tree costs 11980 c
 ## Tokens and the Wardrobe
 
 - **Earning tokens**: after each shift every player earns 1 token per 40 coins the team earned that shift,
-  plus 5 tokens for each campaign star won.
+  plus 5 tokens for each campaign star you win for the first time (replays pay the coin part only).
 - Tokens, owned items and your chosen look are saved **on your own PC**, so your wardrobe follows you from
   session to session. Other players see what you wear, but you only own what you bought yourself.
 - Open the **Wardrobe** from the main menu or the lobby. Pick a tab, look at the live preview, then Buy,

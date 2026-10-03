@@ -2,13 +2,17 @@ class_name ShopView
 extends Control
 ## "Chef shop": team wallet + the owned strip on top, one tab per upgrade category (Cooking, Prep, Movement, Service,
 ## Chaos), one ShopRow per upgrade LINE, and the footer with what comes next. A tab shows a lettuce count of the
-## lines the team can afford right now, so nothing needs hunting. Purchases: Net.buy(id); Net.set_phase(PLAYING).
+## lines the team can afford right now, so nothing needs hunting. Purchases: Net.buy(id, owned level + 1) (the host
+## refuses any other level; a Buy click within BUY_DEBOUNCE of the last one is ignored); Net.set_phase(PLAYING).
 ## Q / E (or the shoulder buttons) switch tabs; up/down walk the rows.
+## Agent helper --buy-test=<id> (any peer): 1 s into the shop, double-clicks that card, then sends two raw
+## Net.buy calls for the same next level; the host logs one "upgrades: bought" and refuses the rest.
 
 ## Colour per upgrade category (GameData.UPGRADE_CATEGORIES).
 const COLORS := {"cooking": UITheme.MUSTARD, "prep": UITheme.SKY, "movement": UITheme.LETTUCE,
 	"service": UITheme.SKY, "chaos": UITheme.TOMATO}
 const ROW_GAP := 8
+const BUY_DEBOUNCE := 0.3   # s between two Buy clicks that both count
 
 var _rows: Dictionary = {}       # id -> ShopRow
 var _pages: Array = []           # [{id, page: VBoxContainer, tab: Button, badge: PanelContainer, badge_lbl: Label, rows: [ShopRow]}]
@@ -24,6 +28,8 @@ var _wait_chip: PanelContainer
 var _wait_lbl: Label
 var _primed := false             # false until one state was seen (no toasts for the initial sync)
 var _panel: PanelContainer
+var _last_buy_ms := -100000
+var _buy_tested := false   # --buy-test runs once (first shop)
 
 
 func _init() -> void:
@@ -210,7 +216,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_row_pressed(_id: String, row: ShopRow) -> void:
 	match row.state:
 		"buy":
-			Net.buy(row.id)
+			var now := Time.get_ticks_msec()
+			if now - _last_buy_ms < int(BUY_DEBOUNCE * 1000.0):
+				return
+			_last_buy_ms = now
+			Net.buy(row.id, row.level + 1)
 		"poor":
 			UIKit.shake(row, 7.0)
 			UIKit.toast(self, "Need %d more coins" % maxi(row.cost - int(_wallet_shown), 1), "error", 1.6)
@@ -221,6 +231,23 @@ func _on_row_pressed(_id: String, row: ShopRow) -> void:
 		"na":
 			UIKit.shake(row, 5.0)
 			UIKit.toast(self, "Not available on the next kitchen", "warn", 1.8)
+
+
+## --buy-test=<id>: a double click on the card (debounce), then two raw buys of the same level (host check).
+func _buy_test(id: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	var row: ShopRow = _rows.get(id)
+	if row == null or not is_visible_in_tree():
+		print("shop: buy-test: no card %s" % id)
+		return
+	print("shop: buy-test: double click %s (state %s, owned %d)" % [id, row.state, row.level])
+	_on_row_pressed(id, row)
+	_on_row_pressed(id, row)
+	await get_tree().create_timer(0.8).timeout
+	var lv := row.level + 1
+	print("shop: buy-test: two raw buys of %s level %d" % [id, lv])
+	Net.buy(id, lv)
+	Net.buy(id, lv)
 
 
 func _on_bought(id: String, level: int) -> void:
@@ -237,6 +264,9 @@ func show_phase() -> void:
 	if Net.players.has(1):
 		who = "%s (host)" % str(Net.players[1]["name"])
 	_wait_lbl.text = "Waiting for %s..." % who
+	if Net.has_arg("buy-test") and not _buy_tested:
+		_buy_tested = true
+		_buy_test.call_deferred(Net.arg_str("buy-test", ""))
 	UIKit.pop_in(_panel, 0.0, 0.22)
 
 

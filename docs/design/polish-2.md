@@ -9,7 +9,8 @@ and their feel stay as they are. This file is the contract for every agent in th
 ## 1. Plate rules
 - **Stack order.** A recipe's `items` list is its intended order, bottom to top. A dish is "tidy" when the plate
   holds a base item first (`bun_bottom`, `hotdog_bun`, or the first item of the recipe for bun-less dishes) and,
-  if the recipe has a `bun_top`, that is last. Inner items are free. Serving an untidy dish still counts but pays
+  if the recipe has a `bun_top`, that is last. Inner items are free; sides (`"side"`: fries, soda, onion rings)
+  go before the base or after the top, never inside the bun. Serving an untidy dish still counts but pays
   `Tuning.MESSY_PAY` (0.85) of price and bonus, with a "Messy plate! -15%" toast; tidy dishes get a small
   "Tidy!" flourish. Stats count tidy/messy. Bots stack tidily.
 - **Take off.** Grabbing (LMB) while aiming at a plate with food takes the TOP item off the stack into the
@@ -70,7 +71,7 @@ hands every frame; `shape()` sets meta `rig_arm` (upper/forearm thickness from b
 
 ## 5. Wardrobe (persistent, per player, local file)
 Currency: **tokens**, saved per player in `user://progress.cfg`. After each shift every player earns
-`floor(team coins earned this shift / 40) + 5 per campaign star earned`. Categories: hat, outfit, beard,
+`floor(team coins earned this shift / 40) + 5 per new campaign star` (a replay pays no stars again). Categories: hat, outfit, beard,
 accessory, back item, body shape, colour stays free. Each category has 1 to 2 free starters; the rest cost
 tokens (10 to 80). Owned items and the equipped look are saved locally and the equipped look is sent to the
 host as today (`Net` look sync; the look dict gains `outfit, beard, back, body`). A Wardrobe screen is reachable

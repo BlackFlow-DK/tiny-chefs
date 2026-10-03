@@ -191,6 +191,15 @@ func _connecting() -> bool:
 		p.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTING
 
 
+## The player cancelled a join that is still connecting: close the peer and stop any retry (--join window,
+## pending attempt timer).
+func cancel_join() -> void:
+	_join_retry_until = 0
+	_join_attempt += 1
+	print("net: join to %s:%d cancelled" % [join_ip, port()])
+	leave(false)
+
+
 ## A new attempt while the retry window is open (true), else false.
 func _retry_join() -> bool:
 	if join_retry_left() <= 0.0:
@@ -606,18 +615,20 @@ func _rpc_ping(xz: Vector2) -> void:
 		world.host_ping(multiplayer.get_remote_sender_id(), xz)
 
 
-func buy(upgrade_id: String) -> void:
+## level = the level this click buys (owned + 1 as the buyer saw it); the host refuses any other, so two
+## quick clicks (or two players) cannot buy two levels with one look at the card.
+func buy(upgrade_id: String, level: int) -> void:
 	if is_host:
 		if world != null:
-			world.try_buy(upgrade_id)
-	else:
-		_buy.rpc_id(1, upgrade_id)
+			world.try_buy(upgrade_id, level)
+	elif multiplayer.multiplayer_peer is ENetMultiplayerPeer:   # not after the host has gone
+		_buy.rpc_id(1, upgrade_id, level)
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _buy(upgrade_id: String) -> void:
+func _buy(upgrade_id: String, level: int) -> void:
 	if is_host and world != null:
-		world.try_buy(upgrade_id)
+		world.try_buy(upgrade_id, level)
 
 
 # ---------------------------------------------------------------- test hooks

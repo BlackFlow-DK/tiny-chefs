@@ -189,9 +189,9 @@ func apply_snapshot(d: Dictionary) -> void:
 	_snapshot_sys.apply(d)
 
 
-## Host: a shop purchase (from Net.buy / Net._buy).
-func try_buy(id: String) -> void:
-	_shift_sys.try_buy(id)
+## Host: a shop purchase of that line's level `level` (from Net.buy / Net._buy).
+func try_buy(id: String, level: int) -> void:
+	_shift_sys.try_buy(id, level)
 
 
 # ================================================================ tick

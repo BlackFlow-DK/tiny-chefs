@@ -28,6 +28,8 @@ var _hold_tag: IndicatorParts.Tag
 var _hold_bar: IndicatorParts.WorldBar
 var _hold_t := 0.0
 var _hold_target: Station = null
+var _hold_stale := false   # work was already held when this plate became the target: the host will not scrape
+var _work_prev := false
 var _locks: Dictionary = {}      # Station -> Tag ("Buy Second Plate") while closed
 var _pings: Dictionary = {}      # peer id -> {tag, pin, ring, pos, t}
 var _warns: Dictionary = {}      # Plate -> {tag, text} stack order warning
@@ -251,6 +253,8 @@ func _update_pops(delta: float) -> void:
 
 func _update_hold(me: Chef, delta: float) -> void:
 	var tgt: Station = world.work_target
+	var held_before := _work_prev
+	_work_prev = world.local_input.work
 	var ok: bool = (tgt is Dispenser or tgt is Plate) and world.local_input.work and me.held_id < 0 and not world.input_blocked
 	if not ok:
 		_hold_t = 0.0
@@ -260,6 +264,11 @@ func _update_hold(me: Chef, delta: float) -> void:
 	if tgt != _hold_target:
 		_hold_target = tgt
 		_hold_t = 0.0
+		# A scrape needs a fresh press at the plate (PlateSystem); a hold carried over shows no bar.
+		_hold_stale = tgt is Plate and held_before
+	if _hold_stale:
+		_hold_tag.visible = false
+		return
 	_hold_t += delta
 	var scrape := tgt is Plate
 	var f := _hold_t / (Tuning.SCRAPE_HOLD if scrape else (tgt as Dispenser).hold_time())

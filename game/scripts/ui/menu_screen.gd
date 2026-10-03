@@ -14,6 +14,7 @@ var status_dot: Panel
 var status_label: Label
 var _host_btn: Button
 var _join_btn: Button
+var _cancel_btn: Button   # in the status row while connecting
 var _quit_btn: Button
 var _how_btn: Button
 var _how: HowToPlay
@@ -159,6 +160,12 @@ func _build_column() -> void:
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sh.add_child(status_label)
+	_cancel_btn = UIKit.button("Cancel", _on_cancel_join, "secondary", 96)
+	_cancel_btn.custom_minimum_size = Vector2(96, 36)
+	_cancel_btn.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
+	_cancel_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_cancel_btn.visible = false
+	sh.add_child(_cancel_btn)
 	status_row.add_child(sh)
 	status_row.visible = false
 	v.add_child(status_row)
@@ -301,6 +308,10 @@ func _set_busy(busy: bool) -> void:
 	for b in [_host_btn, _join_btn]:
 		if b != null:
 			b.disabled = busy
+	if _cancel_btn != null:
+		_cancel_btn.visible = busy
+		if busy and is_visible_in_tree():
+			_cancel_btn.grab_focus.call_deferred()
 	if not busy and is_visible_in_tree() and _host_btn != null:
 		if get_viewport().gui_get_focus_owner() == null:
 			_host_btn.grab_focus.call_deferred()
@@ -308,6 +319,18 @@ func _set_busy(busy: bool) -> void:
 
 func _cancel_wait() -> void:
 	_timeout = null
+
+
+## Cancel while "Connecting...": drop the attempt (and any --join retry window), back to the menu buttons.
+func _on_cancel_join() -> void:
+	if not _connecting:
+		return
+	print("menu: join cancelled")
+	Net.cancel_join()
+	_cancel_wait()
+	_set_busy(false)
+	_show_status("Join cancelled.", "warn")
+	_join_btn.grab_focus.call_deferred()
 
 
 # ---------------------------------------------------------------- actions

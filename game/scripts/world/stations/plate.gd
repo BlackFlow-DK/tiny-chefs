@@ -109,24 +109,47 @@ static func base_kind(items: Array) -> String:
 	return str(items[0]) if not items.is_empty() else ""
 
 
-## True when stack (bottom first, a sub-multiset of items) is tidy for a recipe with these items: the
-## base first, and a bun_top only on top of every item the recipe lists before it (items after it, like
-## a meal's fries and soda, and inner items are free).
+## True when stack (bottom first, a sub-multiset of items) is tidy for a recipe with these items.
 static func tidy(st: Array, items: Array) -> bool:
+	return untidy_reason(st, items) == ""
+
+
+static func is_side(k: String) -> bool:
+	return bool(GameData.ITEMS.get(k, {}).get("side", false))
+
+
+## Why stack st is not tidy for a recipe with these items ("" when it is): "base" = the base is not the
+## first item (sides may sit under it), "side" = a side (GameData "side": fries, soda, rings) is inside the
+## burger (above the base, below a bun_top the recipe has, placed or still to come), "top" = bun_top is not
+## above every item the recipe lists before it. Inner items and sides after the top are free.
+static func untidy_reason(st: Array, items: Array) -> String:
 	if st.is_empty() or items.is_empty():
-		return true
-	if str(st[0]) != base_kind(items):
-		return false
+		return ""
+	var base := base_kind(items)
+	var bi := -1
+	for i in st.size():
+		var k := str(st[i])
+		if is_side(k) and k != base:
+			continue
+		if k != base:
+			return "base"
+		bi = i
+		break
 	var ti := items.find("bun_top")
 	var si := st.find("bun_top")
+	if ti >= 0 and bi >= 0:
+		var end := si if si >= 0 else st.size()
+		for i in range(bi + 1, end):
+			if is_side(str(st[i])):
+				return "side"
 	if ti >= 0 and si >= 0:
 		var below := st.slice(0, si)
 		for k in items.slice(0, ti):
 			var j := below.find(k)
 			if j < 0:
-				return false
+				return "top"
 			below.remove_at(j)
-	return true
+	return ""
 
 
 ## True when stack is a sub-multiset of items (more food could still make it that recipe).
@@ -154,13 +177,16 @@ func order_warning(orders: Array) -> String:
 		var items: Array = GameData.RECIPES[int(o["r"])]["items"]
 		if not Plate.fits(stack, items):
 			continue
-		if Plate.tidy(stack, items):
+		var r := Plate.untidy_reason(stack, items)
+		if r == "":
 			return ""
 		if why.is_empty():
 			var base := Plate.base_kind(items)
-			if str(stack[0]) != base:
+			if r == "base":
 				var label := "bun" if BASES.has(base) else str(GameData.ITEMS[base]["label"]).to_lower()
 				why = "Wrong order: %s first!" % label
+			elif r == "side":
+				why = "Sides go next to the burger, not inside"
 			else:
 				why = "Wrong order: bun top goes last!"
 	return why

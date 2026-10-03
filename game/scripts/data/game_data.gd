@@ -10,6 +10,7 @@ extends RefCounted
 ## cooks_to: what the griddle turns it into. chops_to: what the cutting board makes (chop_count pieces,
 ## default Tuning.CHOP_SLICES). fries_to: what the fryer turns it into. A cooks_to/fries_to whose target
 ## changes again is the cook stage (COOK_TIME / FRY_TIME, CRACK_TIME when "crack"); the last is the burn stage.
+## side: a meal side (fries, soda, rings): tidy only beside the burger, never between the base and bun_top (Plate.tidy).
 const ITEMS := {
 	"bun_bottom": {"label": "Bun bottom", "size": Vector3(3.2, 0.7, 3.2), "shape": "cyl", "color": Color(0.79, 0.55, 0.25), "weight": 2, "plate": true},
 	"bun_top": {"label": "Bun top", "size": Vector3(3.2, 1.1, 3.2), "shape": "dome", "color": Color(0.85, 0.58, 0.26), "weight": 2, "plate": true},
@@ -33,17 +34,17 @@ const ITEMS := {
 	"egg_burnt": {"label": "Burnt egg", "size": Vector3(3.0, 0.4, 3.0), "shape": "cyl", "color": Color(0.3, 0.23, 0.14), "weight": 1, "plate": false},
 	"onion": {"label": "Onion", "size": Vector3(2.4, 2.4, 2.4), "shape": "sphere", "color": Color(0.84, 0.66, 0.4), "weight": 2, "plate": false, "chops_to": "onion_slice"},
 	"onion_slice": {"label": "Onion slice", "size": Vector3(2.2, 0.3, 2.2), "shape": "cyl", "color": Color(0.9, 0.78, 0.92), "weight": 1, "plate": true, "fries_to": "onion_rings"},
-	"onion_rings": {"label": "Onion rings", "size": Vector3(2.6, 0.8, 2.6), "shape": "cyl", "color": Color(0.9, 0.62, 0.26), "weight": 1, "plate": true, "fries_to": "onion_rings_burnt"},
+	"onion_rings": {"label": "Onion rings", "size": Vector3(2.6, 0.8, 2.6), "shape": "cyl", "color": Color(0.9, 0.62, 0.26), "weight": 1, "plate": true, "fries_to": "onion_rings_burnt", "side": true},
 	"onion_rings_burnt": {"label": "Burnt rings", "size": Vector3(2.6, 0.8, 2.6), "shape": "cyl", "color": Color(0.2, 0.14, 0.1), "weight": 1, "plate": false},
 	"pickle_slice": {"label": "Pickle", "size": Vector3(1.6, 0.25, 1.6), "shape": "cyl", "color": Color(0.42, 0.62, 0.2), "weight": 1, "plate": true},
 	"potato": {"label": "Potato", "size": Vector3(2.6, 2.0, 2.0), "shape": "sphere", "color": Color(0.72, 0.55, 0.34), "weight": 2, "plate": false, "chops_to": "fries_raw", "chop_count": 1},
 	"fries_raw": {"label": "Cut potato", "size": Vector3(2.8, 1.2, 2.8), "shape": "box", "color": Color(0.97, 0.91, 0.68), "weight": 2, "plate": false, "fries_to": "fries"},
-	"fries": {"label": "Fries", "size": Vector3(2.8, 2.5, 2.8), "shape": "box", "color": Color(0.97, 0.63, 0.15), "weight": 1, "plate": true, "fries_to": "fries_burnt"},
+	"fries": {"label": "Fries", "size": Vector3(2.8, 2.5, 2.8), "shape": "box", "color": Color(0.97, 0.63, 0.15), "weight": 1, "plate": true, "fries_to": "fries_burnt", "side": true},
 	"fries_burnt": {"label": "Burnt fries", "size": Vector3(2.8, 2.5, 2.8), "shape": "box", "color": Color(0.28, 0.19, 0.1), "weight": 1, "plate": false},
 	"chicken_raw": {"label": "Raw chicken", "size": Vector3(3.0, 0.7, 3.0), "shape": "cyl", "color": Color(0.98, 0.78, 0.7), "weight": 3, "plate": false, "fries_to": "chicken_cooked"},
 	"chicken_cooked": {"label": "Crispy chicken", "size": Vector3(3.0, 0.7, 3.0), "shape": "cyl", "color": Color(0.8, 0.5, 0.18), "weight": 3, "plate": true, "fries_to": "chicken_burnt"},
 	"chicken_burnt": {"label": "Burnt chicken", "size": Vector3(3.0, 0.7, 3.0), "shape": "cyl", "color": Color(0.2, 0.13, 0.08), "weight": 3, "plate": false},
-	"soda_cup": {"label": "Soda", "size": Vector3(2.2, 3.0, 2.2), "shape": "cyl", "color": Color(0.88, 0.18, 0.24), "weight": 1, "plate": true},
+	"soda_cup": {"label": "Soda", "size": Vector3(2.2, 3.0, 2.2), "shape": "cyl", "color": Color(0.88, 0.18, 0.24), "weight": 1, "plate": true, "side": true},
 	# Food physics (docs/design/polish-2.md section 2): a tossed/punched egg that lands hard. Waste: "junk" means
 	# recipes and bots never want it (bots trash it).
 	"egg_splat": {"label": "Splat egg", "size": Vector3(2.4, 0.1, 2.4), "shape": "cyl", "color": Color(0.99, 0.97, 0.9), "weight": 1, "plate": false, "junk": true},

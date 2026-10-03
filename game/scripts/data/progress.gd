@@ -22,12 +22,17 @@ const LOOK_KEYS := ["color", "hat", "acc", "beard", "outfit", "back", "body"]
 
 static var _cfg: ConfigFile = null
 static var last_award := 0   ## tokens added by the latest award_shift (the results screen shows it)
+static var last_new_stars := 0   ## campaign stars the latest award_shift paid tokens for
+static var damaged := false ## the file existed but did not parse (a .bak copy was kept before any save)
+static var _no_save := false # damaged and the backup failed: never overwrite the only copy
 
 
 static func _c() -> ConfigFile:
 	if _cfg == null:
 		_cfg = ConfigFile.new()
-		_cfg.load(_path())   # missing file is fine
+		var path := _path()
+		if _cfg.load(path) != OK and FileAccess.file_exists(path):   # a missing file is fine
+			_backup_damaged(path)
 		_migrate()
 		var t := _arg("tokens")
 		if t != "":
@@ -36,8 +41,24 @@ static func _c() -> ConfigFile:
 
 
 static func _save() -> void:
-	if can_save():
+	if can_save() and not _no_save:
 		_c().save(_path())
+
+
+## The progress file exists but did not load: copy it to <file>.bak (one backup, replaced) before the next
+## save overwrites it. Test runs that cannot save leave it alone.
+static func _backup_damaged(path: String) -> void:
+	damaged = true
+	if not can_save():
+		print("progress: %s did not load (test run: left untouched)" % path)
+		return
+	var src := ProjectSettings.globalize_path(path)
+	var err := DirAccess.copy_absolute(src, src + ".bak")
+	if err != OK:
+		_no_save = true
+		push_warning("progress: %s is damaged and the backup failed (%s); progress will not be saved" % [path, error_string(err)])
+		return
+	print("progress: Progress file was damaged; a backup was kept (%s.bak)" % path)
 
 
 static func _path() -> String:
@@ -131,22 +152,47 @@ static func add_tokens(n: int) -> void:
 
 
 const COINS_PER_TOKEN := 40   # team coins earned in a shift per token
-const TOKENS_PER_STAR := 5    # per campaign star earned
+const TOKENS_PER_STAR := 5    # per NEW campaign star (above the best this peer was already paid for)
 
 
-## Tokens a shift's results earn every player: floor(team coins earned / 40) + 5 x campaign stars
-## (info = the RESULTS phase info every peer receives: "earned", and "stars" on campaign missions).
-static func shift_award(info: Dictionary) -> int:
+## Tokens a shift's results earn every player: floor(team coins earned / 40) + 5 x campaign stars above
+## paid_stars (info = the RESULTS phase info every peer receives: "earned", and "stars" on campaign missions).
+static func shift_award(info: Dictionary, paid_stars := 0) -> int:
 	var coins := maxi(0, int(info.get("earned", 0)))
-	var stars := clampi(int(info.get("stars", 0)), 0, 3) if info.has("stars") else 0
-	return coins / COINS_PER_TOKEN + TOKENS_PER_STAR * stars
+	return coins / COINS_PER_TOKEN + TOKENS_PER_STAR * new_stars(info, paid_stars)
+
+
+## Stars in info above paid_stars (0 outside campaign missions).
+static func new_stars(info: Dictionary, paid_stars: int) -> int:
+	if not info.has("stars"):
+		return 0
+	return maxi(0, clampi(int(info["stars"]), 0, 3) - paid_stars)
+
+
+## The most stars of mission mid this peer has been paid tokens for ([mission_N] stars_paid). Without a
+## record (older saves): the saved best before this shift (the host's comes in info "stars_before", since the
+## host saved the new stars just before the results), else this peer's saved stars.
+static func stars_paid(mid: int, info: Dictionary, is_host: bool) -> int:
+	var fallback := get_stars(mid)
+	if is_host and info.has("stars_before"):
+		fallback = int(info["stars_before"])
+	return int(_c().get_value("mission_%d" % mid, "stars_paid", fallback))
 
 
 ## Every peer at shift end: add this shift's award to my wallet. Returns it (also kept in last_award).
-static func award_shift(info: Dictionary) -> int:
-	var n := shift_award(info)
+## Campaign stars pay only once per peer (the coin part pays every shift).
+static func award_shift(info: Dictionary, is_host := false) -> int:
+	var mid := int(info.get("mission", -1))
+	var paid := 0
+	if info.has("stars") and mid >= 0:
+		paid = stars_paid(mid, info, is_host)
+		var st := clampi(int(info["stars"]), 0, 3)
+		if st > paid:
+			_c().set_value("mission_%d" % mid, "stars_paid", st)
+	last_new_stars = new_stars(info, paid)
+	var n := shift_award(info, paid)
 	last_award = n
-	add_tokens(n)
+	add_tokens(n)   # saves (stars_paid too: new stars always pay > 0)
 	return n
 
 

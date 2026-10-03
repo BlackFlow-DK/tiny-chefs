@@ -39,7 +39,7 @@ class Events extends Node:
 func _init(w: World) -> void:
 	world = w
 	_log = Net.has_arg("input-log")
-	_ignore_focus = Net.has_arg("key") or Net.has_arg("mouse") or Net.has_arg("click")
+	_ignore_focus = Net.has_arg("key") or Net.has_arg("mouse") or Net.has_arg("click") or Net.has_arg("physics-test")
 	if Net.has_arg("bot"):
 		bot = Bot.new(w)
 		return

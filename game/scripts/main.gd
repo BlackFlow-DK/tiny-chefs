@@ -42,6 +42,8 @@ func _ready() -> void:
 	Net.session_ended.connect(func(reason: String) -> void: menu.set_status(reason))
 	Net.players_changed.connect(_check_autostart)
 	_on_phase(Net.phase)
+	if Progress.damaged:   # loaded by the menu (token chip); the file was kept as progress.cfg.bak
+		menu.set_status("Progress file was damaged; a backup was kept.")
 	_handle_args()
 	if Net.has_arg("bench"):
 		add_child(Bench.new())
@@ -115,10 +117,10 @@ func _on_phase(ph: int) -> void:
 func _award_tokens() -> void:
 	var info := Net.phase_info
 	var before := Progress.tokens()
-	var n := Progress.award_shift(info)
-	print("tokens: +%d (team coins %d -> %d, stars %d -> %d) wallet %d -> %d" % [n, int(info.get("earned", 0)),
+	var n := Progress.award_shift(info, Net.is_host)
+	print("tokens: +%d (team coins %d -> %d, stars %d, new %d -> %d) wallet %d -> %d" % [n, int(info.get("earned", 0)),
 		maxi(0, int(info.get("earned", 0))) / Progress.COINS_PER_TOKEN, int(info.get("stars", 0)),
-		Progress.TOKENS_PER_STAR * int(info.get("stars", 0)),
+		Progress.last_new_stars, Progress.TOKENS_PER_STAR * Progress.last_new_stars,
 		before, Progress.tokens()])
 	Net.metrics["tokens_award"] = n
 	Net.metrics["tokens_wallet"] = Progress.tokens()

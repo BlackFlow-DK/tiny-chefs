@@ -384,8 +384,10 @@ func _do_scrape(me: Chef, inp: PlayerInput, dt: float) -> void:
 		_job["spot"] = planner.work_spot(p, me, true)
 	if _work_timer > 0.0 or world.scrape_target(me.global_position) == p:
 		inp.work = true
-		if _work_timer == 0.0 and _log:
-			print("%s: scrape plate %s %s (%s)" % [_tag, p.def.get("label", ""), str(p.stack), _job.get("why", "")])
+		if _work_timer == 0.0:
+			inp.work_seq += 1   # a scrape hold must start with a fresh press at the plate (PlateSystem)
+			if _log:
+				print("%s: scrape plate %s %s (%s)" % [_tag, p.def.get("label", ""), str(p.stack), _job.get("why", "")])
 		_work_timer += dt
 		if _work_timer > Tuning.SCRAPE_HOLD + 1.0:
 			_work_timer = 0.0   # no luck (moved off?): walk back and hold again

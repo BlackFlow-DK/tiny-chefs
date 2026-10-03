@@ -691,6 +691,9 @@ func work_spot(s: Station, me: Chef, working: bool) -> Vector3:
 				if b.footprint_distance(p) <= Tuning.REACH + 0.3:
 					near_disp = true
 					break
+			# Scraping a plate: the board must be out of its work reach too (PlateSystem.scrape_target).
+			if s is Plate and world.board != null and world.board.footprint_distance(p) <= Tuning.REACH + 0.6:
+				near_disp = true
 			if near_disp:
 				continue
 		var d := _flat(p - me.global_position).length()

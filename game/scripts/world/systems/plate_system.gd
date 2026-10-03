@@ -85,16 +85,20 @@ func take_top(c: Chef, pl: Plate) -> Item:
 
 # ---------------------------------------------------------------- scrape (hold work)
 
-## Every peer: the plate chef standing at p would scrape by holding work, or null. Holding work there
-## must not mean anything else: no bell, dispenser or cutting board with food within its reach.
+## Every peer: the plate chef standing at p would scrape by holding work, or null. The plate must be the
+## chef's nearest work target: no bell, dispenser / soda or cutting board (with food or not) within its own
+## work reach, and the chef not nearer to the board than to the plate.
 func scrape_target(p: Vector3) -> Plate:
 	if bell_near(p) != null:
 		return null
 	for d in world.dispensers:
 		if d.footprint_distance(p) <= Tuning.REACH:
 			return null
-	if world.board != null and world.board.has_food and world.board.footprint_distance(p) <= Tuning.REACH + 0.3:
-		return null
+	var board_d := INF
+	if world.board != null:
+		board_d = world.board.footprint_distance(p)
+		if board_d <= Tuning.REACH + 0.3:   # the board's own work margin (CuttingBoard workers(0.3))
+			return null
 	var best: Plate = null
 	var bd := Tuning.REACH
 	for pl in world.plates:
@@ -104,7 +108,19 @@ func scrape_target(p: Vector3) -> Plate:
 		if d <= bd:
 			best = pl
 			bd = d
+	if best != null and board_d < bd:
+		return null
 	return best
+
+
+## A scrape only counts when the hold STARTED with a fresh work press at that plate (on_work_pressed arms
+## it); a hold carried over from chopping, dispensing or walking up never scrapes.
+func _arm_scrape(c: Chef) -> void:
+	var pl := scrape_target(c.global_position)
+	if pl != null:
+		_scrape[c.peer_id] = [pl, 0.0]
+	else:
+		_scrape.erase(c.peer_id)
 
 
 func _scrape_tick(dt: float) -> void:
@@ -113,12 +129,13 @@ func _scrape_tick(dt: float) -> void:
 		var pl: Plate = null
 		if c.work_held and c.holding == null and c.respawn_timer < 0.0:
 			pl = scrape_target(c.global_position)
-		if pl == null:
+		if pl == null or not _scrape.has(id):
 			_scrape.erase(id)
 			continue
-		var e: Array = _scrape.get(id, [pl, 0.0])
+		var e: Array = _scrape[id]
 		if e[0] != pl:
-			e = [pl, 0.0]
+			_scrape.erase(id)   # moved on to another plate: needs a fresh press there
+			continue
 		if float(e[1]) >= 0.0:
 			e[1] = float(e[1]) + dt
 			if float(e[1]) >= Tuning.SCRAPE_HOLD:
@@ -140,12 +157,14 @@ func _scrape_plate(c: Chef, pl: Plate) -> void:
 	Net.event(str(world.plates.find(pl)), "scrape")   # swoosh + puff over that plate (IndicatorLayer)
 
 
-## A fresh work press: next to a bell with empty hands, serve that bell's plate.
+## A fresh work press: next to a bell with empty hands, serve that bell's plate; at a plate (its nearest
+## work target), arm a scrape hold.
 func on_work_pressed(c: Chef) -> void:
 	if c.holding != null or c.respawn_timer >= 0.0:
 		return
 	var b := bell_near(c.global_position)
 	if b == null:
+		_arm_scrape(c)
 		return
 	if b.is_locked() or b.plate == null or b.plate.is_locked():
 		Net.event("Closed! Buy %s in the shop." % b.unlock_name(), "buzz", c.peer_id)
@@ -176,12 +195,16 @@ func refuse_from_plate(it: Item, p: Station, msg := "") -> void:
 	var k := str(it.kind)
 	if msg.is_empty():
 		msg = "Chop it on the cutting board first!"
-		if k.ends_with("_burnt"):
+		if bool(it.def.get("junk", false)):
+			msg = "That's waste. Bin it!"
+		elif k.ends_with("_burnt"):
 			msg = "Burnt food can't be served. Trash it!"
 		elif it.def.has("fries_to"):
 			msg = "Raw! Fry it in the fryer first."
 		elif it.def.has("cooks_to"):
 			msg = "Raw! Cook it on the griddle first."
+	if Net.has_arg("plate-log"):
+		print("plate: refused %s: %s" % [k, msg])
 	world.toast(msg, "buzz")
 
 

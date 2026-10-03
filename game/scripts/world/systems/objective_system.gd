@@ -97,7 +97,8 @@ func tick(playing: bool) -> void:
 
 
 ## Host, at shift end (before the RESULTS phase): final states, stars, save. Returns extra results info
-## (empty unless campaign): mode, mission, objectives, stars, best_stars, next_mission (-1 after the last).
+## (empty unless campaign): mode, mission, objectives, stars, best_stars, stars_before (the host's saved best
+## before this shift), next_mission (-1 after the last).
 func finish() -> Dictionary:
 	var s := world.shift
 	if s.objectives.is_empty():
@@ -113,7 +114,7 @@ func finish() -> Dictionary:
 		print("objectives: mission %d %s %s -> %s" % [id, label(e), progress_text(e), ["pending", "met", "failed"][int(e[4])]])
 	print("objectives: mission %d stars %d (saved best %d) next mission %d" % [id, stars, Progress.get_stars(id), next_id])
 	return {"mode": "campaign", "mission": id, "objectives": s.objectives.duplicate(true), "stars": stars,
-		"best_stars": Progress.get_stars(id), "next_mission": next_id}
+		"best_stars": Progress.get_stars(id), "stars_before": before, "next_mission": next_id}
 
 
 func _evaluate(final: bool) -> void:

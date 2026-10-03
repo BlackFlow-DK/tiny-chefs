@@ -1,6 +1,6 @@
 class_name FpsCounter
 extends CanvasLayer
-## Tiny frame-rate chip in the top-right corner (Settings "Show FPS"; --show-fps forces it on). Updates
+## Tiny frame-rate chip in the bottom-right corner (Settings "Show FPS"; --show-fps forces it on). Updates
 ## twice a second; sits above every other layer and never takes the mouse.
 
 var _chip: PanelContainer
@@ -17,9 +17,12 @@ func _ready() -> void:
 	_label = UIKit.caption("-- fps", "dark")
 	_chip.add_child(_label)
 	add_child(_chip)
-	_chip.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
+	# Bottom-right corner: the HUD's timer card owns the top right and toasts run down the top centre. Lifted
+	# clear of the menu's version caption.
+	_chip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
 	_chip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_chip.position += Vector2(-8, 6)
+	_chip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_chip.position += Vector2(-8, -40)
 	add_to_group(QualityApply.LISTENER_GROUP)
 	apply_quality()
 

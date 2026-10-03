@@ -236,8 +236,9 @@ func _effect_of(id: String) -> String:
 
 
 ## Host: buy the NEXT level of a line (old ids work). Refused at max, when `requires` is not owned, when the
-## station it opens is not on the next map, or when the wallet is short.
-func try_buy(raw_id: String) -> void:
+## station it opens is not on the next map, or when the wallet is short. `want` is the level the buyer saw
+## as next: anything else (a double click, two players on one card) is refused quietly.
+func try_buy(raw_id: String, want: int) -> void:
 	var shift := world.shift
 	if Net.phase != Net.Phase.SHOP and Net.phase != Net.Phase.RESULTS:
 		return
@@ -248,6 +249,9 @@ func try_buy(raw_id: String) -> void:
 	if u.is_empty():
 		return
 	var lv := shift.upgrade_level(id) + 1
+	if want != lv:
+		print("upgrades: refused %s level %d (owned %d, wallet %d)" % [id, want, lv - 1, shift.coins])
+		return
 	var price := GameData.upgrade_price(id, lv)
 	if price < 0:
 		return   # already at max
