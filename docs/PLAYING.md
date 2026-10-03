@@ -114,7 +114,7 @@ punch food across the counter or shove friends.
 
 The host chooses in the lobby.
 
-- **Campaign**: 12 missions on the diner, picnic and islands (and the food truck, see below). Each mission
+- **Campaign**: 12 missions across the diner, food truck, picnic and twin islands. Each mission
   has a coin target and up to two bonus goals (no burnt food, no expired orders, serve N of a dish, earn N
   coins). Reach the target for 1 star, each bonus goal adds one. Progress is saved on your PC.
 - **Endless**: shifts keep getting harder, on the map, difficulty and modifiers the host picks.
@@ -132,7 +132,7 @@ Lights Out); **events** (below).
   (carried food is safe), and the cat paw.
 - **Twin Islands**: two islands joined by one narrow plank over the sink. Haul raw food across and cook on the
   far side. Falling into the gap is the usual fall.
-- **The Food Truck**: coming soon. Campaign missions 4 to 6 are set there.
+- **The Food Truck**: a long, narrow counter inside a truck. Every so often the truck lurches ("Hold on!") and loose food slides about two metres; food you are carrying is safe. Campaign missions 4 to 6 are set there.
 
 ## Upgrades
 
