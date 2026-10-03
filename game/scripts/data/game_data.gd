@@ -174,9 +174,12 @@ static var MAPS := {
 const PLAYER_COLORS := [Color(0.24, 0.48, 1.0), Color(1.0, 0.29, 0.29), Color(0.24, 0.81, 0.35), Color(1.0, 0.82, 0.23)]
 const COLOR_NAMES := ["Blue", "Red", "Green", "Yellow"]
 
-## Chef looks (lobby customisation). Hat model: hat_<id>.glb at Chef.HAT_ANCHOR, except "toque", which is
-## the Toque mesh built into chef.glb. Accessory model: acc_<id>.glb at Chef.FACE_ANCHOR ("none" = nothing).
-## First entry = default.
+## Chef looks (lobby customisation / wardrobe). First entry of each table = default. Chef.dress attaches the
+## models at the chef.glb anchor nodes (missing models are skipped):
+##   hat_<id>.glb at HatAnchor (except "toque": the Toque mesh built into chef.glb), acc_<id>.glb at FaceAnchor,
+##   beard_<id>.glb at BeardAnchor, back_<id>.glb at BackAnchor, outfit_<id>.glb authored in chef space (origin
+##   at the feet) and parented under Body so it follows lean and body shape ("none" = nothing, "classic" = the
+##   built-in jacket). Anchor positions: Chef.ANCHORS.
 const HATS := [
 	{"id": "toque", "label": "Toque"},
 	{"id": "beanie", "label": "Beanie"},
@@ -188,6 +191,29 @@ const ACCESSORIES := [
 	{"id": "glasses", "label": "Glasses"},
 	{"id": "moustache", "label": "Moustache"},
 ]
+const BEARDS := [
+	{"id": "moustache", "label": "Moustache"},
+	{"id": "none", "label": "Clean shaven"},
+]
+const OUTFITS := [
+	{"id": "classic", "label": "Classic whites"},
+]
+const BACKS := [
+	{"id": "none", "label": "None"},
+]
+## Body shapes: per-part scales applied by ChefAnim.shape() on every peer; collider and gameplay size never
+## change. body: Body scale (keep x == z so head turns stay shear-free), head: Head scale (uniform, world),
+## hands / feet: uniform scale, legs: LegL/LegR length (the body rides up or down with them), arm_out: extra
+## hand spread in metres. Tallest (with a toque) stays under the 1.7 m name badge.
+const BODY_SHAPES := [
+	{"id": "standard", "label": "Standard", "body": Vector3(1, 1, 1), "head": 1.0, "hands": 1.0, "feet": 1.0, "legs": 1.0, "arm_out": 0.0},
+	{"id": "tall", "label": "Tall", "body": Vector3(0.94, 1.2, 0.94), "head": 0.97, "hands": 1.0, "feet": 1.0, "legs": 1.7, "arm_out": 0.0},
+	{"id": "stout", "label": "Stout", "body": Vector3(1.3, 0.88, 1.3), "head": 1.04, "hands": 1.15, "feet": 1.18, "legs": 0.75, "arm_out": 0.02},
+	{"id": "big_arms", "label": "Big arms", "body": Vector3(1.1, 1.0, 1.1), "head": 0.96, "hands": 1.85, "feet": 1.0, "legs": 1.0, "arm_out": 0.03},
+	{"id": "big_head", "label": "Big head", "body": Vector3(0.94, 0.9, 0.94), "head": 1.36, "hands": 1.0, "feet": 1.05, "legs": 0.85, "arm_out": 0.0},
+	{"id": "tiny", "label": "Tiny", "body": Vector3(0.8, 0.78, 0.8), "head": 0.9, "hands": 0.85, "feet": 0.85, "legs": 0.55, "arm_out": 0.0},
+	{"id": "long_legs", "label": "Long legs", "body": Vector3(1, 1, 1), "head": 1.0, "hands": 1.0, "feet": 1.05, "legs": 2.6, "arm_out": 0.0},
+]
 
 
 static func has_hat(id: String) -> bool:
@@ -196,6 +222,21 @@ static func has_hat(id: String) -> bool:
 
 static func has_accessory(id: String) -> bool:
 	return ACCESSORIES.any(func(a: Dictionary) -> bool: return a["id"] == id)
+
+
+## id is in table (any of HATS, ACCESSORIES, BEARDS, OUTFITS, BACKS, BODY_SHAPES).
+static func has_look_id(table: Array, id: String) -> bool:
+	for e: Dictionary in table:
+		if e["id"] == id:
+			return true
+	return false
+
+
+static func body_shape(id: String) -> Dictionary:
+	for e: Dictionary in BODY_SHAPES:
+		if e["id"] == id:
+			return e
+	return BODY_SHAPES[0]
 
 ## Recipes. Plate contents must match "items" exactly as a multiset (stacking order is free).
 ## price is paid on serve, plus up to "bonus" scaled by the patience left.

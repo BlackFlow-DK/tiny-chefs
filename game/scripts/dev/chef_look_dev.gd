@@ -98,9 +98,9 @@ func _lineup(close: bool) -> void:
 		root.add_child(c)
 		c.position = Vector3((i % 4 - 1.5) * 1.6, 0, 1.0 if i < 4 else -1.0)
 		if i < 4:
-			c.apply_look(i, hats[i], "none")
+			c.apply_look({"color": i, "hat": hats[i], "acc": "none"})
 		else:
-			c.apply_look(i % 4, "toque" if i == 4 else hats[i % 4], accs[i % 4] if i != 4 else "moustache")
+			c.apply_look({"color": i % 4, "hat": "toque" if i == 4 else hats[i % 4], "acc": accs[i % 4] if i != 4 else "moustache"})
 	var cam := Camera3D.new()
 	root.add_child(cam)
 	var target := Vector3(0, 0.6, 0)

@@ -155,7 +155,7 @@ func _build_set(root: Node3D) -> void:
 			continue
 		var hat: Dictionary = GameData.HATS.pick_random()
 		var acc: Dictionary = GameData.ACCESSORIES.pick_random()
-		Chef.dress(c, GameData.PLAYER_COLORS[i], str(hat["id"]), str(acc["id"]))
+		Chef.dress(c, GameData.PLAYER_COLORS[i], {"hat": str(hat["id"]), "acc": str(acc["id"])})
 		var holder := Node3D.new()
 		holder.position = _set_pos(spots[i])
 		holder.rotation.y = yaws[i] + _yaw

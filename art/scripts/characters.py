@@ -1,10 +1,12 @@
 """Character models: chef (player) and boxing_glove (upgrade). Run: tools/blender-run.ps1 art/scripts/characters.py
 
-Vinyl-toy style chef. Contract with the game code:
-- chef.glb: mesh `Chef` (jacket, head, ...; material `ChefBody` = jacket, collar, sleeves, tinted per player),
-  separate mesh `Toque` (the default hat, material `ChefWhite`, origin at the model origin; hidden when the
-  player picks another hat), separate `HandL` / `HandR` whose origin is the hand centre (HandL at +X).
-  Faces Blender -Y (Godot +Z).
+Vinyl-toy style chef. Contract with the game code (rig v2, see finish_chef and docs/design/polish-2.md 4):
+- chef.glb: empty root `Chef` -> `Body` (hips; material `ChefBody` = jacket, collar, sleeves, tinted per player)
+  -> `Head` (neck) -> `Eyes`, `Brows`, `Mouth`, `Toque` (default hat, origin at HatAnchor; hidden for other hats),
+  anchors `HatAnchor`, `FaceAnchor`, `BeardAnchor`; `Body` -> anchors `BackAnchor`, `NeckAnchor`; `Chef` -> `HandL` /
+  `HandR` (origin = hand centre, HandL at +X), `FootL` / `FootR` (ankle) -> `LegL` / `LegR`. Faces Blender -Y (Godot +Z).
+  Same size and look as v1: the settle shift is fixed (CHEF_SHIFT) so hats and anchors keep their positions.
+- beard_moustache.glb: the built-in moustache, origin at BeardAnchor (default beard).
 - boxing_glove.glb: about 0.5 m, cuff toward +Y, fist toward -Y.
 Geometry helpers live in chef_parts.py (smooth parametric surfaces).
 """
@@ -286,31 +288,178 @@ def boxing_glove():
     return P
 
 
-def finish_chef():
+# ---------------------------------------------------------------- rig v2: parts, pivots, anchors
+# Raw authoring frame (before the settle shift). Godot = (x, z + SHIFT.z, -(y + SHIFT.y)).
+CHEF_SHIFT = V((0.0, -0.03881, 0.006))   # what shapes.settle used to apply (hats_parts.CHEF_SHIFT)
+GROUPS = {  # part -> object base names (as created in chef())
+    "Body": {"Jacket", "Sleeve", "Cuff", "Flap", "Piping", "Button", "Seam", "Collar", "ScarfRing", "ScarfTri",
+             "ScarfKnot", "ScarfBackKnot", "ScarfTail", "Apron", "ApronHem", "ApronEdge", "Band", "Pocket",
+             "PocketTop", "BowLoop", "BowTail", "BowKnot"},
+    "Head": {"Head", "Ear", "Cheek", "Tuft", "Nose", "BackHair"},
+    "Eyes": {"EyeWhite", "Pupil", "Shine"},
+    "Brows": {"Brow"},
+    "Mouth": {"Smile"},
+    "Toque": {"Toque"},
+    "Beard": {"Moustache", "Curl"},
+    "Leg": {"Leg"},
+    "Foot": {"Shoe", "Sole"},
+}
+PIV_BODY = V((0.0, 0.0, 0.24))      # hips (top of the legs)
+PIV_HEAD = V((0.0, 0.0, 0.77))      # neck (collar ring centre)
+PIV_FOOT = (0.13, -0.005, 0.11)     # ankle (x sign per side)
+PIV_HAND = (0.335, -0.075, 0.5)     # hand centre (x sign per side)
+HAT_RAW = V((0.0, 0.0, 0.975))      # toque base ring centre (hats_parts.HAT_RAW)
+FACE_RAW = V((0.0, -0.21795, 0.90))  # head front between the eyes (hats_parts.FACE_RAW)
+
+
+def _beard_raw():
+    p, _n = hp(0.0, 0.772, 0.0)     # head front under the nose, moustache height
+    return p
+
+
+def _back_raw():
+    return jpt(0.0, 0.60, 0.0, back=True)  # jacket back between the shoulder blades
+
+
+def _godot(p):
+    q = V(p) + CHEF_SHIFT
+    return (round(q.x, 4), round(q.z, 4), round(-q.y, 4))
+
+
+def _bbox_centre(o):
+    lo = V((1e9, 1e9, 1e9))
+    hi = V((-1e9, -1e9, -1e9))
+    for v in o.data.vertices:
+        for a in range(3):
+            lo[a] = min(lo[a], v.co[a])
+            hi[a] = max(hi[a], v.co[a])
+    return (lo + hi) / 2
+
+
+def _centroid_x(o):
+    return sum(v.co.x for v in o.data.vertices) / max(1, len(o.data.vertices))
+
+
+def _part(objs, name, pivot_raw):
+    """Join objs (raw frame, transforms applied) into `name`, mesh re-centred on pivot_raw.
+    The caller sets .location relative to the parent."""
+    o = artlib.join(objs, name)
+    o.data.transform(Matrix.Translation(-V(pivot_raw)))
+    o.location = (0, 0, 0)
+    return o
+
+
+def _child(o, parent, at_raw, parent_raw):
+    """Parent o (origin at at_raw) under parent (origin at parent_raw; None = the root, which is at the
+    settled origin, so raw positions get the settle shift). No parent inverse: location is local."""
+    o.parent = parent
+    o.location = V(at_raw) + CHEF_SHIFT if parent_raw is None else V(at_raw) - V(parent_raw)
+    return o
+
+
+def _empty(name):
+    e = bpy.data.objects.new(name, None)
+    e.empty_display_size = 0.05
+    bpy.context.collection.objects.link(e)
+    return e
+
+
+def _chef_raw_parts():
+    """Build the raw chef + hands, check the settle shift, return ({base name: [objects]}, HandL, HandR)."""
     artlib.reset_scene()
     parts = chef()
     skin = bpy.data.materials["ChefSkin"]
     hl = _hand("HandL", skin, 1)
     hr = _hand("HandR", skin, -1)
-    hl.location = (0.335, -0.075, 0.5)
-    hr.location = (-0.335, -0.075, 0.5)
-    tris = tri_count(parts + [hl, hr])
-    print("CHEF TRIS", tris)
-    from collections import Counter
-    c = Counter()
+    hl.location = PIV_HAND
+    hr.location = (-PIV_HAND[0], PIV_HAND[1], PIV_HAND[2])
+    meshes = [o for o in bpy.data.objects if o.type == "MESH"]
+    lo, hi = shapes.world_bounds(meshes)
+    shift = V((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
+    print("CHEF_SHIFT measured %.5f %.5f %.5f" % tuple(shift))
+    if (shift - CHEF_SHIFT).length > 0.002:
+        raise RuntimeError(f"chef settle shift moved: {tuple(shift)} vs {tuple(CHEF_SHIFT)}; update CHEF_SHIFT + anchors")
+    by = {}
     for o in parts:
-        c[o.name.split(".")[0]] += tri_count([o])
-    print("BREAKDOWN", c.most_common(60))
-    # The toque is its own object so the game can hide it when another hat is chosen.
-    toque = [o for o in parts if o.name.split(".")[0] == "Toque"]
-    artlib.join([o for o in parts if o not in toque], "Chef")
-    artlib.join(toque, "Toque")
-    shapes.settle("chef", (0.8, 1.4, 0.8), keep=(hl, hr), limits=((0.72, 0.9), (1.3, 1.5), (0.45, 0.85)))
-    # the hands' origin is their centre: bake rotation/scale only
+        by.setdefault(o.name.split(".")[0], []).append(o)
+    known = set().union(*GROUPS.values())
+    stray = [k for k in by if k not in known]
+    if stray:
+        raise RuntimeError(f"chef parts not in any group: {stray}")
+    print("CHEF TRIS", tri_count(meshes))
+    return by, hl, hr
+
+
+def finish_chef():
+    """chef.glb (rig v2): root `Chef` (empty, at the settled origin = the feet) ->
+         Body (hips) -> Head (neck) -> Eyes, Brows, Mouth, Toque, HatAnchor, FaceAnchor, BeardAnchor
+                     -> BackAnchor, NeckAnchor
+         HandL, HandR (hand centre), FootL, FootR (ankle) -> LegL, LegR (ankle)
+    The built-in moustache is beard_moustache.glb (origin = BeardAnchor)."""
+    by, hl, hr = _chef_raw_parts()
+    for o in by.pop("Moustache") + by.pop("Curl"):
+        bpy.data.objects.remove(o, do_unlink=True)
+
+    def grab(part):
+        out = []
+        for k in GROUPS[part]:
+            out += by.get(k, [])
+        return out
+    root = _empty("Chef")
+    pivots = {}
+
+    def part(objs, name, piv, parent, parent_piv):
+        o = artlib.join(objs, name)  # applies transforms: mesh in the raw frame
+        piv = V(piv) if piv is not None else _bbox_centre(o)
+        o = _part([o], name, piv)
+        pivots[name] = piv
+        return _child(o, parent, piv, parent_piv)
+    body = part(grab("Body"), "Body", PIV_BODY, root, None)
+    head = part(grab("Head"), "Head", PIV_HEAD, body, PIV_BODY)
+    for nm in ("Eyes", "Brows", "Mouth"):
+        part(grab(nm), nm, None, head, PIV_HEAD)
+    part(grab("Toque"), "Toque", HAT_RAW, head, PIV_HEAD)
+    part([hl], "HandL", PIV_HAND, root, None)
+    part([hr], "HandR", (-PIV_HAND[0], PIV_HAND[1], PIV_HAND[2]), root, None)
+    sides = {s: ([o for o in grab("Foot") if _centroid_x(o) * s > 0], [o for o in grab("Leg") if _centroid_x(o) * s > 0])
+             for s in (1, -1)}
+    for side, s in (("L", 1), ("R", -1)):
+        piv = (s * PIV_FOOT[0], PIV_FOOT[1], PIV_FOOT[2])
+        foot = part(sides[s][0], "Foot" + side, piv, root, None)
+        part(sides[s][1], "Leg" + side, piv, foot, piv)
+    anchors = {"HatAnchor": (head, PIV_HEAD, HAT_RAW), "FaceAnchor": (head, PIV_HEAD, FACE_RAW),
+               "BeardAnchor": (head, PIV_HEAD, _beard_raw()), "BackAnchor": (body, PIV_BODY, _back_raw()),
+               "NeckAnchor": (body, PIV_BODY, PIV_HEAD)}
+    for name, (parent, ppiv, at) in anchors.items():
+        _child(_empty(name), parent, at, ppiv)
+        print("ANCHOR %s godot %s" % (name, _godot(at)))
+    for name, at in pivots.items():
+        print("PIVOT %s godot %s" % (name, _godot(at)))
+    # size check against the old contract (same limits as before)
+    meshes = [o for o in bpy.data.objects if o.type == "MESH"]
+    lo, hi = shapes.world_bounds(meshes)
+    got = (hi.x - lo.x, hi.z - lo.z, hi.y - lo.y)
+    print("SIZE chef: %.3f x %.3f x %.3f  base z %.4f  centre xy %.4f %.4f" % (got + (lo.z, (lo.x + hi.x) / 2, (lo.y + hi.y) / 2)))
+    lim = ((0.72, 0.9), (1.3, 1.5), (0.45, 0.85))
+    if not all(a <= g <= b for g, (a, b) in zip(got, lim)) or abs(lo.z) > 0.002:
+        raise RuntimeError(f"chef size {got} / base {lo.z} outside contract")
     artlib.export_glb("chef")
 
 
+def finish_beard():
+    """beard_moustache.glb: the chef's own moustache, origin at BeardAnchor (default beard)."""
+    by, hl, hr = _chef_raw_parts()
+    keep = by["Moustache"] + by["Curl"]
+    for o in list(bpy.data.objects):
+        if o not in keep:
+            bpy.data.objects.remove(o, do_unlink=True)
+    b = artlib.join(keep, "BeardMoustache")
+    b.data.transform(Matrix.Translation(-_beard_raw()))
+    artlib.export_glb("beard_moustache")
+
+
 finish_chef()
+finish_beard()
 
 artlib.reset_scene()
 gparts = boxing_glove()
