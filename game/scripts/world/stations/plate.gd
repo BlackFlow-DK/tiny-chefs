@@ -8,6 +8,9 @@ var stack: Array = []  # item kinds, bottom first
 var _stack_root: Node3D
 var _shown: Array = []
 var _cover: Node3D     # lid + "CLOSED" sign, shown while is_locked()
+var _sway_t := 99.0    # visual: seconds since food last landed on the stack (damped wobble, every peer)
+var _sway_dir := Vector2.RIGHT
+var _top: Node3D       # the newest model on the stack (squashes as it lands)
 
 
 func build() -> void:
@@ -41,9 +44,19 @@ func _build_cover() -> void:
 	add_child(_cover)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _cover != null:
 		_cover.visible = is_locked()
+	if _sway_t < 2.0:
+		_sway_t += delta
+		var e := exp(-Tuning.PLATE_SWAY_RATE * _sway_t)
+		var a := deg_to_rad(Tuning.PLATE_SWAY_DEG) * e * sin(Tuning.PLATE_SWAY_FREQ * _sway_t)
+		if _sway_t >= 2.0:
+			a = 0.0
+		_stack_root.rotation = Vector3(a * _sway_dir.y, 0.0, -a * _sway_dir.x)
+		if _top != null and is_instance_valid(_top):
+			var s := 0.25 * e * cos(Tuning.PLATE_SWAY_FREQ * 1.6 * _sway_t) if _sway_t < 2.0 else 0.0
+			_top.scale = Vector3(1.0 + s * 0.5, 1.0 - s, 1.0 + s * 0.5)
 
 
 func host_update(_dt: float) -> void:
@@ -92,7 +105,9 @@ func apply_state(s: Variant) -> void:
 func _refresh() -> void:
 	if _shown == stack:
 		return
+	var grew := stack.size() > _shown.size()
 	_shown = stack.duplicate()
+	_top = null
 	for c in _stack_root.get_children():
 		c.queue_free()
 	var y := 0.0
@@ -102,4 +117,13 @@ func _refresh() -> void:
 		var m := Models.make(k, sz, d["color"], d["shape"])
 		m.position = Vector3(0, y, 0)
 		_stack_root.add_child(m)
+		_top = m
 		y += sz.y * 0.9
+	if grew:
+		# Visual only: the stack wobbles about the plate centre, a different way each time.
+		_sway_t = 0.0
+		var ang := float(stack.size()) * 2.4
+		_sway_dir = Vector2(cos(ang), sin(ang))
+	elif stack.is_empty():
+		_sway_t = 99.0
+		_stack_root.rotation = Vector3.ZERO

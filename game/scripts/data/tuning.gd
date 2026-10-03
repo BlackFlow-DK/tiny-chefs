@@ -22,6 +22,38 @@ const CARRY_HOLD_EASE := 10.0      # 1/s the item eases into the held spot after
 const GRAB_AIM_RADIUS := 1.5       # m: an item in reach this close to the cursor is the one grabbed
 const GRAB_FRONT_BIAS := 0.8       # m: an item right behind the chef must be this much nearer to win
 
+# FOOD PHYSICS (world/systems/food_physics_system.gd, world/item.gd). Loose food stays upright (no x/z
+# body rotation); round food rolls on a visual tumble, replicated compactly in the snapshot.
+const TOSS_MIN_SPEED := 1.0        # m/s carrier speed below which a release just drops in place
+const TOSS_MAX_SPEED := 9.0        # m/s cap on the tossed item's horizontal speed (carrier v / sqrt(weight))
+const TOSS_POP := 2.2              # m/s upward pop on a toss
+const TOSS_LONG_SPIN := 4.0        # rad/s yaw spin a tossed long item (sausage, bacon, hot dog bun) gets
+const FOOD_FRICTION := 0.4         # flat/long food PhysicsMaterial friction (was 0.9: tossed food slides a bit)
+const FOOD_LINEAR_DAMP := 0.6       # was 1.2 (it also braked tossed food in the air)
+const FLAT_ANGULAR_DAMP := 4.0     # flat food: yaw spin settles fast
+const LONG_ANGULAR_DAMP := 1.0     # long food: spins on the counter for a while
+const ROUND_FRICTION := 0.3        # round food up on a pile: grips enough to settle
+const ROUND_GROUND_FRICTION := 0.06  # round food on the counter glides ("rolls"); ROLL_DECEL is its rolling resistance
+const ROUND_LINEAR_DAMP := 0.25
+const ROLL_DECEL := 2.0            # m/s^2 rolling resistance on round food touching something
+const ROLL_STOP := 0.12            # m/s: round food slower than this (on the ground) stops
+const LAND_MIN_SPEED := 1.4        # m/s downward speed that counts as a landing (bounce + squash)
+const BOUNCE_KEEP := 0.3           # first landing after a drop/toss/launch: bounce back up with this share
+const BOUNCE_MIN_UP := 1.2         # m/s (about a 7 cm hop)
+const BOUNCE_MAX_UP := 2.4         # m/s
+const SQUASH_AMOUNT := 0.28        # visual squash at full impact (scale y 1 - this, x/z grow half as much)
+const SQUASH_FULL_SPEED := 7.0     # m/s impact that gives the full squash
+const SQUASH_RATE := 7.0           # 1/s decay of the squash wobble
+const SQUASH_FREQ := 17.0          # rad/s of the squash wobble (squash, then stretch)
+const STATION_GRIP := 9.0          # 1/s: loose food on a griddle/fryer/board loses horizontal speed this fast
+const STATION_LAND_KEEP := 0.2     # horizontal speed kept when food lands on such a station
+const EGG_SPLAT_SPEED := 4.0       # m/s: a tossed/punched egg landing faster than this becomes egg_splat
+const PILE_MAX_SPEED := 14.0       # m/s: loose food faster than this without a launch is clamped (pile pops)
+const TUMBLE_RIGHTING := 6.0       # 1/s: carried round food eases back upright
+const PLATE_SWAY_DEG := 7.0        # plate stack wobble when food lands on it (visual)
+const PLATE_SWAY_RATE := 3.5       # 1/s decay
+const PLATE_SWAY_FREQ := 11.0      # rad/s
+
 # Stations
 const DISPENSE_HOLD := 0.5         # s of holding work at a dispenser per item
 const MAX_LOOSE_ITEMS := 25

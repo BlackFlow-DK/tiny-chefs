@@ -121,8 +121,27 @@ func release(c: Chef, sound := false) -> void:
 		it.detach(c)
 		if it.carriers.size() == 1:
 			_enter_solo(it.carriers[0], it)
+		elif it.carriers.is_empty():
+			_toss(c, it)
 		if sound:
 			Net.event("", "drop", c.peer_id)
+
+
+## The last carrier let go: moving, the food flies on with the carrier's velocity / sqrt(weight) (capped at
+## Tuning.TOSS_MAX_SPEED) plus a small pop; standing, it just drops (Item.detach armed its one bounce).
+func _toss(c: Chef, it: Item) -> void:
+	var v := _flat(c.velocity)
+	if v.length() < Tuning.TOSS_MIN_SPEED:
+		return
+	var tv := (v / sqrt(float(it.weight()))).limit_length(Tuning.TOSS_MAX_SPEED)
+	it.launch(tv + Vector3.UP * Tuning.TOSS_POP)
+	if it.long_kind:
+		# Spin about y by how sideways it flies: (long axis x direction).y, normalised.
+		var ax := _flat(it.global_transform.basis.x).normalized()
+		it.angular_velocity = Vector3(0, Tuning.TOSS_LONG_SPIN * ax.cross(tv.normalized()).y, 0)
+	if _log or Net.has_arg("physics-log"):
+		print("carry: chef %d tossed %s %d at %.2f m/s (carrier %.2f m/s)" % [c.peer_id, it.kind, it.item_id,
+			tv.length(), v.length()])
 
 
 func detach_all(it: Item) -> void:

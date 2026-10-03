@@ -56,6 +56,7 @@ var _hint_sys: HintSystem
 var _hazard_sys: HazardSystem
 var _mod_sys: ModifierSystem
 var _objective_sys: ObjectiveSystem
+var _food_sys: FoodPhysicsSystem
 
 
 func _ready() -> void:
@@ -88,6 +89,7 @@ func _ready() -> void:
 	_hint_sys = HintSystem.new(self)
 	_input_sys = InputSystem.new(self)
 	_hazard_sys = HazardSystem.new(self)   # map hazards (world.map.hazards)
+	_food_sys = FoodPhysicsSystem.new(self)   # landing, bounce, rolling, station grip (host tick)
 	Net.players_changed.connect(_on_players_changed)
 	Net.phase_changed.connect(_on_phase_changed)
 	Net.event_received.connect(_on_event)
@@ -236,6 +238,7 @@ func _simulate(dt: float) -> void:
 	Prof.add(&"tick.carry", t)
 	t = Prof.t0()
 	_bounds_sys.drop_over_edge()
+	_food_sys.host_tick(dt)
 	_plate_sys.tick(dt)
 	Prof.add(&"tick.bounds+plates", t)
 	t = Prof.t0()

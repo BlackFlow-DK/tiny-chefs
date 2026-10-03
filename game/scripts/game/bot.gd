@@ -14,6 +14,7 @@ const Planner := preload("res://scripts/game/bot_planner.gd")
 const Nav := preload("res://scripts/game/bot_nav.gd")
 const STUCK_TIME := 6.0
 const REPLAN_EVERY := 1.0
+const SETTLE_TIME := 0.2  # s standing still with the food at its spot before letting go
 
 var world: World
 var planner: Planner
@@ -26,6 +27,7 @@ var _work_timer := 0.0
 var _idle := 0.0        # seconds with nothing but waiting to do
 var _pause := 0.0       # after letting go, so we do not grab the same food again
 var _aside_t := 0.0     # dragging a wrongly grabbed item out of the way
+var _settle := 0.0      # arrived with food: stand still this long before letting go (a moving release tosses it)
 var _stuck_t := 0.0
 var _stuck_pos := Vector3.ZERO
 var _sidestep := 0.0
@@ -132,6 +134,7 @@ func _set_job(j: Dictionary) -> void:
 	_job_time = 0.0
 	_work_timer = 0.0
 	_aside_t = 0.0
+	_settle = 0.0
 	_prog_best = INF
 	_prog_t = 0.0
 	if _log:
@@ -294,8 +297,13 @@ func _carry(me: Chef, it: Item, inp: PlayerInput, dt: float, help: bool) -> void
 	if arrived and st != null and not (st is Plate) and not st.contains_xz(it.global_position, -0.2):
 		arrived = false
 	if arrived:
-		_let_go(inp)
+		# Stop first: letting go while walking tosses the food (CarrySystem._toss), which could slide it off
+		# the station or splat an egg.
+		_settle += dt
+		if _settle >= SETTLE_TIME:
+			_let_go(inp)
 		return
+	_settle = 0.0
 	var group := it.carrier_count >= 2
 	var origin := it.global_position if group else me.global_position
 	var via := nav.waypoint(origin, dest, false)
