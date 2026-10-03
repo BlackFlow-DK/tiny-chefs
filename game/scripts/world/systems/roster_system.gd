@@ -25,8 +25,7 @@ func sync() -> void:
 			world.chefs[id].set_player_name(Net.name_of(id))
 	# Looks can change mid-game (Net.set_look); apply_look is a no-op when unchanged.
 	for id in world.chefs.keys():
-		var look := Net.look_of(id)
-		(world.chefs[id] as Chef).apply_look(int(look["color"]), str(look["hat"]), str(look["acc"]))
+		(world.chefs[id] as Chef).apply_look(Net.look_of(id))
 
 
 func _add_chef(id: int) -> void:

@@ -55,6 +55,13 @@ work (chop: hand hammering; dispense/soda: reach and pull; bell: slap), punch wi
 flail and landing squash, serve celebration (hop + arms up), fail slump, emote on ping. All cheap, no skeleton.
 Body shapes scale parts: `standard`, `tall`, `stout`, `big_arms` (huge hands and forearms), `big_head`, `tiny`,
 `long_legs`. Collider and gameplay size never change.
+Built (rig v2): chef.glb tree `Chef` -> `Body` (origin = hips (0, 0.246, 0.0388)) -> `Head` (neck, (0, 0.776, 0.0388))
+-> `Eyes`, `Brows`, `Mouth`, `Toque`, `HatAnchor` (0, 0.981, 0.0388), `FaceAnchor` (0, 0.906, 0.2568), `BeardAnchor`
+(0, 0.823, 0.2415); `Body` -> `BackAnchor` (0, 0.606, -0.1784), `NeckAnchor` (0, 0.776, 0.0388); `Chef` -> `HandL`/`HandR`
+(hand centre, x +-0.335), `FootL`/`FootR` (ankle, y 0.116) -> `LegL`/`LegR`. Positions are chef-local rest values for the
+`standard` body (Godot metres, +Z front); a cosmetic model's origin sits exactly on its anchor, no rotation, no scale
+(anchors follow animation and body shape). `outfit_<id>.glb` is authored in chef space (origin at the feet) and hung
+under `Body`. Default beard = `beard_moustache.glb` (the old built-in moustache).
 
 ## 5. Wardrobe (persistent, per player, local file)
 Currency: **tokens**, saved per player in `user://progress.cfg`. After each shift every player earns

@@ -9,10 +9,11 @@ var peer_id := 0  ## > 0: dressed from Net.look_of(peer_id)
 var _vp: SubViewport
 var _pivot: Node3D
 var _model: Node3D
+var _anim: ChefAnim  # idle life (breathing, blinks, glances)
 var _color := Color.WHITE
 var _px := Vector2i(150, 150)
 var _look_key := ""
-var _want: Array = []  # [color index, hat, acc] to show once the model exists
+var _want: Dictionary = {}  # look (Net.look_of shape) to show once the model exists
 
 
 func _init(color := Color.WHITE, px := Vector2i(150, 150), follow_peer := 0) -> void:
@@ -27,10 +28,10 @@ func follow(id: int) -> void:
 	_refresh_look()
 
 
-## Show a fixed look (dev scenes / previews); stops following a player.
-func show_look(color_idx: int, hat: String, acc: String) -> void:
+## Show a fixed look (dev scenes / previews; Net.look_of shape, missing keys = defaults); stops following a player.
+func show_look(l: Dictionary) -> void:
 	peer_id = 0
-	_want = [color_idx, hat, acc]
+	_want = l
 	_update_look()
 
 
@@ -52,6 +53,7 @@ func _ready() -> void:
 	if model == null:
 		return
 	_model = model
+	_anim = ChefAnim.new(model, peer_id)
 	tint(model, color)
 	_pivot = Node3D.new()
 	_pivot.add_child(model)
@@ -82,25 +84,27 @@ func _ready() -> void:
 
 func _refresh_look() -> void:
 	if peer_id > 0:
-		var look := Net.look_of(peer_id)
-		_want = [int(look["color"]), str(look["hat"]), str(look["acc"])]
+		_want = Net.look_of(peer_id)
 	_update_look()
 
 
 func _update_look() -> void:
 	if _model == null or _want.is_empty():
 		return
-	var key := "%d|%s|%s" % _want
+	var key := "%d|%s" % [int(_want.get("color", 0)), Chef.look_ids(_want)]
 	if key == _look_key:
 		return
 	_look_key = key
 	var n := GameData.PLAYER_COLORS.size()
-	Chef.dress(_model, GameData.PLAYER_COLORS[posmod(int(_want[0]), n)], str(_want[1]), str(_want[2]))
+	Chef.dress(_model, GameData.PLAYER_COLORS[posmod(int(_want.get("color", 0)), n)], _want)
+	_anim.refresh_rest()
 
 
 func _process(delta: float) -> void:
 	if _pivot != null:
 		_pivot.rotation.y = sin(Time.get_ticks_msec() * 0.0012) * 0.55
+	if _anim != null:
+		_anim.update(delta)
 
 
 ## Recolour every ChefBody / HatTint surface (same rule as the game chef: Chef.tint).

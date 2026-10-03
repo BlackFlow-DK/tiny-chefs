@@ -15,7 +15,8 @@ extends Node
 ## joiners get it on join, and settings_changed fires on every peer.
 ##
 ## Chef looks: every players entry also holds "color" (index into GameData.PLAYER_COLORS, default = slot),
-## "hat" (GameData.HATS id) and "acc" (GameData.ACCESSORIES id). Each player sets only its own look with
+## "hat" (GameData.HATS id), "acc" (GameData.ACCESSORIES id), "beard" (BEARDS), "outfit" (OUTFITS), "back"
+## (BACKS) and "body" (BODY_SHAPES id); unknown ids fall back to each table's first entry. Each player sets only its own look with
 ## set_look({...}) (any phase): the host stores it and re-sends the roster via _sync_players; a client
 ## sends it with _register on join and _request_look afterwards. Read with look_of(id) / color_of(id).
 ## The local pick (local_look) is remembered in user://menu.cfg [chef]; args --color= --hat= --acc= override.
@@ -32,9 +33,12 @@ const LOOK_CFG := "user://menu.cfg"
 
 var phase: int = Phase.MENU
 var phase_info: Dictionary = {}
-var players: Dictionary = {}  # peer id -> {"name": String, "slot": int, "color": int, "hat": String, "acc": String}
+var players: Dictionary = {}  # peer id -> {"name": String, "slot": int, "color": int, "hat", "acc", "beard", "outfit", "back", "body": String}
 var local_name := "Chef"
-var local_look := {"color": -1, "hat": "toque", "acc": "none"}  # my pick; color -1 = my slot's colour
+var local_look := {"color": -1, "hat": "toque", "acc": "none", "beard": "moustache", "outfit": "classic", "back": "none", "body": "standard"}  # my pick; color -1 = my slot's colour
+## Look keys besides "color" -> the GameData table that validates them (first entry = default).
+const LOOK_TABLES := {"hat": GameData.HATS, "acc": GameData.ACCESSORIES, "beard": GameData.BEARDS,
+	"outfit": GameData.OUTFITS, "back": GameData.BACKS, "body": GameData.BODY_SHAPES}
 var is_host := false
 var join_ip := ""
 var args: Dictionary = {}
@@ -301,22 +305,22 @@ func _sync_players(p: Dictionary) -> void:
 
 # ---------------------------------------------------------------- chef looks
 
-## A valid look for a player in slot: color 0..3 (out of range / -1 = the slot's colour), known hat and acc.
+## A valid look for a player in slot: color 0..3 (out of range / -1 = the slot's colour), every LOOK_TABLES key
+## a known id of its table (else the table's first entry).
 func resolve_look(look: Dictionary, slot: int) -> Dictionary:
 	var n := GameData.PLAYER_COLORS.size()
 	var c := int(look.get("color", -1))
 	if c < 0 or c >= n:
 		c = posmod(slot, n)
-	var hat := str(look.get("hat", ""))
-	if not GameData.has_hat(hat):
-		hat = str(GameData.HATS[0]["id"])
-	var acc := str(look.get("acc", ""))
-	if not GameData.has_accessory(acc):
-		acc = str(GameData.ACCESSORIES[0]["id"])
-	return {"color": c, "hat": hat, "acc": acc}
+	var out := {"color": c}
+	for k: String in LOOK_TABLES:
+		var table: Array = LOOK_TABLES[k]
+		var id := str(look.get(k, ""))
+		out[k] = id if GameData.has_look_id(table, id) else str(table[0]["id"])
+	return out
 
 
-## {color: int, hat: String, acc: String} of a player. Offline (no roster) the local pick, as slot 0.
+## {color: int, hat, acc, beard, outfit, back, body: String} of a player. Offline (no roster) the local pick, as slot 0.
 func look_of(id: int) -> Dictionary:
 	if players.has(id):
 		return resolve_look(players[id], int(players[id]["slot"]))
@@ -331,10 +335,10 @@ func color_of(id: int) -> Color:
 	return GameData.PLAYER_COLORS[color_index_of(id)]
 
 
-## My own look: merge a partial pick ({"color": 2} / {"hat": "beanie"} / {"acc": "glasses"}), remember
+## My own look: merge a partial pick ({"color": 2} / {"hat": "beanie"} / {"body": "tall"} ...), remember
 ## it in menu.cfg and share it (host: roster sync; client: _request_look). Works offline and in any phase.
 func set_look(pick: Dictionary) -> void:
-	for k in ["color", "hat", "acc"]:
+	for k in local_look.keys():
 		if pick.has(k):
 			local_look[k] = pick[k]
 	_save_look()
@@ -361,7 +365,11 @@ func _store_look(id: int, look: Dictionary) -> void:
 		return
 	var r := resolve_look(look, int(players[id]["slot"]))
 	var cur: Dictionary = players[id]
-	if int(cur.get("color", -1)) == r["color"] and cur.get("hat") == r["hat"] and cur.get("acc") == r["acc"]:
+	var same := true
+	for k: String in r:
+		if cur.get(k) != r[k]:
+			same = false
+	if same:
 		return
 	cur.merge(r, true)
 	print("net: peer %d look %s" % [id, r])
@@ -380,14 +388,13 @@ func _load_look() -> void:
 	if _look_cfg_enabled():
 		var cf := ConfigFile.new()
 		if cf.load(LOOK_CFG) == OK:
-			for k in ["color", "hat", "acc"]:
+			for k in local_look.keys():
 				local_look[k] = cf.get_value("chef", k, local_look[k])
 	if has_arg("color"):
 		local_look["color"] = arg_int("color", -1)
-	if has_arg("hat"):
-		local_look["hat"] = arg_str("hat", "toque")
-	if has_arg("acc"):
-		local_look["acc"] = arg_str("acc", "none")
+	for k: String in LOOK_TABLES:   # --hat= --acc= --beard= --outfit= --back= --body=
+		if has_arg(k):
+			local_look[k] = arg_str(k, str(local_look[k]))
 
 
 func _save_look() -> void:
@@ -395,7 +402,7 @@ func _save_look() -> void:
 		return
 	var cf := ConfigFile.new()
 	cf.load(LOOK_CFG)  # keep the menu's keys
-	for k in ["color", "hat", "acc"]:
+	for k in local_look.keys():
 		cf.set_value("chef", k, local_look[k])
 	cf.save(LOOK_CFG)
 

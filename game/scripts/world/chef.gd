@@ -1,8 +1,9 @@
 class_name Chef
 extends CharacterBody3D
 ## A player's chef. Host: a real CharacterBody3D driven by that player's PlayerInput.
-## Client: a collision-less puppet easing towards the snapshot. Visual bob/lean/hand poses
-## run everywhere from observed motion, so they look the same on every screen.
+## Client: a collision-less puppet easing towards the snapshot. The animation (ChefAnim, world/chef_anim.gd)
+## runs everywhere from observed motion, replicated flags, the held item and Net events, so it looks the same
+## on every screen. chef.glb rig v2 parts: see ChefAnim; attachment anchors: ANCHORS.
 
 const FLAG_WORKING := 1
 const FLAG_PUNCHING := 2
@@ -12,6 +13,13 @@ const AIM_MIN_DIST := 0.4     # cursor on the chef itself: keep the current faci
 const RADIUS := 0.4           # body capsule radius
 const HAT_ANCHOR := Vector3(0.0, 0.981, 0.0388)   # chef-local: hat_*.glb origin (centre of the toque base ring)
 const FACE_ANCHOR := Vector3(0.0, 0.906, 0.2568)  # chef-local: acc_*.glb origin
+## chef.glb anchor nodes (empties) and their rest positions, chef-local, standard body. HatAnchor, FaceAnchor and
+## BeardAnchor are children of Head; BackAnchor and NeckAnchor of Body; so attachments follow the animation and
+## the body shape. The positions are the fallback for a model without the anchor nodes.
+const ANCHORS := {"HatAnchor": HAT_ANCHOR, "FaceAnchor": FACE_ANCHOR, "BeardAnchor": Vector3(0.0, 0.823, 0.2415),
+	"BackAnchor": Vector3(0.0, 0.606, -0.1784), "NeckAnchor": Vector3(0.0, 0.776, 0.0388)}
+const BODY_PIVOT := Vector3(0.0, 0.246, 0.0388)   # Body's origin (hips) in chef.glb; outfits hang under Body at -this
+const LOOK_SLOTS := ["LookHat", "LookAcc", "LookBeard", "LookBack", "LookOutfit"]
 
 var peer_id := 0
 var slot := 0
@@ -20,6 +28,7 @@ var color_index := -1         # GameData.PLAYER_COLORS index picked by the playe
 var color := Color.WHITE      # its colour; ground ring, name badge and hints read this
 var hat := ""
 var acc := ""
+var look: Dictionary = {}     # the applied look (Net.look_of shape)
 var puppet := false
 var is_local := false
 var holding: Item = null      # host
@@ -46,15 +55,20 @@ var last_punch_seq := 0
 var last_work_seq := 0
 var traction := 1.0           # host: walk accel multiplier (ModifierSystem: < 1 on a slippery floor)
 
+var anim: ChefAnim            # procedural animation; VFX hooks: anim.step / anim.skid / anim.sweat
 var _anim_root: Node3D
 var _visual: Node3D
 var _ring: GroundRing
-var _hands: Array[Node3D] = []
-var _hand_rest: Array[Vector3] = []
 var _gloves: Array[Node3D] = []
+var _look_key := ""
 var _last_pos := Vector3.ZERO
-var _anim_t := 0.0
-var _speed01 := 0.0
+var _last_yaw := 0.0
+var _anim_started := false
+var _prev_held := -1
+var _was_working := false
+var _work_scan := 0.0
+var _bell_seen := PackedInt32Array()
+var _anim_log := -1.0         # --anim-log: seconds to the next line (< 0 = off)
 var _target_pos := Vector3.ZERO
 var _target_yaw := 0.0
 var _has_target := false
@@ -90,12 +104,11 @@ func setup(id: int, player_slot: int, pname: String, is_puppet: bool, local: boo
 	if _visual == null:
 		_visual = _primitive_chef(Color.WHITE)
 	_anim_root.add_child(_visual)
+	anim = ChefAnim.new(_visual, id)
 	for hn in ["HandL", "HandR"]:
 		var h := _visual.find_child(hn, true, false) as Node3D
 		if h != null:
-			_hands.append(h)
-			_hand_rest.append(h.position)
-			# The hand's origin may sit at the model origin (transforms applied), so use its mesh centre.
+			# chef.glb hands have their origin at the hand centre; older models may not, so use the mesh centre.
 			var centre := Vector3.ZERO
 			if h is MeshInstance3D and (h as MeshInstance3D).mesh != null:
 				centre = (h as MeshInstance3D).get_aabb().get_center()
@@ -112,52 +125,91 @@ func setup(id: int, player_slot: int, pname: String, is_puppet: bool, local: boo
 			g.visible = false
 			h.add_child(g)
 			_gloves.append(g)
-	var look := Net.look_of(id)
-	apply_look(int(look["color"]), str(look["hat"]), str(look["acc"]))
+	Net.event_received.connect(_on_net_event)
+	if Net.has_arg("anim-log"):
+		_anim_log = 1.0
+	apply_look(Net.look_of(id))
 
 
-## Player look (see Net.look_of): colour index into GameData.PLAYER_COLORS, hat id, accessory id.
-## Tints the body, recolours the ground ring, swaps hat/accessory models. No-op when unchanged.
-func apply_look(color_idx: int, hat_id: String, acc_id: String) -> void:
-	color_idx = posmod(color_idx, GameData.PLAYER_COLORS.size())
-	if color_idx == color_index and hat_id == hat and acc_id == acc:
+## Player look (Net.look_of shape: color index into GameData.PLAYER_COLORS, hat, acc, beard, outfit, back,
+## body ids). Tints the body, recolours the ground ring, swaps the attached models, applies the body shape.
+## No-op when unchanged.
+func apply_look(new_look: Dictionary) -> void:
+	var color_idx := posmod(int(new_look.get("color", 0)), GameData.PLAYER_COLORS.size())
+	var key := "%d|%s" % [color_idx, look_ids(new_look)]
+	if key == _look_key:
 		return
+	_look_key = key
+	look = new_look.duplicate()
 	color_index = color_idx
 	color = GameData.PLAYER_COLORS[color_idx]
-	hat = hat_id
-	acc = acc_id
+	hat = str(new_look.get("hat", "toque"))
+	acc = str(new_look.get("acc", "none"))
 	_ring.setup(color, is_local)
-	dress(_visual, color, hat_id, acc_id)
+	dress(_visual, color, new_look)
+	anim.refresh_rest()
 
 
-## Dress any chef.glb instance (game chef, lobby turntable, menu diorama): tint ChefBody + HatTint
-## surfaces, show the built-in Toque only for hat "toque", attach hat_<id>.glb at HAT_ANCHOR and
-## acc_<id>.glb at FACE_ANCHOR (replacing earlier ones). Missing models are skipped.
-static func dress(model: Node3D, tint_color: Color, hat_id: String, acc_id: String) -> void:
+## The model-relevant ids of a look, as one string (change detection).
+static func look_ids(l: Dictionary) -> String:
+	return "%s|%s|%s|%s|%s|%s" % [l.get("hat", "toque"), l.get("acc", "none"), l.get("beard", "moustache"),
+		l.get("outfit", "classic"), l.get("back", "none"), l.get("body", "standard")]
+
+
+## Dress any chef.glb instance (game chef, lobby turntable, menu diorama, previews) from a look dict
+## (missing keys = defaults): body shape (ChefAnim.shape), the built-in Toque only for hat "toque",
+## hat_<id>.glb at HatAnchor, acc_<id>.glb at FaceAnchor, beard_<id>.glb at BeardAnchor, back_<id>.glb at
+## BackAnchor, outfit_<id>.glb under Body (authored in chef space, origin at the feet), replacing earlier
+## ones; "none" and missing models are skipped. Then tints ChefBody + HatTint surfaces.
+static func dress(model: Node3D, tint_color: Color, l: Dictionary) -> void:
 	if model == null:
 		return
-	for n in ["LookHat", "LookAcc"]:
-		var old := model.get_node_or_null(n)
+	for n: String in LOOK_SLOTS:
+		var old := model.find_child(n, true, false)
 		if old != null:
-			model.remove_child(old)
+			old.get_parent().remove_child(old)
 			old.queue_free()
+	ChefAnim.shape(model, str(l.get("body", "standard")))
+	var hat_id := str(l.get("hat", "toque"))
 	var toque := model.find_child("Toque", true, false) as Node3D
 	if toque != null:
 		toque.visible = hat_id == "toque"
 	if hat_id != "toque":
-		_attach(model, "hat_" + hat_id, "LookHat", HAT_ANCHOR)
+		_attach(model, "hat_" + hat_id, "LookHat", "HatAnchor")
+	var acc_id := str(l.get("acc", "none"))
 	if acc_id != "none":
-		_attach(model, "acc_" + acc_id, "LookAcc", FACE_ANCHOR)
+		_attach(model, "acc_" + acc_id, "LookAcc", "FaceAnchor")
+	var beard_id := str(l.get("beard", "moustache"))
+	if beard_id != "none":
+		_attach(model, "beard_" + beard_id, "LookBeard", "BeardAnchor")
+	var back_id := str(l.get("back", "none"))
+	if back_id != "none":
+		_attach(model, "back_" + back_id, "LookBack", "BackAnchor")
+	var outfit := Models.load_model("outfit_" + str(l.get("outfit", "classic")))
+	if outfit != null:
+		outfit.name = "LookOutfit"
+		var body := model.find_child("Body", true, false) as Node3D
+		if body != null:
+			outfit.position = -BODY_PIVOT   # Body-local: the outfit's origin lands on the chef origin at rest
+			body.add_child(outfit)
+		else:
+			model.add_child(outfit)
 	tint(model, tint_color)
 
 
-static func _attach(model: Node3D, model_name: String, node_name: String, at: Vector3) -> void:
+## Attach model_name.glb at the anchor node (identity transform), or at ANCHORS[anchor] on the model root
+## when the model has no such node (primitive chef). Missing model: skipped.
+static func _attach(model: Node3D, model_name: String, node_name: String, anchor: String) -> void:
 	var m := Models.load_model(model_name)
 	if m == null:
 		return
 	m.name = node_name
-	m.position = at
-	model.add_child(m)
+	var a := model.find_child(anchor, true, false) as Node3D
+	if a != null:
+		a.add_child(m)
+	else:
+		m.position = ANCHORS.get(anchor, Vector3.ZERO)
+		model.add_child(m)
 
 
 ## The name tag is drawn by IndicatorLayer (reads player_name every frame).
@@ -354,43 +406,121 @@ func _frame(delta: float) -> void:
 	_animate(delta)
 
 
+## Fill ChefAnim's state from what every peer knows (observed motion, flags, held item) and run it.
 func _animate(delta: float) -> void:
+	if anim == null or delta <= 0.0:
+		return
+	var st := anim.state
 	var p := global_position
-	var hv := p - _last_pos
-	hv.y = 0.0
+	if not _anim_started:
+		_anim_started = true
+		_last_pos = p
+		_last_yaw = rotation.y
+	var v := (p - _last_pos) / delta
 	_last_pos = p
-	var spd := hv.length() / maxf(delta, 0.0001)
-	_speed01 = lerpf(_speed01, clampf(spd / Tuning.PLAYER_SPEED, 0.0, 1.0), 1.0 - exp(-10.0 * delta))
+	st.vel = Vector3(v.x, 0.0, v.z)
+	st.vy = v.y
+	st.turn_rate = lerpf(st.turn_rate, wrapf(rotation.y - _last_yaw, -PI, PI) / delta, 1.0 - exp(-12.0 * delta))
+	_last_yaw = rotation.y
+	st.yaw = rotation.y
 	var held := _held_item()
-	# Carrying: heavier food = slower, smaller bob; short-handed on heavy food = lean back and pull.
-	var heavy := 1.0
-	var lean := 0.22 * _speed01
+	st.carrying = held_id >= 0
 	if held != null:
-		heavy = 1.0 + 0.35 * float(held.weight() - 1)
-		var short := clampf(float(held.weight() - held.carrier_count) / 2.0, 0.0, 1.0)
-		lean = -(0.05 + 0.13 * short) * (0.5 + 0.5 * _speed01) if held.weight() > 1 else 0.05 * _speed01
-	_anim_t += delta * (5.0 + 11.0 * _speed01) / heavy
-	_anim_root.position.y = absf(sin(_anim_t)) * 0.16 * _speed01 / heavy
-	_anim_root.rotation.x = lerpf(_anim_root.rotation.x, lean, 1.0 - exp(-8.0 * delta))
-	_anim_root.rotation.z = sin(_anim_t) * 0.07 * _speed01 / heavy
-	var carry_off := Vector3(0, 0.3, 0.3)
-	if held != null:
-		# Hands reach forward to the near edge of the held food, at its middle height.
+		st.weight = held.weight()
+		st.carriers = maxi(1, held.carrier_count)
+		# Hands reach forward to the near edge of the held food, at its middle height (carry visuals).
 		var reach := clampf(held.footprint_distance(global_position) - 0.1, 0.2, 0.7)
 		var up := clampf(held.global_position.y + held.size.y * 0.5 - global_position.y - 0.45, 0.0, 0.5)
-		carry_off = Vector3(0, up, reach)
-	var carrying := held_id >= 0
-	var working := (flags & FLAG_WORKING) != 0
-	var punching := (flags & FLAG_PUNCHING) != 0
-	for i in _hands.size():
-		var off := Vector3.ZERO
-		if carrying:
-			off = carry_off
-		elif working:
-			off = Vector3(0, 0.15 + sin(Time.get_ticks_msec() * 0.03 + i * PI) * 0.18, 0.3)
-		if punching and i == 1:
-			off = Vector3(0.2, 0.25, 0.75)
-		_hands[i].position = _hands[i].position.lerp(_hand_rest[i] + off, minf(1.0, 20.0 * delta))
+		st.hold = Vector3(0, up, reach)
+	elif not st.carrying:
+		st.weight = 1
+		st.carriers = 1
+	if _prev_held >= 0 and held_id < 0:
+		st.toss = true
+	_prev_held = held_id
+	st.working = (flags & FLAG_WORKING) != 0
+	st.punching = (flags & FLAG_PUNCHING) != 0
+	st.falling = (flags & FLAG_RESPAWNING) != 0
+	var w := get_parent() as World
+	if w != null:
+		_work_scan -= delta
+		if st.working and (not _was_working or _work_scan <= 0.0):
+			_work_scan = 0.5
+			st.work_kind = _work_kind(w)
+		_check_bells(w)
+	_was_working = st.working
+	anim.update(delta)
+	if _anim_log >= 0.0:
+		_anim_log -= delta
+		if _anim_log < 0.0:
+			_anim_log = 1.0
+			print("anim: chef %d %s %s" % [peer_id, "puppet" if puppet else "host-sim", anim.debug_line()])
+
+
+## Which station this chef works at (nearest one within reach): every peer works it out from positions.
+func _work_kind(w: World) -> int:
+	var best := Tuning.REACH + 0.4
+	var kind := ChefAnim.Work.NONE
+	for stn: Station in w.stations:
+		var k := ChefAnim.Work.NONE
+		if stn is SodaFountain:
+			k = ChefAnim.Work.SODA
+		elif stn is Dispenser:
+			k = ChefAnim.Work.DISPENSE
+		elif stn is CuttingBoard:
+			k = ChefAnim.Work.CHOP
+		elif stn is Bell:
+			k = ChefAnim.Work.BELL
+		else:
+			continue
+		var d := stn.footprint_distance(global_position)
+		if d < best:
+			best = d
+			kind = k
+	return kind
+
+
+## A bell rang (its replicated ring counter moved): the chef nearest to it slaps it.
+func _check_bells(w: World) -> void:
+	var n := w.bells.size()
+	if _bell_seen.size() != n:
+		_bell_seen.resize(n)
+		for i in n:
+			_bell_seen[i] = int(w.bells[i].state())
+		return
+	for i in n:
+		var b: Bell = w.bells[i]
+		var seq := int(b.state())
+		if seq == _bell_seen[i]:
+			continue
+		_bell_seen[i] = seq
+		var mine := b.footprint_distance(global_position)
+		if mine > Tuning.REACH + 0.5:
+			continue
+		var nearest := true
+		for c: Chef in w.chefs.values():
+			if c != self and b.footprint_distance(c.global_position) < mine:
+				nearest = false
+		if nearest:
+			anim.state.slap = true
+
+
+## Team moments every peer receives: a serve (celebrate), a failure (slump), this chef's ping (point).
+func _on_net_event(text: String, sfx: String) -> void:
+	if anim == null:
+		return
+	match sfx:
+		"serve":
+			anim.state.celebrate = true
+		"fail":
+			anim.state.fail = true
+		"ping":
+			var parts := text.split(":")
+			if parts.size() == 3 and int(parts[0]) == peer_id:
+				var to := Vector3(float(parts[1]), 0.0, float(parts[2])) - global_position
+				to.y = 0.0
+				anim.state.ping_dir = to.rotated(Vector3.UP, -rotation.y)
+				anim.state.ping = true
 
 
 ## The food this chef holds, on any peer (held_id is replicated; items live in the World).
