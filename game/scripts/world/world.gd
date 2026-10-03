@@ -31,6 +31,7 @@ var local_input := PlayerInput.new()
 var input_blocked := false   # pause menu open
 var hint_text := ""          # written by HintSystem
 var grab_target: Item = null
+var grab_plate: Plate = null  # written by HintSystem: a grab press takes this plate's top item
 var work_target: Station = null
 
 var _idle := PlayerInput.new()
@@ -332,9 +333,30 @@ func grab_candidate(c: Chef, inp: PlayerInput) -> Item:
 	return _carry_sys.grab_candidate(c, inp)
 
 
+## Every peer: what a grab press takes: Item, Plate (its top item) or null (CarrySystem.grab_choice).
+func grab_choice(c: Chef, inp: PlayerInput) -> Object:
+	return _carry_sys.grab_choice(c, inp)
+
+
 ## Every peer: grab reach in m (tongs upgrade), see CarrySystem.grab_reach.
 func grab_reach() -> float:
 	return _carry_sys.grab_reach()
+
+
+## Every peer, the plate hook of grab selection: [Plate, aim score] whose top item chef c could take
+## with input inp, or [] (PlateSystem.take_candidate).
+func plate_take_candidate(c: Chef, inp: PlayerInput) -> Array:
+	return _plate_sys.take_candidate(c, inp, _carry_sys.grab_reach())
+
+
+## Host: chef c takes the top item off plate p; returns it as loose food (CarrySystem attaches it).
+func take_from_plate(c: Chef, p: Plate) -> Item:
+	return _plate_sys.take_top(c, p)
+
+
+## Every peer: the plate a chef standing at p would scrape by holding work, or null.
+func scrape_target(p: Vector3) -> Plate:
+	return _plate_sys.scrape_target(p)
 
 
 func release(c: Chef, sound := false) -> void:

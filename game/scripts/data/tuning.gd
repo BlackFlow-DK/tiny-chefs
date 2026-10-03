@@ -36,12 +36,14 @@ const SODA_HOLD := 2.0             # s of holding work at the soda fountain per 
 const CHOP_TIME := 4.0             # s for one chef; each extra chef adds the same rate again
 const CHOP_SLICES := 3             # default pieces per chop (ITEMS "chop_count" overrides)
 const PLATE_MAX_STACK := 10
+const SCRAPE_HOLD := 1.2           # s of holding work on a plate (not at the bell) to scrape it into the bin
 
 # Orders and coins
 const MAX_ORDERS := 4
 const FIRST_ORDER_DELAY := 2.0
 const EMPTY_ORDER_DELAY := 4.0     # when no order is open, the next one comes at most this soon
 const WRONG_SERVE_PENALTY := 10
+const MESSY_PAY := 0.85            # an untidy dish (Plate.tidy: base first, bun top last) pays this share of price + bonus
 const EXPIRE_PENALTY := 15         # ~1/4 of an average order (docs/balance.md)
 const MIN_ORDER_INTERVAL := 12.0
 const MIN_PATIENCE := 55.0

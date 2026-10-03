@@ -62,12 +62,14 @@ func add_vip(sdef: Dictionary) -> Dictionary:
 	return o
 
 
-## Coins for serving order o now: price + bonus scaled by patience left, x VIP_PAY_MULT for a VIP.
-static func pay_for(o: Dictionary) -> int:
+## Coins for serving order o now: price + bonus scaled by patience left, x Tuning.MESSY_PAY for an
+## untidy plate (tidy = false), then x VIP_PAY_MULT for a VIP.
+static func pay_for(o: Dictionary, tidy := true) -> int:
 	var r: Dictionary = GameData.RECIPES[int(o["r"])]
 	var frac := clampf(float(o["left"]) / float(o["patience"]), 0.0, 1.0)
 	var mult := Tuning.VIP_PAY_MULT if bool(o.get("vip", false)) else 1.0
-	return int(round((float(r["price"]) + round(float(r["bonus"]) * frac)) * mult))
+	var messy := 1.0 if tidy else Tuning.MESSY_PAY
+	return int(round((float(r["price"]) + round(float(r["bonus"]) * frac)) * messy * mult))
 
 
 ## Coins lost when order o expires (VIPs cost VIP_EXPIRE_MULT times as much).

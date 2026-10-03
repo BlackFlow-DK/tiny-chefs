@@ -6,7 +6,10 @@ extends RefCounted
 ##   dispensed (a teammate holding work at the dispenser) counts as "in flight" for K (times the pieces a later
 ##   chop makes). Needed minus in flight = the "units" still to start, slow (long route) kinds first.
 ## choose(): the job for this bot, in priority order: deliver what it holds; take finished food off the
-##   griddle/fryer before it burns; ring a bell whose plate matches an order (or holds food no order wants);
+##   griddle/fryer before it burns; ring a bell whose plate matches an order; scrape a plate holding food no
+##   order wants or an unfinished stack in the wrong order (after 3 s);
+## Stack order: food goes on a plate only when it keeps the stack tidy (Plate.tidy: base first, bun top
+##   last); until then it waits beside the plate (plate_dest -> stage_dest) or where it lies.
 ##   help a teammate drag heavy food (weight >= 3); its claimed unit (index = rank among chefs, stride =
 ##   chef count) then, after 2 s without work, any unit; trash burnt food; stand by the cooking station.
 ## A unit job walks the route backwards: the finished kind lying loose -> plate; else for each station step
@@ -171,17 +174,31 @@ func analyse(me: Chef) -> void:
 		var st: Array = p.stack
 		if st.is_empty() and active.size() >= max_active:
 			continue
-		var e := {"plate": p, "bell": bell_for(p), "order": -1, "missing": [], "stale": false}
+		var e := {"plate": p, "bell": bell_for(p), "order": -1, "missing": [], "stale": false, "untidy": false}
+		# The most urgent order the stack still fits tidily; else the most urgent it fits at all (untidy).
+		var messy := -1
+		var messy_rem: Variant = null
 		for oi in open:
 			if used.has(oi) or not feasible(int(world.orders.orders[oi]["r"])):
 				continue
-			var rem: Variant = minus(GameData.RECIPES[int(world.orders.orders[oi]["r"])]["items"], st)
+			var items: Array = GameData.RECIPES[int(world.orders.orders[oi]["r"])]["items"]
+			var rem: Variant = minus(items, st)
 			if rem == null:
 				continue
-			used[oi] = true
+			if not Plate.tidy(st, items):
+				if messy < 0:
+					messy = oi
+					messy_rem = rem
+				continue
 			e["order"] = oi
 			e["missing"] = rem
 			break
+		if int(e["order"]) < 0 and messy >= 0:
+			e["order"] = messy
+			e["missing"] = messy_rem
+			e["untidy"] = true
+		if int(e["order"]) >= 0:
+			used[int(e["order"])] = true
 		if int(e["order"]) < 0:
 			if st.is_empty():
 				continue
@@ -387,16 +404,20 @@ func _bell_job() -> Dictionary:
 		if p.stack.is_empty() or e["bell"] == null:
 			_stale_since.erase(key)
 			continue
-		if bool(e["stale"]):
+		# A stack no order wants, or an unfinished one in the wrong order: scrape it and start again (a
+		# finished untidy dish is still served, at Tuning.MESSY_PAY). 3 s grace: a teammate may fix it.
+		var bad := bool(e["stale"]) or (bool(e["untidy"]) and not (e["missing"] as Array).is_empty())
+		if bad:
 			if not _stale_since.has(key):
 				_stale_since[key] = now
 			if now - int(_stale_since[key]) < 3000:
 				continue
-		else:
-			_stale_since.erase(key)
-			if not (e["missing"] as Array).is_empty():
-				continue
-		return {"type": "bell", "bell": e["bell"], "plate": p, "stack": p.stack.duplicate(), "pri": PRI["bell"], "why": "stale" if bool(e["stale"]) else "serve"}
+			return {"type": "scrape", "plate": p, "stack": p.stack.duplicate(), "pri": PRI["bell"],
+				"why": "stale" if bool(e["stale"]) else "untidy"}
+		_stale_since.erase(key)
+		if not (e["missing"] as Array).is_empty():
+			continue
+		return {"type": "bell", "bell": e["bell"], "plate": p, "stack": p.stack.duplicate(), "pri": PRI["bell"], "why": "serve"}
 	return {}
 
 
@@ -416,7 +437,8 @@ func _help_job(me: Chef) -> Dictionary:
 
 ## The next step towards one more kind k (see header); {} when it only needs waiting (or is impossible).
 func unit_job(me: Chef, k: String) -> Dictionary:
-	# 1. The finished kind lying loose (finished food on its cook station first).
+	# 1. The finished kind lying loose (finished food on its cook station first). One that may not go on
+	#    its plate yet (stack order) waits where it lies: it is this unit, so nothing new is started.
 	var best: Item = null
 	var bd := INF
 	for it in world.items.values():
@@ -432,7 +454,11 @@ func unit_job(me: Chef, k: String) -> Dictionary:
 			bd = d
 			best = it
 	if best != null:
-		return _fetch(best, plate_dest(k), "fetch", "unit", k)
+		var dest := plate_dest(k)
+		var ts := GameData.transform_station(k)
+		if bool(dest.get("stage", false)) and not (ts != "" and on_station(best, station(ts))):
+			return {}   # waits where it lies until the stack is ready for it (food on the griddle is still taken off)
+		return _fetch(best, dest, "fetch", "unit", k)
 	# 2. Walk the route backwards.
 	var r := route(k)
 	for i in range(r.size() - 1, 0, -1):
@@ -542,15 +568,62 @@ func dest_for(it: Item) -> Dictionary:
 	return {}
 
 
+## Where kind k goes: the plate missing it; a spot beside that plate ("stage": true) while k may not go on
+## yet because the stack must stay tidy (base first, bun top last: Plate.tidy).
 func plate_dest(k: String) -> Dictionary:
 	var p: Plate = null
+	var pe: Dictionary = {}
 	for e in active:
 		if (e["missing"] as Array).has(k):
 			p = e["plate"]
+			pe = e
 			break
 	if p == null:
 		p = active[0]["plate"] if not active.is_empty() else world.plate
+	if not pe.is_empty() and not allowed_now(pe, k):
+		return stage_dest(p, k)
 	return {"pos": p.global_position, "r": maxf(0.8, p.half.x - 1.2), "station": p}
+
+
+## True when kind k may go on active entry e's plate now and keep the stack tidy for its order.
+func allowed_now(e: Dictionary, k: String) -> bool:
+	if int(e["order"]) < 0:
+		return true
+	var items: Array = GameData.RECIPES[int(world.orders.orders[int(e["order"])]["r"])]["items"]
+	var st: Array = (e["plate"] as Plate).stack.duplicate()
+	st.append(k)
+	return Plate.tidy(st, items)
+
+
+## A spot on the counter beside plate p for food of kind k to wait at (off the plate, off every station,
+## clear of other loose food where possible).
+func stage_dest(p: Plate, k: String) -> Dictionary:
+	var sz: Vector3 = GameData.ITEMS[k]["size"]
+	var rad := maxf(sz.x, sz.z) * 0.5
+	var dist := maxf(p.half.x, p.half.y) + rad + 0.8
+	var best := p.global_position + Vector3(0, 0, -dist)
+	var bs := -INF
+	for i in 8:
+		var a := TAU * float(i) / 8.0
+		var c := p.global_position + Vector3(sin(a), 0, -cos(a)) * dist
+		if _nav != null and (not _nav.inside(c, rad + 0.3) or _nav.blocked(c, rad + 0.3)):
+			continue
+		var clear := true
+		for s in world.stations:
+			if s.contains_xz(c, rad + 0.4):
+				clear = false
+				break
+		if not clear:
+			continue
+		var score := 20.0 - float(i) * 0.01   # behind the plate first, then round
+		for o in world.items.values():
+			if o.removed or o.carrier_count > 0 or o.kind == k:
+				continue
+			score = minf(score, _flat(o.global_position - c).length() - o.radius() - rad)
+		if score > bs:
+			bs = score
+			best = c
+	return {"pos": best, "r": 0.7, "stage": true}
 
 
 ## A free spot on station s for item it: a 3 x 2 grid inset by the item's radius, the one farthest from
@@ -588,7 +661,8 @@ func board_has(k: String) -> bool:
 
 
 ## A spot beside station s to stand at (within reach of it), on the counter, clear of solid things; with
-## working, also out of reach of every dispenser (holding work there would dispense too). Nearest to me.
+## working, also out of reach of every dispenser and bell (holding work there would dispense / count as
+## the bell, not scrape a plate). Nearest to me.
 func work_spot(s: Station, me: Chef, working: bool) -> Vector3:
 	var nav = _nav
 	var best := s.global_position + Vector3(0, 0, s.half.y + 0.7)
@@ -609,6 +683,10 @@ func work_spot(s: Station, me: Chef, working: bool) -> Vector3:
 			var near_disp := false
 			for d in world.dispensers:
 				if d.footprint_distance(p) <= Tuning.REACH + 0.3:
+					near_disp = true
+					break
+			for b in world.bells:
+				if b.footprint_distance(p) <= Tuning.REACH + 0.3:
 					near_disp = true
 					break
 			if near_disp:
@@ -642,6 +720,8 @@ func summary() -> String:
 		var p: Plate = e["plate"]
 		var o := int(e["order"])
 		var rid := "stale" if bool(e["stale"]) else str(GameData.RECIPES[int(world.orders.orders[o]["r"])]["id"])
+		if bool(e.get("untidy", false)):
+			rid += "(untidy)"
 		parts.append("%s:%s stack %s missing %s" % [p.def.get("label", "plate"), rid, str(p.stack), str(e["missing"])])
 	var ords: Array = []
 	for o in world.orders.orders:
