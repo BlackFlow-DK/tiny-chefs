@@ -89,6 +89,8 @@ func _ready() -> void:
 	_hint_sys = HintSystem.new(self)
 	_input_sys = InputSystem.new(self)
 	_hazard_sys = HazardSystem.new(self)   # map hazards (world.map.hazards)
+	if not Net.has_arg("no-vfx"):
+		add_child(Vfx.new(self))   # pooled effects, observes state only (world/vfx/vfx.gd)
 	Net.players_changed.connect(_on_players_changed)
 	Net.phase_changed.connect(_on_phase_changed)
 	Net.event_received.connect(_on_event)
