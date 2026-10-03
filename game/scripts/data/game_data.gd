@@ -283,7 +283,7 @@ const UPGRADES := [
 	{"id": "big_griddle", "name": "Big Griddle", "category": "cooking", "desc": "Griddle cooks {value} more at once.", "icon": "", "emblem": "hot_griddle", "unit": "int",
 		"levels": [{"price": 150, "value": 1}, {"price": 240, "value": 1}]},   # slots + v (capped by what fits)
 	{"id": "big_fryer", "name": "Big Fryer", "category": "cooking", "desc": "Fryer fries {value} more at once.", "icon": "", "emblem": "hot_griddle", "unit": "int",
-		"levels": [{"price": 150, "value": 1}, {"price": 240, "value": 1}]},   # slots + v (capped by what fits)
+		"levels": [{"price": 150, "value": 1}]},   # slots + v; one level: a 7x6 fryer fits 4 baskets
 	# Prep
 	{"id": "sharp_knife", "name": "Sharp Knife", "category": "prep", "desc": "Chopping is {value} faster.", "icon": "knife", "unit": "pct",
 		"levels": [{"price": 60, "value": 0.25}, {"price": 100, "value": 0.25}, {"price": 160, "value": 0.25}, {"price": 250, "value": 0.25}]},   # chop rate x (1 + v)

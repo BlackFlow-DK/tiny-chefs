@@ -33,7 +33,7 @@ Owned state is `id -> level` (0 = not owned), replicated like today's upgrade li
 `shift.upgrade_value(id, default)`. `--upgrades=id:level,...` for tests (bare id = max level).
 Categories and lines (values are per level, cumulative effect shown; balance agent sets prices):
 - Cooking: hot_griddle I-V (+15% cook and fry speed each), oven_mitts I-III (+25% burn window each),
-  big_griddle I-II (+1 griddle slot each), big_fryer I-II (+1 fryer slot each).
+  big_griddle I-II (+1 griddle slot each), big_fryer I (+1 fryer slot; a 7x6 fryer fits 4).
 - Prep: sharp_knife I-IV (+25% chop speed each), quick_hands I-III (dispensers and soda 20% faster each).
 - Movement: shoes I-IV (+7% move and carry speed each), protein_shake I-III (each level counts as +0.34 of a
   carrier for heavy food), tongs I-II (+25% grab reach each).

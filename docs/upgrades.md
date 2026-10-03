@@ -37,7 +37,7 @@ disagree, the code wins. Prices are placeholders (balance agent sets them; first
 | hot_griddle | Hot Griddle | cooking | 5 | +15% | +15 / 30 / 45 / 60 / 75% cook + fry speed | `Griddle.cook_speed()` = 1 + v (cook stage time / it) |
 | oven_mitts | Oven Mitts | cooking | 3 | +25% | +25 / 50 / 75% burn window | `Griddle.burn_scale()` x (1 + v), griddle + fryer |
 | big_griddle | Big Griddle | cooking | 2 | +1 | 5 / 6 griddle slots | `Griddle.slots()` = GRIDDLE_SLOTS + v, capped by `slot_fit()` |
-| big_fryer | Big Fryer | cooking | 2 | +1 | 4 / 5 fryer slots (capped at 4 on 7x6 fryers) | `Fryer.slots()` = FRYER_SLOTS + v, capped by `slot_fit()` |
+| big_fryer | Big Fryer | cooking | 1 | +1 | 4 fryer slots (a 7x6 fryer fits 4) | `Fryer.slots()` = FRYER_SLOTS + v, capped by `slot_fit()` |
 | sharp_knife | Sharp Knife | prep | 4 | +25% | +25 / 50 / 75 / 100% chop speed | `CuttingBoard.chop_mult()` = 1 + v |
 | quick_hands | Quick Hands | prep | 3 | +20% | +20 / 40 / 60% dispense + soda speed | `Dispenser.hold_time()` / (1 + v) (SodaFountain too) |
 | shoes | Running Shoes | movement | 4 | +7% | +7 / 14 / 21 / 28% move + carry speed | `World.move_mult()` = 1 + v |
@@ -45,7 +45,7 @@ disagree, the code wins. Prices are placeholders (balance agent sets them; first
 | tongs | Long Tongs | movement | 2 | +25% | +25 / 50% grab reach | `CarrySystem.grab_reach()` x (1 + v) |
 | second_plate | Second Plate | service | 1 | - | opens the second plate + bell | `Station.is_locked()` |
 | friendly_service | Friendly Service | service | 4 | +10% | +10 / 20 / 30 / 40% order patience | `OrderManager.patience_mult` = 1 + v (regular + VIP orders) |
-| tip_jar | Tip Jar | service | 4 | +8% | +8 / 16 / 24 / 32% pay | `OrderManager.pay_for(o, shift)` x (1 + v) |
+| tip_jar | Tip Jar | service | 4 | +8% | +8 / 16 / 24 / 32% pay | `OrderManager.pay_for(o, shift, combo, tidy)`: x MESSY_PAY if untidy, then x (1 + v) x combo, then x VIP |
 | insurance | Insurance | service | 3 | 25% | -25 / 50 / 75% expiry penalty | `OrderManager.expire_penalty(o, shift)` x (1 - v) |
 | combo_bell | Combo Bell | service | 3 | +5% | +5 / 10 / 15% pay per streak step (max 5 steps) | `PlateSystem.combo_mult(shift, streak)`; streak = serves each within `Tuning.COMBO_WINDOW` (20 s) of the last; toast "Combo xN!" |
 | gloves | Boxing Gloves | chaos | 1 | - | unlocks punching | `PunchSystem` gate |
@@ -61,4 +61,3 @@ disagree, the code wins. Prices are placeholders (balance agent sets them; first
   for second_plate on maps without one. Card state key is "<st>:<level>" so every bought level refreshes it.
 - Emblems: ShopIcon draws `emblem` (default the id) when `icon` is "" or missing; only shoes, second_plate,
   oven_mitts, hot_griddle, tongs have real emblems, the rest show the generic coin.
-- big_fryer level II has no effect on today's 7x6 fryers (4 slots fit); drop the level or enlarge the fryer.

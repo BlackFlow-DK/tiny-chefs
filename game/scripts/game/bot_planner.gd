@@ -234,8 +234,7 @@ func _find_deadline(me: Chef) -> void:
 			continue
 		var key := key_of("fryer" if s == world.fryer else "griddle")
 		var burn := (Tuning.FRY_BURN_TIME if s == world.fryer else Tuning.BURN_TIME) * float(world.shift.def.get("burn_scale", 1.0))
-		if world.shift.has_upgrade("oven_mitts"):
-			burn *= 1.5
+		burn *= 1.0 + world.shift.upgrade_value("oven_mitts", 0.0)   # same window as Griddle.burn_scale()
 		for it in world.items.values():
 			if it.removed or it.carrier_count > 0 or not on_station(it, s) or not it.def.has(key) or is_done_stage(it.kind):
 				continue
