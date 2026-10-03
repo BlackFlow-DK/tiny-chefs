@@ -78,12 +78,9 @@ const PAW_ITEM_UP := 11.0
 const PAW_SHOVE_EXTRA := 1.5       # m past the lane edge a chef is shoved to
 const PAW_EDGE_MARGIN := 1.0       # m a shoved chef always stays inside the counter edge
 
-# Upgrades
-const SHOES_MULT := 1.2
-const KNIFE_MULT := 2.0
-const OVEN_MITTS_MULT := 1.5       # burn window (griddle + fryer) x this, on top of the ShiftDef burn_scale
-const HOT_GRIDDLE_MULT := 1.3      # griddle + fryer cook stage runs this much faster
-const TONGS_REACH_MULT := 1.5      # grab reach (Tuning.REACH) x this
+# Upgrades (per-level values live in GameData.UPGRADES; docs/upgrades.md)
+const COMBO_WINDOW := 20.0         # s: a serve this soon after the previous one extends the combo_bell streak
+const COMBO_MAX_STEPS := 5         # streak steps that pay (step = serves in the streak - 1)
 const PING_TIME := 3.0             # s a ping marker stays
 const PING_COOLDOWN := 1.0         # s between pings of one player
 const PUNCH_COOLDOWN := 0.6

@@ -8,16 +8,29 @@ extends RefCounted
 
 var world: World
 var _total_served := 0
+var _streak := 0          # combo_bell: serves in the current streak (each within COMBO_WINDOW of the last)
+var _since_serve := INF   # s since the last good serve this shift
 
 
 func _init(w: World) -> void:
 	world = w
 
 
+## Combo bell pay multiplier for the streak-th serve in a row: 1 + value x min(streak - 1, COMBO_MAX_STEPS).
+static func combo_mult(shift: ShiftManager, streak: int) -> float:
+	var steps := clampi(streak - 1, 0, Tuning.COMBO_MAX_STEPS)
+	return 1.0 + shift.upgrade_value("combo_bell", 0.0) * float(steps)
+
+
 ## Every tick, before the stations: refused/punched food may land on the plate again once this runs out.
 func tick(dt: float) -> void:
 	for it in world.items.values():
 		it.refuse_cooldown = maxf(0.0, it.refuse_cooldown - dt)
+	if world.shift.running:
+		_since_serve += dt
+	else:
+		_streak = 0
+		_since_serve = INF
 
 
 ## A fresh work press: next to a bell with empty hands, serve that bell's plate.
@@ -80,7 +93,10 @@ func _serve(c: Chef, b: Bell) -> void:
 	if idx >= 0:
 		var o: Dictionary = orders.orders[idx]
 		var r: Dictionary = GameData.RECIPES[int(o["r"])]
-		var pay := OrderManager.pay_for(o)   # x VIP_PAY_MULT for a VIP order
+		_streak = _streak + 1 if _since_serve <= Tuning.COMBO_WINDOW else 1
+		_since_serve = 0.0
+		var combo := combo_mult(shift, _streak)
+		var pay := OrderManager.pay_for(o, shift, combo)   # x VIP_PAY_MULT for a VIP order, x tip_jar, x combo
 		shift.add_coins(pay)
 		shift.served += 1
 		world.stats.on_serve(c, pay, plate)
@@ -91,6 +107,11 @@ func _serve(c: Chef, b: Bell) -> void:
 		(Net.metrics["served_recipes"] as Array).append(r["name"])
 		print("content: served %s %s +%d" % [r["id"], str(plate.stack), pay])
 		Net.event("%s served! +%d" % [r["name"], pay], "serve")
+		if combo > 1.0:
+			print("upgrades: combo x%d pays x%.2f (+%d coins of %d)" % [_streak, combo, pay - OrderManager.pay_for(o, shift), pay])
+			Net.event("Combo x%d! +%d%%" % [_streak, int(round((combo - 1.0) * 100.0))], "combo")
+		elif shift.has_upgrade("tip_jar"):
+			print("upgrades: tip_jar pay %d (without %d)" % [pay, OrderManager.pay_for(o)])
 		world.order_served(o, pay)
 	else:
 		shift.add_coins(-Tuning.WRONG_SERVE_PENALTY)

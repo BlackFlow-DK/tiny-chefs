@@ -41,7 +41,7 @@ func build() -> void:
 	add_child(_ghost)
 
 
-func hold_time() -> float:
+func base_hold() -> float:
 	return Tuning.SODA_HOLD
 
 

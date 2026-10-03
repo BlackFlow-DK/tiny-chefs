@@ -11,7 +11,7 @@ var coins := 0            # team wallet, persists for the run
 var earned := 0           # this shift: payments minus penalties
 var served := 0
 var failed := 0
-var upgrades: Array = []  # upgrade ids owned
+var upgrades: Dictionary = {}  # upgrade id -> owned level (> 0; only owned ids), replicated as is
 var objectives: Array = []  # campaign: [type, recipe, n, have, state] per objective (ObjectiveSystem)
 
 
@@ -36,8 +36,50 @@ func add_coins(n: int) -> void:
 	coins = maxi(0, coins + n)
 
 
+## Owned level of an upgrade line (0 = not owned). Old ids work (GameData.UPGRADE_ALIASES).
+func upgrade_level(id: String) -> int:
+	return int(upgrades.get(GameData.upgrade_id(id), 0))
+
+
+## Cumulative effect at the owned level (GameData.upgrade_total), or `fallback` when not owned.
+func upgrade_value(id: String, fallback := 0.0) -> float:
+	var lv := upgrade_level(id)
+	return GameData.upgrade_total(id, lv) if lv > 0 else fallback
+
+
 func has_upgrade(id: String) -> bool:
-	return upgrades.has(id)
+	return upgrade_level(id) > 0
+
+
+## True when the line's "requires" (another line at some level) is owned.
+func requires_met(id: String) -> bool:
+	var r := GameData.upgrade_requires(id)
+	return r.is_empty() or upgrade_level(str(r[0])) >= int(r[1])
+
+
+## Price of the next level, or -1 at the max.
+func next_price(id: String) -> int:
+	return GameData.upgrade_price(id, upgrade_level(id) + 1)
+
+
+## Host: set a line's level (clamped to 0..max; 0 removes it).
+func set_upgrade_level(id: String, level: int) -> void:
+	var cid := GameData.upgrade_id(id)
+	var lv := clampi(level, 0, GameData.upgrade_max_level(cid))
+	if lv <= 0:
+		upgrades.erase(cid)
+	else:
+		upgrades[cid] = lv
+
+
+## "hot_griddle:5,shoes:2" (sorted; "" when nothing is owned).
+func upgrades_text() -> String:
+	var keys := upgrades.keys()
+	keys.sort()
+	var parts := PackedStringArray()
+	for k in keys:
+		parts.append("%s:%d" % [k, int(upgrades[k])])
+	return ",".join(parts)
 
 
 func target() -> int:
@@ -66,7 +108,7 @@ func from_meta(a: Array) -> void:
 	earned = a[4]
 	served = a[6]
 	failed = a[7]
-	upgrades = a[8]
+	upgrades = a[8] if a[8] is Dictionary else {}
 	running = a[9]
 	next_index = a[10]
 	objectives = a[11] if a.size() > 11 else []

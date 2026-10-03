@@ -15,11 +15,24 @@ func _init(w: World) -> void:
 	world = w
 
 
-## --upgrades=gloves,knife,shoes (testing).
+## Testing: --upgrades=id:level,... (bare id = max level; old ids like knife work; clamped to 1..max) and
+## --coins=<n> (start wallet, e.g. for shop screenshots). --upgrade-table prints every line's effect.
 func apply_test_upgrades() -> void:
-	for u in Net.arg_str("upgrades", "").split(",", false):
-		if not GameData.upgrade(u).is_empty() and not world.shift.has_upgrade(u):
-			world.shift.upgrades.append(u)
+	for spec in Net.arg_str("upgrades", "").split(",", false):
+		var f := spec.strip_edges().split(":")
+		var id := GameData.upgrade_id(f[0])
+		if GameData.upgrade(id).is_empty():
+			push_warning("--upgrades: unknown upgrade '%s'" % f[0])
+			continue
+		var mx := GameData.upgrade_max_level(id)
+		var lv := clampi(int(f[1]), 1, mx) if f.size() > 1 else mx
+		world.shift.set_upgrade_level(id, maxi(lv, world.shift.upgrade_level(id)))
+	if Net.has_arg("coins") and int(Net.metrics["coins_start"]) < 0:   # once per run (not on a map rebuild)
+		world.shift.coins = Net.arg_int("coins", 0)
+	for c in world.chefs.values():
+		c.set_gloves(world.shift.has_upgrade("gloves"))
+	if Net.has_arg("upgrade-table"):
+		_print_table()
 
 
 func start_shift() -> void:
@@ -48,6 +61,7 @@ func start_shift() -> void:
 	if not only.is_empty():
 		shift.def["recipes"] = only
 	world.orders.reset()
+	world.orders.patience_mult = OrderManager.patience_mult_for(shift)
 	_last_order_count = 0
 	if int(Net.metrics["coins_start"]) < 0:
 		Net.metrics["coins_start"] = shift.coins
@@ -62,7 +76,9 @@ func tick(dt: float, playing: bool) -> void:
 	if playing and shift.running:
 		shift.time_left -= dt
 		for o in orders.update(dt, shift.def):
-			var pen := OrderManager.expire_penalty(o)   # VIPs cost double
+			var pen := OrderManager.expire_penalty(o, shift)   # VIPs cost double, insurance less
+			if shift.has_upgrade("insurance"):
+				print("upgrades: insurance expiry penalty %d (without %d)" % [pen, OrderManager.expire_penalty(o)])
 			shift.add_coins(-pen)
 			shift.failed += 1
 			Net.event("%s%s order expired! -%d" % ["VIP " if o.get("vip", false) else "", GameData.RECIPES[int(o["r"])]["name"], pen], "fail")
@@ -117,36 +133,138 @@ func _save_best(shift: ShiftManager) -> bool:
 	return fresh and earned > 0
 
 
-## Host: what the owned timer/reach upgrades change this shift (evidence for tests and balance runs).
+## Host, every shift start: every upgrade hook's value in force (no upgrades = the base numbers), so runs
+## with and without upgrades compare line by line.
 func _log_upgrades() -> void:
-	var u := world.shift.upgrades
-	if u.is_empty():
-		return
-	var burn := Tuning.BURN_TIME * world.griddle.burn_scale()
-	var cook := Tuning.COOK_TIME / world.griddle.cook_speed()
-	print("upgrades: %s | griddle cook %.2fs burn %.2fs (base %.1f/%.1f, burn_scale %.2f) | grab reach %.2fm (base %.2f) | plates open %d/%d" % [
-		",".join(u), cook, burn, Tuning.COOK_TIME, Tuning.BURN_TIME, float(world.shift.def.get("burn_scale", 1.0)),
-		world.grab_reach(), Tuning.REACH, world.plates.filter(func(p: Plate) -> bool: return not p.is_locked()).size(), world.plates.size()])
+	print("upgrades: owned [%s] | %s" % [world.shift.upgrades_text(), _effects()])
 
 
-func try_buy(id: String) -> void:
+## One line of every hook's current effect (reads the real hooks).
+func _effects() -> String:
+	var shift := world.shift
+	var g := world.griddle
+	var fr := world.fryer
+	var disp: Dispenser = null
+	for d in world.dispensers:
+		if not d is SodaFountain:
+			disp = d
+			break
+	var soda: Dispenser = world.soda
+	var o := {"r": 0, "left": 1.0, "patience": 1.0}
+	return ("griddle cook %.2fs burn %.2fs slots %d | fryer %s | chop %.2fs | dispense %s soda %s | move %.2f m/s | " +
+		"patty solo %.2f duo %.2f m/s | reach %.2fm | patience x%.2f | pay %d (combo x5 %d) | expiry -%d | punch x%.2f | plates open %d/%d") % [
+		Tuning.COOK_TIME / g.cook_speed(), Tuning.BURN_TIME * g.burn_scale(), g.slots(),
+		"none" if fr == null else "fry %.2fs burn %.2fs slots %d" % [Tuning.FRY_TIME / fr.cook_speed(), Tuning.FRY_BURN_TIME * fr.burn_scale(), fr.slots()],
+		Tuning.CHOP_TIME / world.board.chop_mult(),
+		"none" if disp == null else "%.3fs" % disp.hold_time(), "none" if soda == null else "%.3fs" % soda.hold_time(),
+		Tuning.PLAYER_SPEED * world.move_mult(),
+		Tuning.PLAYER_SPEED * world.move_mult() * CarrySystem.speed_factor(1, 3, shift),
+		Tuning.PLAYER_SPEED * world.move_mult() * CarrySystem.speed_factor(2, 3, shift),
+		world.grab_reach(), OrderManager.patience_mult_for(shift),
+		OrderManager.pay_for(o, shift), OrderManager.pay_for(o, shift, PlateSystem.combo_mult(shift, 5)),
+		OrderManager.expire_penalty(o, shift), PunchSystem.launch_mult(shift),
+		world.plates.filter(func(p: Plate) -> bool: return not p.is_locked()).size(), world.plates.size()]
+
+
+## --upgrade-table: for every line, the hooks' effect line at level 1 and at max (requires owned too),
+## then the owned levels are restored. Evidence for docs/upgrades.md.
+func _print_table() -> void:
+	var shift := world.shift
+	var saved := shift.upgrades.duplicate()
+	for id in GameData.upgrade_ids():
+		var parts := PackedStringArray()
+		for lv in [1, GameData.upgrade_max_level(id)]:
+			shift.upgrades = {}
+			var req := GameData.upgrade_requires(id)
+			if not req.is_empty():
+				shift.set_upgrade_level(str(req[0]), int(req[1]))
+			shift.set_upgrade_level(id, lv)
+			parts.append("L%d (%s): %s" % [lv, GameData.upgrade_value_text(id, lv), _effect_of(id)])
+		print("upgrades: table %s | %s" % [id, " || ".join(parts)])
+	shift.upgrades = saved
+
+
+## The hook value one line changes (read through the real hook).
+func _effect_of(id: String) -> String:
+	var shift := world.shift
+	var g := world.griddle
+	var o := {"r": 0, "left": 1.0, "patience": 1.0}
+	match id:
+		"hot_griddle":
+			return "griddle cook %.2fs, fryer %s" % [Tuning.COOK_TIME / g.cook_speed(),
+				"-" if world.fryer == null else "%.2fs" % (Tuning.FRY_TIME / world.fryer.cook_speed())]
+		"oven_mitts":
+			return "griddle burn %.2fs" % (Tuning.BURN_TIME * g.burn_scale())
+		"big_griddle":
+			return "griddle slots %d (base %d, fit %d)" % [g.slots(), g.base_slots(), g.slot_fit()]
+		"big_fryer":
+			if world.fryer == null:
+				return "no fryer on this map"
+			return "fryer slots %d (base %d, fit %d)" % [world.fryer.slots(), world.fryer.base_slots(), world.fryer.slot_fit()]
+		"sharp_knife":
+			return "chop %.2fs" % (Tuning.CHOP_TIME / world.board.chop_mult())
+		"quick_hands":
+			var s := PackedStringArray()
+			for d in world.dispensers:
+				if not d is SodaFountain and s.size() < 2:
+					s.append("%s %.3fs" % [d.def["label"], d.hold_time()])
+			if world.soda != null:
+				s.append("soda %.3fs" % world.soda.hold_time())
+			return ", ".join(s)
+		"shoes":
+			return "move %.2f m/s, patty solo %.2f m/s" % [Tuning.PLAYER_SPEED * world.move_mult(),
+				Tuning.PLAYER_SPEED * world.move_mult() * CarrySystem.speed_factor(1, 3, shift)]
+		"protein_shake":
+			return "patty (w3) solo %.2f duo %.2f m/s, bun (w1) %.2f m/s" % [Tuning.PLAYER_SPEED * CarrySystem.speed_factor(1, 3, shift),
+				Tuning.PLAYER_SPEED * CarrySystem.speed_factor(2, 3, shift), Tuning.PLAYER_SPEED * CarrySystem.speed_factor(1, 1, shift)]
+		"tongs":
+			return "reach %.2fm" % world.grab_reach()
+		"second_plate", "gloves":
+			return "plates open %d/%d, punch %s" % [world.plates.filter(func(p: Plate) -> bool: return not p.is_locked()).size(),
+				world.plates.size(), "on" if shift.has_upgrade("gloves") else "off"]
+		"friendly_service":
+			return "patience x%.2f" % OrderManager.patience_mult_for(shift)
+		"tip_jar":
+			return "cheeseburger pay %d (base %d)" % [OrderManager.pay_for(o, shift), OrderManager.pay_for(o)]
+		"insurance":
+			return "expiry penalty %d (base %d)" % [OrderManager.expire_penalty(o, shift), OrderManager.expire_penalty(o)]
+		"combo_bell":
+			return "pay x%.2f at step 1, x%.2f at step 5" % [PlateSystem.combo_mult(shift, 2), PlateSystem.combo_mult(shift, 6)]
+		"heavy_gloves":
+			return "punch launch x%.2f (food %.1f m/s)" % [PunchSystem.launch_mult(shift), Tuning.PUNCH_ITEM_SPEED * PunchSystem.launch_mult(shift)]
+	return "?"
+
+
+## Host: buy the NEXT level of a line (old ids work). Refused at max, when `requires` is not owned, when the
+## station it opens is not on the next map, or when the wallet is short.
+func try_buy(raw_id: String) -> void:
 	var shift := world.shift
 	if Net.phase != Net.Phase.SHOP and Net.phase != Net.Phase.RESULTS:
 		return
 	if ModifierSystem.skip_shop():
 		return
+	var id := GameData.upgrade_id(raw_id)
 	var u := GameData.upgrade(id)
-	if u.is_empty() or shift.has_upgrade(id):
+	if u.is_empty():
+		return
+	var lv := shift.upgrade_level(id) + 1
+	var price := GameData.upgrade_price(id, lv)
+	if price < 0:
+		return   # already at max
+	if not shift.requires_met(id):
+		var req := GameData.upgrade_requires(id)
+		Net.event("%s needs %s first." % [u["name"], GameData.upgrade_title(str(req[0]), int(req[1]))], "buzz")
 		return
 	if not upgrade_available(id, shift.next_index):
 		Net.event("%s: not available on this kitchen." % u["name"], "buzz")
 		return
-	if shift.coins < int(u["price"]):
-		Net.event("Not enough coins for %s." % u["name"], "buzz")
+	if shift.coins < price:
+		Net.event("Not enough coins for %s." % GameData.upgrade_title(id, lv), "buzz")
 		return
-	shift.coins -= int(u["price"])
-	shift.upgrades.append(id)
-	Net.event("Bought %s!" % u["name"], "buy")
+	shift.coins -= price
+	shift.set_upgrade_level(id, lv)
+	print("upgrades: bought %s level %d for %d (wallet %d) -> owned [%s]" % [id, lv, price, shift.coins, shift.upgrades_text()])
+	Net.event("Bought %s!" % GameData.upgrade_title(id, lv), "buy")
 	if id == "gloves":
 		for c in world.chefs.values():
 			c.set_gloves(true)
