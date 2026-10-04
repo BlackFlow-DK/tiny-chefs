@@ -6,8 +6,20 @@ extends Control
 var kind := "star"
 var arg := ""
 var filled := false  # star: earned
-var _pic_tex: Texture2D = null   # map: the card picture, if the map has one (see map_image)
-var _pic: TextureRect = null
+## Map pictures (res://assets/ui/maps/<map_id>_<n>.webp|jpg|png, n = 1..): they crossfade every
+## `cycle_every` s (0.6 s fade); `cycle_phase` s delays the first switch so cards do not change together.
+## A map without pictures draws the old flat shapes. Paused while the icon is not visible.
+const PIC_DIR := "res://assets/ui/maps/"
+const PIC_EXT := ["webp", "jpg", "png"]
+const PIC_ASPECT := 2.0       # pictures are 2:1; the icon's height follows its width
+const FADE := 0.6
+var cycle_every := 10.0
+var cycle_phase := 0.0
+var _frames: Array[Texture2D] = []
+var _shown := 0
+var _clock := 0.0
+var _front: TextureRect = null
+var _back: TextureRect = null
 
 
 func _init(k := "star", px := Vector2(40, 40), a := "") -> void:
@@ -17,9 +29,10 @@ func _init(k := "star", px := Vector2(40, 40), a := "") -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	if kind == "map":
-		_pic_tex = map_image(arg)
-		if _pic_tex != null:
-			_make_picture()
+		_frames = map_images(arg)
+		if not _frames.is_empty():
+			_make_pictures()
+			_clock = -cycle_phase
 
 
 func set_filled(on: bool) -> void:
@@ -106,39 +119,38 @@ func _lock() -> void:
 
 
 # ---- map preview: the real surfaces from the map data on a themed backdrop
-## Map card picture: res://assets/ui/maps/<id>.png if it exists (--map-thumbs=<name> loads <id>_<name>.png
-## instead, for comparing candidates), else null and the drawn shapes below are used.
-static func map_image(map_id: String) -> Texture2D:
-	var sfx := Net.arg_str("map-thumbs", "")
-	var path := "res://assets/ui/maps/%s%s.png" % [map_id, "_" + sfx if sfx != "" else ""]
-	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+## Every numbered picture the map has, in order (empty: the map draws the flat shapes).
+static func map_images(map_id: String) -> Array[Texture2D]:
+	var out: Array[Texture2D] = []
+	for n in range(1, 9):
+		var tex: Texture2D = null
+		for ext in PIC_EXT:
+			var path := "%s%s_%d.%s" % [PIC_DIR, map_id, n, ext]
+			if ResourceLoader.exists(path):
+				tex = load(path) as Texture2D
+				break
+		if tex == null:
+			break
+		out.append(tex)
+	return out
 
 
-const _ROUND_SHADER := "shader_type canvas_item;
-uniform vec2 box_size;
-uniform float radius = 11.0;
-void fragment() {
-	vec2 q = abs(UV * box_size - box_size * 0.5) - (box_size * 0.5 - vec2(radius));
-	float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
-	COLOR.a *= 1.0 - smoothstep(-0.5, 0.5, d);
-}"
-
-
-## Cover-fit picture with rounded corners (a child TextureRect; _draw adds the ink outline on top).
-func _make_picture() -> void:
-	_pic = TextureRect.new()
-	_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_pic.stretch_mode = TextureRect.STRETCH_SCALE
-	_pic.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	_pic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var sh := Shader.new()
-	sh.code = _ROUND_SHADER
-	var m := ShaderMaterial.new()
-	m.shader = sh
-	_pic.material = m
-	add_child(_pic)
-	var frame := StyleBoxFlat.new()   # ink outline over the picture (a child draws after its parent's _draw)
+## Two stacked TextureRects inside a rounded, clipping panel, and the ink outline over them.
+func _make_pictures() -> void:
+	var clip := Panel.new()
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color.WHITE
+	fill.set_corner_radius_all(10)
+	fill.anti_aliasing = true
+	clip.add_theme_stylebox_override("panel", fill)
+	clip.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(clip)
+	_back = _make_rect(clip)
+	_front = _make_rect(clip)
+	_front.texture = _frames[0]
+	var frame := StyleBoxFlat.new()   # a later child draws over the clipped pictures
 	frame.draw_center = false
 	frame.border_color = UITheme.INK
 	frame.set_border_width_all(3)
@@ -149,25 +161,46 @@ func _make_picture() -> void:
 	outline.add_theme_stylebox_override("panel", frame)
 	outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(outline)
-	resized.connect(_fit_picture)
-	_fit_picture()
+	resized.connect(_on_resized)
+	visibility_changed.connect(func() -> void: set_process(is_visible_in_tree()))
+	set_process(is_visible_in_tree())
 
 
-func _fit_picture() -> void:
-	if size.x < 1.0 or size.y < 1.0:
+func _make_rect(parent: Control) -> TextureRect:
+	var r := TextureRect.new()
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	r.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(r)
+	return r
+
+
+## The height follows the width (the container decides the width).
+func _on_resized() -> void:
+	var h := roundf(size.x / PIC_ASPECT)
+	if absf(custom_minimum_size.y - h) > 0.5 and size.x > 1.0:
+		custom_minimum_size.y = h
+
+
+func _process(delta: float) -> void:
+	if _frames.size() < 2:
 		return
-	var ts := _pic_tex.get_size()
-	var k := maxf(size.x / ts.x, size.y / ts.y)
-	var src_size := size / k
-	var at := AtlasTexture.new()
-	at.atlas = _pic_tex
-	at.region = Rect2((ts - src_size) / 2.0, src_size)
-	_pic.texture = at
-	(_pic.material as ShaderMaterial).set_shader_parameter("box_size", size)
+	_clock += delta
+	if _clock >= cycle_every:
+		_clock = 0.0
+		_shown = (_shown + 1) % _frames.size()
+		_back.texture = _frames[_shown]
+		var tw := create_tween()
+		tw.tween_property(_front, "modulate:a", 0.0, FADE)
+		tw.tween_callback(func() -> void:
+			_front.texture = _frames[_shown]
+			_front.modulate.a = 1.0)
 
 
 func _map() -> void:
-	if _pic != null:
+	if not _frames.is_empty():
 		return
 	var t := _theme_colors(arg)
 	draw_style_box(UITheme.box(t[0], UITheme.INK, 10, 3), Rect2(Vector2.ZERO, size))

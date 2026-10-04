@@ -30,6 +30,7 @@ var _mission_scroll: ScrollContainer
 var _mission_btns: Array = []
 var _mission_detail: Label
 var _map_btns := {}
+var _map_pics := {}   # map id -> LobbyIcon (the selected card cycles its pictures faster)
 var _diff_btns := {}
 var _diff_desc: Label
 var _mod_btns := {}
@@ -192,21 +193,29 @@ func _build_pick(parent: Control) -> void:
 	_sec_pick.add_theme_constant_override("separation", 8)
 	parent.add_child(_sec_pick)
 	_sec_pick.add_child(_h("Map"))
-	var maps := GridContainer.new()   # 3 per row, each card shares the row width so the blurbs wrap in 3-4 lines
-	maps.columns = 3
+	var maps := GridContainer.new()   # 2 per row: big pictures, name and a two-line blurb under each
+	maps.columns = 2
 	maps.add_theme_constant_override("h_separation", 12)
 	maps.add_theme_constant_override("v_separation", 14)
 	_sec_pick.add_child(maps)
 	for id in GameData.map_ids():
 		var info := GameData.map(str(id))
-		var b := LobbyChoice.new(Vector2(0, 236))
+		var b := LobbyChoice.new(Vector2(0, 180))
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 4)
 		var pv := LobbyIcon.new("map", Vector2(0, 84), str(id))
+		pv.cycle_phase = _map_pics.size() * 2.5   # cards switch pictures one after another
 		pv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pv.resized.connect(func() -> void: b.custom_minimum_size.y = pv.custom_minimum_size.y + 96.0)
+		_map_pics[str(id)] = pv
 		v.add_child(pv)
-		v.add_child(_wrap(UIKit.body(str(info.get("name", id)))))
+		var nl := _wrap(UIKit.body(str(info.get("name", id))))
+		nl.add_theme_font_size_override("font_size", 18)
+		v.add_child(nl)
 		var bl := _wrap(UIKit.caption(str(info.get("blurb", ""))))
+		bl.add_theme_font_size_override("font_size", 15)
+		bl.max_lines_visible = 2
+		bl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.track_label(bl, UITheme.INK_SOFT)
 		v.add_child(bl)
 		b.set_body(v, 10)
@@ -413,6 +422,7 @@ func _sync() -> void:
 		(_mission_btns[i] as LobbyChoice).select(i == s.mission)
 	for id in _map_btns:
 		(_map_btns[id] as LobbyChoice).select(id == s.map)
+		(_map_pics[id] as LobbyIcon).cycle_every = 6.0 if id == s.map else 10.0
 	for id in _diff_btns:
 		(_diff_btns[id] as LobbyChoice).select(id == s.difficulty)
 	_diff_desc.text = Difficulty.desc(s.difficulty)

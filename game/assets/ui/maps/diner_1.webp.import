@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ce3kpu3wh8618"
-path="res://.godot/imported/twin_islands_art.png-7c74b24aed8750b326bfd908dfa23d5c.ctex"
+uid="uid://5bh0trxpdrmq"
+path="res://.godot/imported/diner_1.webp-dbaf28e41a6e747b69e67be5428826c7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/maps/twin_islands_art.png"
-dest_files=["res://.godot/imported/twin_islands_art.png-7c74b24aed8750b326bfd908dfa23d5c.ctex"]
+source_file="res://assets/ui/maps/diner_1.webp"
+dest_files=["res://.godot/imported/diner_1.webp-dbaf28e41a6e747b69e67be5428826c7.ctex"]
 
 [params]
 
