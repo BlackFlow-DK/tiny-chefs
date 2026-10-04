@@ -6,6 +6,8 @@ extends Control
 var kind := "star"
 var arg := ""
 var filled := false  # star: earned
+var _pic_tex: Texture2D = null   # map: the card picture, if the map has one (see map_image)
+var _pic: TextureRect = null
 
 
 func _init(k := "star", px := Vector2(40, 40), a := "") -> void:
@@ -14,6 +16,10 @@ func _init(k := "star", px := Vector2(40, 40), a := "") -> void:
 	custom_minimum_size = px
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if kind == "map":
+		_pic_tex = map_image(arg)
+		if _pic_tex != null:
+			_make_picture()
 
 
 func set_filled(on: bool) -> void:
@@ -100,7 +106,69 @@ func _lock() -> void:
 
 
 # ---- map preview: the real surfaces from the map data on a themed backdrop
+## Map card picture: res://assets/ui/maps/<id>.png if it exists (--map-thumbs=<name> loads <id>_<name>.png
+## instead, for comparing candidates), else null and the drawn shapes below are used.
+static func map_image(map_id: String) -> Texture2D:
+	var sfx := Net.arg_str("map-thumbs", "")
+	var path := "res://assets/ui/maps/%s%s.png" % [map_id, "_" + sfx if sfx != "" else ""]
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
+const _ROUND_SHADER := "shader_type canvas_item;
+uniform vec2 box_size;
+uniform float radius = 11.0;
+void fragment() {
+	vec2 q = abs(UV * box_size - box_size * 0.5) - (box_size * 0.5 - vec2(radius));
+	float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+	COLOR.a *= 1.0 - smoothstep(-0.5, 0.5, d);
+}"
+
+
+## Cover-fit picture with rounded corners (a child TextureRect; _draw adds the ink outline on top).
+func _make_picture() -> void:
+	_pic = TextureRect.new()
+	_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_pic.stretch_mode = TextureRect.STRETCH_SCALE
+	_pic.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_pic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var sh := Shader.new()
+	sh.code = _ROUND_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	_pic.material = m
+	add_child(_pic)
+	var frame := StyleBoxFlat.new()   # ink outline over the picture (a child draws after its parent's _draw)
+	frame.draw_center = false
+	frame.border_color = UITheme.INK
+	frame.set_border_width_all(3)
+	frame.set_corner_radius_all(10)
+	frame.anti_aliasing = true
+	var outline := Panel.new()
+	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	outline.add_theme_stylebox_override("panel", frame)
+	outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(outline)
+	resized.connect(_fit_picture)
+	_fit_picture()
+
+
+func _fit_picture() -> void:
+	if size.x < 1.0 or size.y < 1.0:
+		return
+	var ts := _pic_tex.get_size()
+	var k := maxf(size.x / ts.x, size.y / ts.y)
+	var src_size := size / k
+	var at := AtlasTexture.new()
+	at.atlas = _pic_tex
+	at.region = Rect2((ts - src_size) / 2.0, src_size)
+	_pic.texture = at
+	(_pic.material as ShaderMaterial).set_shader_parameter("box_size", size)
+
+
 func _map() -> void:
+	if _pic != null:
+		return
 	var t := _theme_colors(arg)
 	draw_style_box(UITheme.box(t[0], UITheme.INK, 10, 3), Rect2(Vector2.ZERO, size))
 	var surfaces: Array = []
