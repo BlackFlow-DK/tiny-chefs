@@ -1,13 +1,24 @@
 class_name MenuScreen
 extends Control
-## Title screen: living kitchen backdrop, name, Host, Wardrobe (+ token wallet), Join (IP), How to play, Settings,
+## Title screen: living kitchen backdrop, name, Host, Wardrobe (+ token wallet), Join, How to play, Settings,
 ## Quit. Remembers name + IP.
+## "Join a friend's kitchen" turns the card to its join page: the LAN list (LanGameList, searching while the
+## page is open) above the address field + Join button. Back / Esc returns. --join-screen opens it at start.
 
 const CFG_PATH := "user://menu.cfg"
 const JOIN_TIMEOUT := 9.0
 
 var name_edit: LineEdit
 var ip_edit: LineEdit
+var lan_list: LanGameList
+var _main_page: VBoxContainer
+var _join_page: VBoxContainer
+var _qrow: HBoxContainer
+var _find_btn: Button      # main page: opens the join page
+var _back_btn: Button
+var _lan_dots: Control     # small "still searching" dots in the join page header (while rows are listed)
+var _auto_focus := false   # the join page picked the focus itself; a first joinable row may take it over
+var _auto_focus_until := 0  # ... only this soon after opening (msec)
 var status_row: PanelContainer
 var status_dot: Panel
 var status_label: Label
@@ -48,6 +59,16 @@ func _ready() -> void:
 	visibility_changed.connect(_on_visible)
 	_on_visible.call_deferred()
 	_agent_wardrobe.call_deferred()
+	if Net.has_arg("join-screen"):
+		_agent_join_screen()
+
+
+## Agent helper: --join-screen opens the join page (LAN list) once the menu is laid out.
+func _agent_join_screen() -> void:
+	for i in 3:
+		await get_tree().process_frame
+	if Net.phase == Net.Phase.MENU and not _connecting:
+		open_join_page()
 
 
 ## Agent helper: --wardrobe=<tab>[:<id>] opens the Wardrobe on that tab (hat, beard, acc, outfit, back, body,
@@ -90,9 +111,15 @@ func _build_column() -> void:
 
 	var pv := UIKit.card(UITheme.GAP)
 	_card = pv[0]
-	var v: VBoxContainer = pv[1]
+	var cv: VBoxContainer = pv[1]
 	col.add_child(_card)
 	UIKit.pop_in(_card, 0.12, 0.2)
+	_main_page = VBoxContainer.new()
+	cv.add_child(_main_page)
+	_join_page = VBoxContainer.new()
+	_join_page.visible = false
+	cv.add_child(_join_page)
+	var v := _main_page
 
 	var nh := HBoxContainer.new()
 	nh.add_theme_constant_override("separation", UITheme.GAP)
@@ -130,7 +157,35 @@ func _build_column() -> void:
 
 	v.add_child(HSeparator.new())
 
-	v.add_child(UIKit.caption("Join a friend's kitchen"))
+	_find_btn = UIKit.button("Join a friend's kitchen", open_join_page, "secondary")
+	v.add_child(_find_btn)
+
+	# Join page: header (Back + title), the LAN list, then the address field as before.
+	v = _join_page
+	var head := HBoxContainer.new()
+	_back_btn = UIKit.button("Back", close_join_page, "secondary", 88)
+	_back_btn.custom_minimum_size = Vector2(88, 40)
+	_back_btn.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
+	head.add_child(_back_btn)
+	var ht := UIKit.heading("Kitchens on your network")
+	ht.add_theme_font_size_override("font_size", UITheme.S_BODY)
+	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ht.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(ht)
+	_lan_dots = LanGameList.Dots.new(3.5)
+	_lan_dots.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_lan_dots.tooltip_text = "Still looking for more"
+	head.add_child(_lan_dots)
+	v.add_child(head)
+	lan_list = LanGameList.new()
+	lan_list.join_requested.connect(_on_join_lan)
+	lan_list.focus_needed.connect(func() -> void: ip_edit.grab_focus.call_deferred())
+	Net.discovery.games_changed.connect(_on_lan_games, CONNECT_DEFERRED)   # after the list has its rows
+	v.add_child(lan_list)
+	var or_box := VBoxContainer.new()
+	or_box.add_theme_constant_override("separation", 4)
+	or_box.add_child(UIKit.caption("Or type the host's address"))
+	v.add_child(or_box)
 	var jh := HBoxContainer.new()
 	jh.add_theme_constant_override("separation", UITheme.GAP)
 	_join_row = jh
@@ -140,13 +195,17 @@ func _build_column() -> void:
 	ip_edit.custom_minimum_size = Vector2(0, 46)
 	ip_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ip_edit.text_submitted.connect(func(_t: String) -> void: _on_join())
+	ip_edit.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton:
+			_auto_focus = false)   # clicked into the field: it keeps the focus
 	ip_edit.text_changed.connect(func(_t: String) -> void:
+		_auto_focus = false   # typing: a row turning up must not take the focus away
 		if not _connecting:
 			_clear_status())
 	jh.add_child(ip_edit)
 	_join_btn = UIKit.button("Join", _on_join, "secondary", 110)
 	jh.add_child(_join_btn)
-	v.add_child(jh)
+	or_box.add_child(jh)
 
 	# Inline status (join errors, "Connecting...").
 	status_row = PanelContainer.new()
@@ -167,9 +226,10 @@ func _build_column() -> void:
 	sh.add_child(_cancel_btn)
 	status_row.add_child(sh)
 	status_row.visible = false
-	v.add_child(status_row)
+	cv.add_child(status_row)   # both pages: under the address field on the join page, above qrow on the main one
 
 	var qrow := HBoxContainer.new()
+	_qrow = qrow
 	qrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	qrow.add_theme_constant_override("separation", UITheme.GAP)
 	_how_btn = UIKit.button("How to play", func() -> void: _how.open(), "secondary", 150)
@@ -184,7 +244,7 @@ func _build_column() -> void:
 	_quit_btn.custom_minimum_size = Vector2(96, 40)
 	_quit_btn.add_theme_font_size_override("font_size", UITheme.S_CAPTION)
 	qrow.add_child(_quit_btn)
-	v.add_child(qrow)
+	cv.add_child(qrow)
 
 
 func _build_hints() -> void:
@@ -225,15 +285,111 @@ func _build_version() -> void:
 
 func _on_visible() -> void:
 	if not is_visible_in_tree():
+		_show_page(false)   # stops the LAN search; the menu comes back on its main page
 		_cancel_wait()
 		_set_busy(false)
 		_clear_status()
 		_wardrobe.close()
 		return
 	_tokens.set_amount(Progress.tokens(), false)   # tokens earned in the run we just left
-	# Start focus: host button.
-	if _host_btn != null and not _host_btn.disabled:
+	# Start focus: host button (main page).
+	if _host_btn != null and not _host_btn.disabled and not _join_page.visible:
 		_host_btn.grab_focus.call_deferred()
+
+
+# ---------------------------------------------------------------- join page
+
+## Turn the card to the join page and start searching the LAN.
+func open_join_page() -> void:
+	if _join_page.visible or not is_visible_in_tree():
+		return
+	_show_page(true)
+	UIKit.pop_in(_join_page, 0.0, 0.16)
+	_auto_focus = true
+	_auto_focus_until = Time.get_ticks_msec() + 3000
+	_focus_join_page()
+
+
+## Back to the main page (stops the search).
+func close_join_page() -> void:
+	if not _join_page.visible or _connecting:
+		return
+	_show_page(false)
+	UIKit.pop_in(_main_page, 0.0, 0.16)
+	_find_btn.grab_focus.call_deferred()
+
+
+func _show_page(join: bool) -> void:
+	if join:
+		# Same card height as the main page (+ its bottom row), so the title does not jump; the list takes the rest.
+		var sep := float(_main_page.get_parent().get_theme_constant("separation"))
+		_join_page.custom_minimum_size.y = _main_page.size.y + _qrow.size.y + sep
+	if _join_page.visible != join and not _connecting:
+		_clear_status()   # "Join cancelled." / "No answer from ..." belong to the page that showed them
+	_main_page.visible = not join
+	_qrow.visible = not join
+	_join_page.visible = join
+	if join:
+		if not _connecting:
+			lan_list.start()
+	else:
+		lan_list.stop()
+	_sync_lan_dots()
+
+
+## Join page focus: the first row you can join, else the address field (type and press Enter, as before).
+func _focus_join_page() -> void:
+	var row := lan_list.first_joinable()
+	if row != null:
+		row.grab_focus.call_deferred()
+	else:
+		ip_edit.grab_focus.call_deferred()
+
+
+## Discovery list changed (deferred: the list has its rows): a first joinable row takes over the focus the page
+## picked itself.
+func _on_lan_games(_games: Array) -> void:
+	_sync_lan_dots()
+	if not _auto_focus or not _join_page.visible or _connecting or Time.get_ticks_msec() > _auto_focus_until:
+		return
+	var row := lan_list.first_joinable()
+	var fo := get_viewport().gui_get_focus_owner()
+	if row != null and (fo == ip_edit or fo == null):
+		_auto_focus = false
+		row.grab_focus.call_deferred()
+
+
+func _sync_lan_dots() -> void:
+	_lan_dots.visible = _join_page.visible and lan_list.is_searching() and lan_list.row_count() > 0
+
+
+func _on_join_lan(g: Dictionary) -> void:
+	if _connecting:
+		return
+	var where := "%s's kitchen" % str(g["name"])
+	var ip := str(g["address"])
+	var gport := int(g["port"])
+	_save_config()
+	lan_list.stop(true)   # the rows stay on screen (locked) while connecting
+	print("menu: joining %s at %s:%d from the LAN list (%s, %d/%d)" % [where, ip, gport, g["state"], g["players"], g["max_players"]])
+	var err := Net.join(ip, name_edit.text, gport)
+	if err != OK:
+		set_status("Could not reach %s at %s (%s)." % [where, ip, error_string(err)])
+		return
+	_begin_connecting("%s (%s)" % [where, ip])
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _join_page.visible or not is_visible_in_tree():
+		return
+	var jb := event as InputEventJoypadButton
+	var pad_b := jb != null and jb.pressed and jb.button_index == JOY_BUTTON_B
+	if event.is_action_pressed("ui_cancel") or pad_b:
+		if _connecting:
+			_on_cancel_join()
+		else:
+			close_join_page()
+		get_viewport().set_input_as_handled()
 
 
 func _default_name() -> String:
@@ -298,22 +454,31 @@ func set_status(msg: String) -> void:
 		_clear_status()
 		return
 	_show_status(msg, "error")
-	if _join_row != null and is_visible_in_tree():
+	if _join_row != null and _join_row.is_visible_in_tree():
 		UIKit.shake(_join_row)
 
 
 func _set_busy(busy: bool) -> void:
 	_connecting = busy
-	for b in [_host_btn, _join_btn]:
+	for b in [_host_btn, _join_btn, _find_btn, _back_btn]:
 		if b != null:
 			b.disabled = busy
+	if lan_list != null:
+		lan_list.set_locked(busy)
+		if not busy and _join_page.visible and is_visible_in_tree():
+			lan_list.start()   # the join failed or was cancelled: look again
 	if _cancel_btn != null:
 		_cancel_btn.visible = busy
 		if busy and is_visible_in_tree():
 			_cancel_btn.grab_focus.call_deferred()
 	if not busy and is_visible_in_tree() and _host_btn != null:
-		if get_viewport().gui_get_focus_owner() == null:
-			_host_btn.grab_focus.call_deferred()
+		var fo := get_viewport().gui_get_focus_owner()
+		if fo == null or not fo.is_visible_in_tree() or (fo is BaseButton and (fo as BaseButton).disabled):
+			if _join_page.visible:
+				_focus_join_page()
+			else:
+				_host_btn.grab_focus.call_deferred()
+	_sync_lan_dots()
 
 
 func _cancel_wait() -> void:
@@ -329,7 +494,10 @@ func _on_cancel_join() -> void:
 	_cancel_wait()
 	_set_busy(false)
 	_show_status("Join cancelled.", "warn")
-	_join_btn.grab_focus.call_deferred()
+	if _join_page.visible:
+		_focus_join_page()
+	else:
+		_find_btn.grab_focus.call_deferred()
 
 
 # ---------------------------------------------------------------- actions
@@ -353,7 +521,13 @@ func _on_join() -> void:
 	if err != OK:
 		set_status("That address does not look right (%s). Try something like 192.168.1.20." % error_string(err))
 		return
-	_show_status("Connecting to %s ..." % ip, "info")
+	_begin_connecting(ip)
+
+
+## "Connecting to <where> ..." with Cancel, and the no-answer timeout. where: an address or "Anna's kitchen (ip)".
+func _begin_connecting(where: String) -> void:
+	lan_list.stop(true)   # no LAN search while joining; the rows stay (locked) in case it fails
+	_show_status("Connecting to %s ..." % where, "info")
 	_set_busy(true)
 	var t := get_tree().create_timer(maxf(JOIN_TIMEOUT, Net.join_retry_left() + 1.0))   # --join runs retry longer
 	_timeout = t
@@ -362,4 +536,4 @@ func _on_join() -> void:
 			return
 		_timeout = null
 		Net.leave(false)
-		set_status("No answer from %s. Is the host running, on the same network, and is the address right?" % ip))
+		set_status("No answer from %s. Is the host running, on the same network, and is the address right?" % where))
