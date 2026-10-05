@@ -13,9 +13,11 @@ Claude subscription, so everything is built with free tools by subagents.
 ## Where things are
 - Repo: `C:\Users\Sander\games\godot-game`, branch `main`, clean and in sync with
   `origin` = https://github.com/BlackFlow-DK/tiny-chefs (public for now; Sander may make it private later).
-- Latest GitHub release: v0.4.1. **v0.5.0 is built and tested but not yet published** (2026-10-05):
-  upload zips in `build\itch\` (`tiny-chefs-windows.zip` 59 MB, `tiny-chefs-mac.zip` 81 MB), local exe
-  `build\windows\TinyChefs.exe` (127 MB, gitignored).
+- Latest release: **v0.5.0 on itch.io** (uploaded 2026-10-05, channels `windows` and `mac`). GitHub
+  releases stop at v0.4.1 and are no longer the download link. Local exe: `build\windows\TinyChefs.exe`
+  (127 MB, gitignored); upload zips are rebuilt into `build\itch\`.
+- butler warns that a single-file exe patches poorly: every update re-sends all 127 MB. Harmless now;
+  exporting with a separate `.pck` would make updates small.
 - Downloads are moving to itch.io: https://blacksander.itch.io/tiny-chefs (restricted page). butler is at
   `%LOCALAPPDATA%\butler\butler.exe`, logged in; target `blacksander/tiny-chefs`, channels `windows`, `mac`.
   Page text and pictures: `docs/itch/`. Uploading is publishing: ask Sander first.

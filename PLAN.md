@@ -11,10 +11,12 @@ Sander wants downloads on itch.io instead of GitHub releases, with a Windows and
       the Mac app and the Windows exe (no rcedit needed in 4.7.2). Merged.
 - [x] Find games on the LAN, networking half: merged (`game/scripts/net/lan_discovery.gd`, query/reply
       on game port + 1, `Net.discovery`, test with `test-multiplayer.ps1 -FindLan`).
-- [ ] Find games on the LAN, join-screen list: agent on `p6-lanui` (worktree `tc56-lanui`); screenshots
-      land in `build\screenshots\lanui\`. Show Sander before release.
-- [x] Store page pictures in `docs/itch/` (cover A/B, five screenshots): merged. Waiting for Sander's
-      word on cover A vs B and whether to retake shots 2 and 5.
+- [x] Find games on the LAN, join-screen list: merged (`lan_game_list.gd`, `lan_game_row.gd`, join page
+      in `menu_screen.gd`, `--join-screen`).
+- [x] Store page pictures in `docs/itch/`: Sander chose cover A and keeps all five screenshots.
+- [x] v0.5.0 uploaded to itch.io with butler (both channels).
+- [ ] Sander fills in the itch.io page (text from `docs/itch/page.md`, cover, screenshots, platform
+      ticks, Restricted + password) and shares it with friends.
 - [x] Page text and Mac install notes in `docs/itch/page.md` (add a line about the game list once the
       join screen is merged).
 - [ ] Release: bump `config/version` to 0.5.0, `tools\package-itch.ps1` (never `-SkipExport` for a
