@@ -198,7 +198,7 @@ The results screen shows served, failed and coins, plus MVP cards: Top server (r
 
 - Start with the Campaign: mission 1 Training is slow and forgiving.
 - Split jobs: one on the griddle, one on the plate and bell, the rest fetching.
-- Aim with the mouse before you grab. Ping with middle click to say "this one".
+- Aim with the mouse before you grab. Ping with middle click or R to say "this one".
 - Put patties on the griddle first, they take longest.
 - Do not leave food on the griddle while you talk. The inspector is watching.
 - Try the two-window test alone: start the exe twice, host in one, join `127.0.0.1` in the other.
