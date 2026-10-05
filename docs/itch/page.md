@@ -22,8 +22,12 @@ the customer gives up.
 
 **How to play together**
 1. Everyone downloads the game for their computer (Windows or Mac) and joins the same network.
-2. One player clicks Host. The game shows that player's address.
-3. Everyone else clicks Join and types that address.
+2. One player clicks Host.
+3. Everyone else clicks Join and picks that kitchen from the list. If the list stays empty, type the
+   address the host's lobby shows instead.
+
+Everyone needs the same version of the game. Some school and guest Wi-Fi networks stop computers from
+seeing each other: if nobody shows up, connect everyone to one phone hotspot.
 
 **Controls**
 

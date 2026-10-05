@@ -13,8 +13,15 @@ Claude subscription, so everything is built with free tools by subagents.
 ## Where things are
 - Repo: `C:\Users\Sander\games\godot-game`, branch `main`, clean and in sync with
   `origin` = https://github.com/BlackFlow-DK/tiny-chefs (public for now; Sander may make it private later).
-- Latest release: **v0.4.1** (GitHub release with the exe attached). Local build:
-  `build\windows\TinyChefs.exe` (about 127 MB, gitignored).
+- Latest GitHub release: v0.4.1. **v0.5.0 is built and tested but not yet published** (2026-10-05):
+  upload zips in `build\itch\` (`tiny-chefs-windows.zip` 59 MB, `tiny-chefs-mac.zip` 81 MB), local exe
+  `build\windows\TinyChefs.exe` (127 MB, gitignored).
+- Downloads are moving to itch.io: https://blacksander.itch.io/tiny-chefs (restricted page). butler is at
+  `%LOCALAPPDATA%\butler\butler.exe`, logged in; target `blacksander/tiny-chefs`, channels `windows`, `mac`.
+  Page text and pictures: `docs/itch/`. Uploading is publishing: ask Sander first.
+- New in v0.5.0: macOS build (universal, ad-hoc signed, **never run on a real Mac**), app icon, join page
+  with a "Kitchens on your network" list (LAN discovery on game port + 1), ping on R, trackpad zoom,
+  real version label. Build both with `tools\package-itch.ps1`.
 - Godot project in `game/`, Blender scripts in `art/scripts/`, wrappers in `tools/`.
 - Godot 4.7.2 and Blender 5.2.1, CLI only. Other sessions on this PC use other versions for other games:
   check the paths in `CLAUDE.md` still resolve before starting work.
