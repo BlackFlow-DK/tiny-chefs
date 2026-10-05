@@ -233,7 +233,9 @@ static func relaunch(method: String) -> bool:
 		if u != "--relaunched":
 			a.append(u)
 	a.append("--relaunched")
-	var pid := OS.create_process(OS.get_executable_path(), a)
+	# create_instance, not create_process(get_executable_path()): on macOS it relaunches the .app bundle
+	# through NSWorkspace (new window registered and focused); elsewhere it is the same exe + args call.
+	var pid := OS.create_instance(a)
 	print("quality: relaunch with %s -> pid %d" % [method, pid])
 	return pid > 0
 

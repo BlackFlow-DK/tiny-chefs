@@ -30,7 +30,7 @@ kitchen counter, and the food is bigger than you are. Heavy food is slow to carr
 | grab / let go | left click or E | A |
 | work (hold) | right click or F | X |
 | punch (needs Boxing Gloves) | Space or Q | B |
-| ping a spot (everyone sees it for 3 s) | middle click | Y |
+| ping a spot (everyone sees it for 3 s) | middle click or R | Y |
 | pause menu | Esc | Start |
 | hide the controls help | H | Back |
 

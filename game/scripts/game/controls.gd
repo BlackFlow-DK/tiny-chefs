@@ -20,7 +20,7 @@ static func setup() -> void:
 	_action("grab", [_mouse(MOUSE_BUTTON_LEFT), _key(KEY_E), _joy(JOY_BUTTON_A)])
 	_action("work", [_mouse(MOUSE_BUTTON_RIGHT), _key(KEY_F), _joy(JOY_BUTTON_X)])
 	_action("punch", [_key(KEY_SPACE), _key(KEY_Q), _joy(JOY_BUTTON_B)])
-	_action("ping", [_mouse(MOUSE_BUTTON_MIDDLE), _joy(JOY_BUTTON_Y)])
+	_action("ping", [_mouse(MOUSE_BUTTON_MIDDLE), _joy(JOY_BUTTON_Y), _key(KEY_R)])   # R: trackpads have no middle click
 	_action("pause", [_key(KEY_ESCAPE), _joy(JOY_BUTTON_START)])
 	_action("toggle_hints", [_key(KEY_H), _joy(JOY_BUTTON_BACK)])
 

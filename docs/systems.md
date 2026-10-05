@@ -68,7 +68,7 @@ upgraded stage / chop / long grab / combo / tip / insurance; `--upgrade-table` p
 Shop cards come from `GameData.UPGRADES` (`icon`: model name, or "" for an emblem ShopIcon draws for `emblem`/id).
 
 ### Ping
-Middle mouse / pad Y (`ping` action, InputSystem): the aim point, else 3 m in front of the chef ->
+Middle mouse / R / pad Y (`ping` action, InputSystem): the aim point, else 3 m in front of the chef ->
 `World.request_ping` -> `Net.ping` (client: `_rpc_ping` to the host) -> `World.host_ping` (1 s cooldown per
 player) -> `Net.event("<peer>:<x>:<z>", "ping")`. IndicatorLayer draws it (pin + ground ring in the player's
 colour, 3 s, one per player), Sfx plays "ping", the HUD skips it.
