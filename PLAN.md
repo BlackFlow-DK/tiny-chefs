@@ -6,14 +6,20 @@ Last updated: 2026-10-05. Read `STATUS.md` first. This file says how the work is
 Sander wants downloads on itch.io instead of GitHub releases, with a Windows and a Mac version.
 - [x] macOS export preset, `tools\export-macos.ps1`, `tools\package-itch.ps1`, platform audit, trackpad
       controls: merged from `p6-macos`; reviewed, no Windows regression found.
-- [ ] Follow-up fixes (menu version label, ping hint text, Auto quality on Apple Silicon): `p6-macfix`.
-- [ ] App icon: three candidates on `p6-icon` in `docs/itch/icon/`; Sander picks, then wire it in
-      (project icon, Mac preset; the Windows exe icon needs rcedit, which is a download: ask first).
-- [ ] Find games on the LAN automatically: networking on `p6-landisc` (query/reply on game port + 1,
-      API in `game/scripts/net/lan_discovery.gd`), then a second agent builds the join-screen list.
-- [ ] Store page pictures in `docs/itch/` (cover 630 x 500, five screenshots): agent on `p6-itchart`
-      (worktree `tc51-itchart`).
-- [ ] Page text and Mac install notes in `docs/itch/page.md`: main session.
+- [x] Follow-up fixes (menu version label, ping hint text, Auto quality on Apple Silicon): merged.
+- [x] App icon: Sander picked A (red chef face, `docs/itch/icon/icon-a.png`); wired into the window,
+      the Mac app and the Windows exe (no rcedit needed in 4.7.2). Merged.
+- [x] Find games on the LAN, networking half: merged (`game/scripts/net/lan_discovery.gd`, query/reply
+      on game port + 1, `Net.discovery`, test with `test-multiplayer.ps1 -FindLan`).
+- [ ] Find games on the LAN, join-screen list: agent on `p6-lanui` (worktree `tc56-lanui`); screenshots
+      land in `build\screenshots\lanui\`. Show Sander before release.
+- [x] Store page pictures in `docs/itch/` (cover A/B, five screenshots): merged. Waiting for Sander's
+      word on cover A vs B and whether to retake shots 2 and 5.
+- [x] Page text and Mac install notes in `docs/itch/page.md` (add a line about the game list once the
+      join screen is merged).
+- [ ] Release: bump `config/version` to 0.5.0, `tools\package-itch.ps1` (never `-SkipExport` for a
+      release), then `butler push build\itch\tiny-chefs-windows.zip blacksander/tiny-chefs:windows
+      --userversion <v>` and the same for `:mac`. Ask Sander before the first push.
 - [ ] Sander creates the itch.io account and project himself (agents may not create accounts), then
       uploads, or logs in to butler once so uploads can be scripted.
 - [ ] First Mac friend is the test: nothing can be run on a Mac from this PC.
