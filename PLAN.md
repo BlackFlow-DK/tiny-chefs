@@ -2,8 +2,23 @@
 
 Last updated: 2026-10-05. Read `STATUS.md` first. This file says how the work is run and what is next.
 
-## Next up
-**Nothing is in progress.** The last task (lobby map picker pictures) is merged and released as v0.4.1.
+## In progress (started 2026-10-05): itch.io + Mac build
+Sander wants downloads on itch.io instead of GitHub releases, with a Windows and a Mac version.
+- [x] macOS export preset, `tools\export-macos.ps1`, `tools\package-itch.ps1`, platform audit, trackpad
+      controls: merged from `p6-macos`; reviewed, no Windows regression found.
+- [ ] Follow-up fixes (menu version label, ping hint text, Auto quality on Apple Silicon): `p6-macfix`.
+- [ ] App icon: three candidates on `p6-icon` in `docs/itch/icon/`; Sander picks, then wire it in
+      (project icon, Mac preset; the Windows exe icon needs rcedit, which is a download: ask first).
+- [ ] Find games on the LAN automatically: networking on `p6-landisc` (query/reply on game port + 1,
+      API in `game/scripts/net/lan_discovery.gd`), then a second agent builds the join-screen list.
+- [ ] Store page pictures in `docs/itch/` (cover 630 x 500, five screenshots): agent on `p6-itchart`
+      (worktree `tc51-itchart`).
+- [ ] Page text and Mac install notes in `docs/itch/page.md`: main session.
+- [ ] Sander creates the itch.io account and project himself (agents may not create accounts), then
+      uploads, or logs in to butler once so uploads can be scripted.
+- [ ] First Mac friend is the test: nothing can be run on a Mac from this PC.
+
+## Next up after that
 Sander has new ideas and will bring them to the next session. Start by listening: do not pick work from
 the backlog below without him asking for it.
 
