@@ -6,6 +6,7 @@
 # -Solo: host only; passes if the bot serves a Cheeseburger alone.
 # Usage: tools/test-multiplayer.ps1 [-ShiftSeconds 100] [-TimeoutSec 220] [-Solo] [-Windowed] [-ShotDir build\screenshots] [-ShotAt 45] [-BotLog] [-Port 7777]
 #   [-HostExtra "--difficulty=hard --modifiers=heavy_hands"] [-ClientExtra "..."]  (extra user args, space-separated)
+#   [-FindLan]  the client bot finds the host by LAN discovery (--find-lan, UDP port+1) instead of --join=127.0.0.1
 # Logs (and bot decisions with -BotLog) land in build\test-mp\ (build\test-mp-<port>\ when -Port is not 7777).
 param(
     [int]$ShiftSeconds = 100,
@@ -17,7 +18,8 @@ param(
     [switch]$BotLog,
     [int]$Port = 7777,
     [string]$HostExtra = '',
-    [string]$ClientExtra = ''
+    [string]$ClientExtra = '',
+    [switch]$FindLan
 )
 . "$PSScriptRoot\_common.ps1"
 
@@ -63,7 +65,9 @@ $procs = [ordered]@{}
 $procs['host'] = Start-Godot -Tag 'host' -UserArgs $hostArgs -Pos '0,0'
 if (-not $Solo) {
     Start-Sleep -Milliseconds 1500
-    $clientArgs = @('--join=127.0.0.1', "--port=$Port", '--name=ClientBot', '--bot', "--test-report=$(Join-Path $work 'client.json')", "--quit-after=$($quitAfter + 5)")
+    $joinArg = '--join=127.0.0.1'
+    if ($FindLan) { $joinArg = '--find-lan' }
+    $clientArgs = @($joinArg, "--port=$Port", '--name=ClientBot', '--bot', "--test-report=$(Join-Path $work 'client.json')", "--quit-after=$($quitAfter + 5)")
     if ($ShotDir -ne '') { $clientArgs += "--shot=$($ShotAt + 0.5)@$(Join-Path $ShotDir 'client-midshift.png')" }
     $clientArgs += @($ClientExtra -split '\s+' | Where-Object { $_ -ne '' })
     $procs['client'] = Start-Godot -Tag 'client' -UserArgs $clientArgs -Pos '640,60'
@@ -128,6 +132,11 @@ if ($Solo) {
         Check ($c.connected -eq $true -and $c.snapshots -gt 0) 'client connected and received snapshots'
         Check ($c.max_chefs_seen -ge 2) 'both chefs existed on the client'
         Check ($c.coins_max -gt $c.coins_start) 'coins went up on the client (replicated)'
+    }
+    if ($FindLan) {
+        $clientOut = Join-Path $work 'client.out'
+        $found = (Test-Path -LiteralPath $clientOut) -and (Select-String -LiteralPath $clientOut -SimpleMatch 'net: --find-lan found' -Quiet)
+        Check $found 'client found the host by LAN discovery (--find-lan)'
     }
     if ($h) {
         Check ($h.max_chefs_seen -ge 2) 'both chefs existed on the host'

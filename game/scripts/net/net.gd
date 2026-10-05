@@ -22,6 +22,10 @@ extends Node
 ## The local pick (local_look) is the Wardrobe's equipped look, saved in Progress (user://progress.cfg
 ## [equipped]); args --look=hat:beanie,acc:glasses,body:stout,... and --color= --hat= --acc= ... override.
 ## Ids are the Cosmetics catalogue (GameData tables = Cosmetics lists).
+##
+## LAN discovery: `discovery` (child node, scripts/net/lan_discovery.gd) on UDP port() + 1. host() starts
+## answering LAN searches, leave() stops it. --find-lan joins the first compatible game a search finds
+## (find_lan_and_join); --fake-lan-games makes searches report three made-up games.
 
 signal players_changed
 signal looks_changed  ## some player's look may have changed (also fires with every roster sync)
@@ -49,6 +53,11 @@ var settings := GameSettings.new()  # host-owned game settings; a read-only copy
 
 const JOIN_ATTEMPT_SECONDS := 4.0   # with a retry window open: an attempt still connecting after this restarts
 const AUTO_JOIN_RETRY_SECONDS := 60.0   # --join runs keep retrying this long (join_retry_for)
+const FIND_LAN_SECONDS := 15.0   # --find-lan gives up (exit 1) when no compatible game answered by then
+const LanDiscovery := preload("res://scripts/net/lan_discovery.gd")
+
+var discovery: LanDiscovery   ## LAN game search + host replies (Net.discovery.start_search() ...)
+var join_port := 0   ## game port of the current / last join (port() unless join() was given one)
 
 var _ready_peers: Dictionary = {}
 var _test_report := ""
@@ -60,6 +69,9 @@ var _join_attempt := 0
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_parse_args()
+	discovery = LanDiscovery.new()
+	discovery.name = "LanDiscovery"
+	add_child(discovery)
 	settings = _settings_from_args()
 	_load_look()
 	Controls.setup()
@@ -115,6 +127,11 @@ func port() -> int:
 	return arg_int("port", Tuning.PORT)
 
 
+## LAN discovery UDP port: the game port + 1 (7778 by default).
+func discovery_port() -> int:
+	return port() + 1
+
+
 ## Defaults overridden by --mode= --map= --difficulty= --modifiers=a,b --mission=<n>, validated.
 func _settings_from_args() -> GameSettings:
 	var s := GameSettings.new()
@@ -148,23 +165,28 @@ func host(pname: String) -> Error:
 	metrics["connected"] = true
 	print("net: hosting on UDP %d" % port())
 	print("net: settings %s" % settings.describe())
+	discovery.start_hosting()
 	set_phase(Phase.LOBBY, {})
 	players_changed.emit()
 	return OK
 
 
-func join(ip: String, pname: String) -> Error:
+## game_port 0 = port() (--port, else 7777); a LAN search result passes its own (g.port).
+func join(ip: String, pname: String, game_port := 0) -> Error:
 	leave(false)
+	if game_port <= 0:
+		game_port = port()
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(ip, port())
+	var err := peer.create_client(ip, game_port)
 	if err != OK:
 		return err
+	join_port = game_port
 	multiplayer.multiplayer_peer = peer
 	is_host = false
 	join_ip = ip
 	local_name = clean_name(pname)
 	metrics["role"] = "client"
-	print("net: connecting to %s:%d" % [ip, port()])
+	print("net: connecting to %s:%d" % [ip, join_port])
 	_join_attempt += 1
 	if join_retry_left() > 0.0:
 		var a := _join_attempt
@@ -196,7 +218,7 @@ func _connecting() -> bool:
 func cancel_join() -> void:
 	_join_retry_until = 0
 	_join_attempt += 1
-	print("net: join to %s:%d cancelled" % [join_ip, port()])
+	print("net: join to %s:%d cancelled" % [join_ip, join_port])
 	leave(false)
 
 
@@ -204,8 +226,8 @@ func cancel_join() -> void:
 func _retry_join() -> bool:
 	if join_retry_left() <= 0.0:
 		return false
-	print("net: no answer from %s:%d yet, retrying (%.0f s left)" % [join_ip, port(), join_retry_left()])
-	join(join_ip, local_name)
+	print("net: no answer from %s:%d yet, retrying (%.0f s left)" % [join_ip, join_port, join_retry_left()])
+	join(join_ip, local_name, join_port)
 	return true
 
 
@@ -215,6 +237,8 @@ func leave(emit := true) -> void:
 	if multiplayer.multiplayer_peer != null and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	if discovery != null:
+		discovery.stop_hosting()
 	players.clear()
 	_ready_peers.clear()
 	is_host = false
@@ -304,7 +328,7 @@ func _on_connection_failed() -> void:
 		return
 	leave(false)
 	_apply_phase(Phase.MENU, {})
-	session_ended.emit("Could not connect to %s (port %d UDP)." % [join_ip, port()])
+	session_ended.emit("Could not connect to %s (port %d UDP)." % [join_ip, join_port])
 	if not _test_report.is_empty():
 		finish_test()
 
@@ -441,7 +465,7 @@ func _store_look(id: int, look: Dictionary) -> void:
 ## runs (--host / --join / --bot) start from the defaults and never save it. --look=hat:beanie,acc:glasses,...
 ## then --color= --hat= --acc= --beard= --outfit= --back= --body= override (not saved).
 func _look_cfg_enabled() -> bool:
-	return not (has_arg("host") or has_arg("join") or has_arg("bot"))
+	return not (has_arg("host") or has_arg("join") or has_arg("find-lan") or has_arg("bot"))
 
 
 func _load_look() -> void:
@@ -632,6 +656,39 @@ func _buy(upgrade_id: String, level: int) -> void:
 
 
 # ---------------------------------------------------------------- test hooks
+
+## --find-lan: search the LAN, join the first compatible game found (with the --join retry window); no
+## compatible game within FIND_LAN_SECONDS -> log it and quit with exit code 1.
+func find_lan_and_join(pname: String) -> void:
+	print("net: --find-lan searching the LAN (UDP %d) for up to %.0f s" % [discovery_port(), FIND_LAN_SECONDS])
+	var state := {"done": false}
+	var try_join := func(games: Array) -> void:
+		if state["done"]:
+			return
+		for g: Dictionary in games:
+			if not g["compatible"]:
+				continue
+			state["done"] = true
+			print("net: --find-lan found %s at %s:%d (%s %d/%d), joining" % [g["name"], g["address"], g["port"],
+				g["state"], g["players"], g["max_players"]])
+			discovery.stop_search()
+			join_retry_for(AUTO_JOIN_RETRY_SECONDS)
+			var err := join(str(g["address"]), pname, int(g["port"]))
+			if err != OK:
+				printerr("net: --find-lan FAILED: could not join %s:%d (%s)" % [g["address"], g["port"], error_string(err)])
+				get_tree().quit(1)
+			return
+	discovery.games_changed.connect(try_join)
+	discovery.start_search()
+	try_join.call(discovery.get_games())
+	get_tree().create_timer(FIND_LAN_SECONDS, true, false, true).timeout.connect(func() -> void:
+		if state["done"]:
+			return
+		state["done"] = true
+		discovery.stop_search()
+		printerr("net: --find-lan FAILED: no compatible LAN game answered on UDP %d within %.0f s" % [discovery_port(), FIND_LAN_SECONDS])
+		get_tree().quit(1))
+
 
 func metric_max(key: String, v: float) -> void:
 	metrics[key] = maxf(float(metrics.get(key, 0.0)), v)
