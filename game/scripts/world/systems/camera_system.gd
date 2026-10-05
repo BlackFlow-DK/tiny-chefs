@@ -30,6 +30,7 @@ var _log_maxdv := 0.0
 ## Child of the camera: catches the wheel, and drives the camera AFTER every chef has eased this
 ## frame (process_priority 100), so the camera never lags the chef by a frame of varying length.
 class _Driver extends Node:
+	const PAN_PER_NOTCH := 1.0
 	var target: CameraSystem
 
 	func _init() -> void:
@@ -40,7 +41,18 @@ class _Driver extends Node:
 		target.step(delta)
 		Prof.add(&"camera", t)
 
+	var _pan := 0.0   # trackpad scroll not yet spent on a zoom notch
+
 	func _unhandled_input(event: InputEvent) -> void:
+		# macOS trackpad two-finger scroll arrives as a pan gesture, not wheel buttons (a mouse wheel still
+		# sends buttons): one notch per PAN_PER_NOTCH, negative delta.y = wheel up.
+		var pg := event as InputEventPanGesture
+		if pg != null:
+			_pan += pg.delta.y
+			while absf(_pan) >= PAN_PER_NOTCH:
+				target.zoom_notch(1 if _pan < 0.0 else -1)
+				_pan -= signf(_pan) * PAN_PER_NOTCH
+			return
 		var mb := event as InputEventMouseButton
 		if mb == null or not mb.pressed:
 			return

@@ -18,6 +18,7 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 	QualityApply.display(get_tree())
+	QualityApply.fit_hidpi_window(get_tree().root)
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var root := Control.new()

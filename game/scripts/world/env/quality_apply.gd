@@ -97,6 +97,26 @@ static func display(tree: SceneTree) -> void:
 		tree.node_added.connect(_on_node_added)
 
 
+## Retina (macOS hiDPI): window sizes are physical pixels there, so the 1280x720 project window opens at
+## half its size in points. Startup only, windowed only: scale it by the screen's backing factor (capped to
+## 90% of the usable screen) and centre it. screen_get_scale() is 1.0 on Windows, so this is a no-op there.
+static func fit_hidpi_window(win: Window) -> void:
+	if DisplayServer.get_name() == "headless" or win.mode != Window.MODE_WINDOWED:
+		return
+	var screen := win.current_screen
+	var scale := DisplayServer.screen_get_scale(screen)
+	if scale <= 1.0:
+		return
+	var usable := Vector2(DisplayServer.screen_get_usable_rect(screen).size)
+	var want := Vector2(win.size) * scale
+	var fit := minf(1.0, minf(usable.x * 0.9 / want.x, usable.y * 0.9 / want.y))
+	if fit * scale <= 1.0:
+		return
+	win.size = Vector2i(want * fit)
+	win.move_to_center()
+	print("quality: hiDPI x%.1f window -> %s" % [scale, win.size])
+
+
 ## FSR1 upscaling exists only in Forward+ (Mobile warns and falls back).
 static func fsr_available() -> bool:
 	return RenderingServer.get_current_rendering_method() == "forward_plus"
