@@ -3,6 +3,9 @@
 Tooling only: Godot 4.7.2 (GDScript, Forward+) + Blender 5.2.1. Everything runs from the CLI; never open the editor/GUI.
 Run tools from anywhere; they resolve paths from the repo root. Never hardcode absolute paths in project files.
 
+Orchestrating session: read `STATUS.md` (what is true now) and `PLAN.md` (how rounds are run, what is next)
+before anything else, and update both at the end of every round.
+
 ## Executables (override with env vars)
 - Godot: `GODOT_BIN`, else `%LOCALAPPDATA%\Microsoft\WinGet\Links\godot_console.exe`, else PATH. Use the `_console` variant (it prints to stdout).
 - Blender: `BLENDER_BIN`, else `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`, else PATH.
