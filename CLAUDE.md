@@ -71,4 +71,4 @@ Before reporting any change as done: `godot-import` (if assets changed) -> `godo
 - Loading the currently running `--script` file with `CACHE_MODE_IGNORE` segfaults Godot 4.7.2 (check_project.gd skips itself).
 - Exported release builds also honour `-- --screenshot=<png>` (handy to verify an export actually renders).
 - Hand-written .tscn: omit `uid=` and `load_steps`; Godot accepts it. `rotation`/`position` can be set directly instead of a `transform`.
-- Export preset sets `application/modify_resources=false` (no rcedit, so no custom exe icon/metadata).
+- Icons: `game/icon.png` (project/window/Mac icon, Godot builds the .icns from it), `game/icon.ico` (`windows_native_icon`, and the Windows preset embeds it in the exe with `modify_resources=true`; Godot 4.7.2 does this itself, no rcedit needed). Master: `docs/itch/icon/icon-a.png`.
