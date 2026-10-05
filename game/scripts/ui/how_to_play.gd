@@ -8,7 +8,7 @@ const LINES := [
 	["Cook", "Hold right click at the griddle. Pull food off before it burns."],
 	["Chop and fry", "Hold right click at the cutting board or the fryer."],
 	["Serve", "Stack the plate to match a ticket, then work the bell."],
-	["Ping", "Middle click marks a spot that everyone sees."],
+	["Ping", "Middle click (or R) marks a spot that everyone sees."],
 ]
 
 var _card: PanelContainer
