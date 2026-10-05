@@ -1,6 +1,6 @@
 extends Node
 ## Root of Tiny Chefs: shows the menu / lobby / in-game UI for the current Net phase and owns
-## the World while a run is going. Handles the automation args (--host, --join, --autostart).
+## the World while a run is going. Handles the automation args (--host, --join, --find-lan, --autostart).
 
 var world: World = null
 var menu: MenuScreen
@@ -65,6 +65,8 @@ func _handle_args() -> void:
 		menu.ip_edit.text = Net.arg_str("join", "127.0.0.1")
 		Net.join_retry_for(Net.AUTO_JOIN_RETRY_SECONDS)   # the host may not be listening yet
 		menu._on_join()
+	elif Net.has_arg("find-lan"):
+		Net.find_lan_and_join(menu.name_edit.text)   # LAN search instead of --join=<ip>
 
 
 func _on_phase(ph: int) -> void:
