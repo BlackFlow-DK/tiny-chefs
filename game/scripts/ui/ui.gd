@@ -71,6 +71,6 @@ static func controls_text() -> String:
 		"Left click: grab or let go (grab together for heavy food!)",
 		"Right click (hold): work: dispense, chop, ring the bell",
 		"Space: punch (needs Boxing Gloves)",
-		"Middle click: ping a spot for everyone",
+		"Middle click / R: ping a spot for everyone",
 		"Esc: pause menu     H: hide the help",
 	])

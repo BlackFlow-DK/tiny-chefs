@@ -35,7 +35,8 @@ Why Low keeps a sun shadow: a shadowless Low with a blob decal under each chef w
 only ~0.4 ms GPU under stress, and stations and food looked like they float above the counter. One hard 1024
 cascade keeps chefs, stations and food grounded. Two cascades at 1024 showed shadow acne, so Low uses one.
 
-Auto: `Quality.detect_for(adapter name, device type)`:
+Auto: `Quality.detect_for(adapter name, device type, OS name, CPU arch)`:
+- macOS on arm64 (Apple Silicon; Metal reports every Apple GPU as integrated) -> **Medium**;
 - integrated or CPU device type, a software rasteriser (llvmpipe, SwiftShader, Microsoft Basic Render), any Intel
   GPU except Arc, an AMD APU ("Radeon(TM) Graphics", "Vega N" without an RX/R9/Pro model) -> **Low**;
 - a laptop discrete GPU by name ("Laptop", "Max-Q", "Mobile", "MX450", "RX 6600M") -> **Medium**;

@@ -5,7 +5,6 @@ extends Control
 
 const CFG_PATH := "user://menu.cfg"
 const JOIN_TIMEOUT := 9.0
-const VERSION := "v0.2"
 
 var name_edit: LineEdit
 var ip_edit: LineEdit
@@ -212,9 +211,9 @@ func _build_hints() -> void:
 	UIKit.pop_in(strip, 0.3)
 
 
-## Small version caption in the bottom-right corner.
+## Small version caption in the bottom-right corner (project setting application/config/version).
 func _build_version() -> void:
-	var l := UIKit.caption(VERSION, "world")
+	var l := UIKit.caption("v" + str(ProjectSettings.get_setting("application/config/version", "")), "world")
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(l)
 	l.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)

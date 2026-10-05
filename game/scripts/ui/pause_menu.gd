@@ -120,7 +120,7 @@ static func controls_strip(in_game := true) -> PanelContainer:
 	grid.add_theme_constant_override("h_separation", 28)
 	grid.add_theme_constant_override("v_separation", 10)
 	for e in [["WASD", "Move"], ["Left click", "Grab / drop"], ["Right click", "Work (hold)"],
-			["Space", "Punch"], ["Middle click", "Ping"], ["H", "Help"], ["Esc", "Resume" if in_game else "Pause menu"]]:
+			["Space", "Punch"], ["Middle click / R", "Ping"], ["H", "Help"], ["Esc", "Resume" if in_game else "Pause menu"]]:
 		var kh := UIKit.key_hint(e[0], e[1])
 		kh.alignment = BoxContainer.ALIGNMENT_BEGIN
 		kh.size_flags_horizontal = Control.SIZE_EXPAND_FILL

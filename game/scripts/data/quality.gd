@@ -142,13 +142,20 @@ static func preset_name(level: String) -> String:
 
 
 ## Picks a preset from the GPU. Integrated / software GPUs -> low; laptop discrete GPUs -> medium; else high.
+## Apple Silicon Macs -> medium (see detect_for).
 static func detect() -> String:
-	return detect_for(adapter_name(), RenderingServer.get_video_adapter_type())
+	return detect_for(adapter_name(), RenderingServer.get_video_adapter_type(), OS.get_name(), Engine.get_architecture_name())
 
 
-static func detect_for(adapter: String, type: int) -> String:
+## os_name / arch: OS.get_name() / Engine.get_architecture_name(); empty = the non-Apple rules only.
+static func detect_for(adapter: String, type: int, os_name := "", arch := "") -> String:
 	var n := adapter.to_lower()
-	if type == RenderingDevice.DEVICE_TYPE_INTEGRATED_GPU or type == RenderingDevice.DEVICE_TYPE_CPU:
+	# Apple Silicon: Metal reports every Apple GPU (M1..M4, base to Ultra) as integrated, which would mean Low on
+	# every M-series Mac. They are far stronger than a laptop iGPU, so start at Medium (the first-launch probe
+	# still steps down if it runs under PROBE_MIN_FPS). Intel Macs (x86_64, also under Rosetta) fall through.
+	if os_name == "macOS" and arch == "arm64":
+		return "medium"
+	if type ==RenderingDevice.DEVICE_TYPE_INTEGRATED_GPU or type == RenderingDevice.DEVICE_TYPE_CPU:
 		return "low"
 	for soft in ["llvmpipe", "swiftshader", "basic render", "microsoft basic"]:
 		if n.contains(soft):
